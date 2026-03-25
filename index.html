@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>SnapBooth</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:FILL@0..1" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles/ken-burns.css">
+</head>
+<body>
+  <div class="app-shell">
+    <main class="layout">
+      <section class="stage-panel">
+        <div class="stage-shell">
+          <section class="stage-card mode-live" id="cameraStage">
+            <div class="viewfinder-corners">
+              <span class="corner top-left"></span>
+              <span class="corner top-right"></span>
+              <span class="corner bottom-left"></span>
+              <span class="corner bottom-right"></span>
+            </div>
+            <div class="film-grain"></div>
+            <video id="cameraPreview" autoplay muted playsinline></video>
+            <div class="camera-controls">
+              <button class="shutter-button" id="snapButton" type="button">
+                <span class="shutter-core">
+                  <span class="material-symbols-outlined">videocam</span>
+                </span>
+              </button>
+            </div>
+            <div class="camera-progress">
+              <div class="camera-progress-fill" id="recordingProgress"></div>
+            </div>
+            <div class="empty-camera" id="emptyCamera">
+              <span class="material-symbols-outlined">photo_camera</span>
+              <p>Enable your camera to start the booth.</p>
+            </div>
+            <div class="flash-overlay" id="flashOverlay"></div>
+            <div class="countdown-overlay hidden" id="countdownOverlay">3</div>
+            <div class="error-overlay hidden" id="errorOverlay"></div>
+          </section>
+
+          <section class="stage-card mode-editor hidden" id="editorStage">
+            <div class="film-grain"></div>
+            <div class="result-stage" id="resultStage">
+              <video id="resultVideo" playsinline loop controls></video>
+              <div class="result-overlay-frame" id="resultFrame"></div>
+              <div class="result-overlay-text" id="resultText"></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="stage-brand-row">
+          <div class="brand stage-brand" id="operatorAccessTrigger">SNAPBOOTH</div>
+        </div>
+
+        <div class="console">
+          <button class="console-button hidden" id="resultRetakeButton" type="button">
+            <span class="material-symbols-outlined">refresh</span>
+            Retake
+          </button>
+          <button class="console-button hidden" id="anotherShotButton" type="button">
+            <span class="material-symbols-outlined">videocam</span>
+            Another Clip
+          </button>
+          <button class="console-button hidden" id="downloadButton" type="button">
+            <span class="material-symbols-outlined">download</span>
+            Save Video
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <section class="operator-page hidden" id="operatorPanel" aria-label="Operator settings">
+      <div class="operator-page-shell">
+        <header class="operator-page-header">
+          <div class="operator-heading">
+            <div class="brand">SNAPBOOTH</div>
+          </div>
+          <button class="icon-button" id="operatorCloseButton" type="button" title="Close operator settings">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </header>
+
+        <div class="operator-layout">
+          <aside class="side-panel operator-controls-panel">
+            <section class="panel-section">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Step 1</p>
+                  <p class="panel-title panel-title-small">Overlay Copy</p>
+                </div>
+              </div>
+              <p class="operator-inline-hint" id="placeHint">This text displays over the saved preview.</p>
+              <label class="field">
+                <span class="field-label">Text</span>
+                <input id="textInput" type="text" maxlength="60" placeholder="Type your caption">
+              </label>
+              <div class="field-grid compact-grid">
+                <label class="field">
+                  <span class="field-label">Color</span>
+                  <input id="colorInput" type="color" value="#ff88b5">
+                </label>
+                <label class="field field-grow">
+                  <span class="field-label">Size</span>
+                  <input id="sizeInput" type="range" min="24" max="96" step="2" value="44">
+                </label>
+              </div>
+              <label class="field field-inline">
+                <span class="field-label">Font</span>
+                <select id="fontSelect">
+                  <option value="Space Grotesk">Space Grotesk</option>
+                  <option value="Manrope">Manrope</option>
+                  <option value="Georgia">Georgia</option>
+                  <option value="Courier New">Courier New</option>
+                </select>
+              </label>
+            </section>
+
+            <section class="panel-section">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Step 2</p>
+                  <p class="panel-title panel-title-small">Booth Controls</p>
+                </div>
+              </div>
+              <label class="field field-inline">
+                <span class="field-label">Countdown</span>
+                <select id="countdownSelect">
+                  <option value="0">0 seconds</option>
+                  <option value="3" selected>3 seconds</option>
+                  <option value="5">5 seconds</option>
+                  <option value="10">10 seconds</option>
+                </select>
+              </label>
+              <label class="field field-inline">
+                <span class="field-label">Recording Duration</span>
+                <select id="durationSelect">
+                  <option value="4">4 seconds</option>
+                  <option value="6" selected>6 seconds</option>
+                  <option value="8">8 seconds</option>
+                  <option value="10">10 seconds</option>
+                </select>
+              </label>
+              <label class="field field-inline">
+                <span class="field-label">Camera Effect</span>
+                <select id="cameraEffectSelect">
+                  <option value="none">None</option>
+                  <option value="zoom-in">Zoom In</option>
+                  <option value="zoom-out">Zoom Out</option>
+                </select>
+              </label>
+              <label class="field field-inline">
+                <span class="field-label">Zoom Speed</span>
+                <input id="cameraEffectSpeedInput" type="range" min="0.4" max="2.4" step="0.1" value="1">
+              </label>
+              <button class="console-button secondary-button" id="setZoomDirectionButton" type="button">
+                <span class="material-symbols-outlined">north_east</span>
+                Set Zoom Direction
+              </button>
+              <p class="status-text" id="effectHint">Draw from the center to choose the zoom direction.</p>
+            </section>
+          </aside>
+
+          <section class="operator-preview-panel">
+            <div class="stage-shell operator-stage-shell">
+              <div class="viewfinder-corners operator-viewfinder-corners">
+                <span class="corner top-left"></span>
+                <span class="corner top-right"></span>
+                <span class="corner bottom-left"></span>
+                <span class="corner bottom-right"></span>
+              </div>
+              <section class="stage-card operator-preview-card">
+                <div class="film-grain"></div>
+                <div class="operator-preview-surface">
+                  <video id="operatorPreviewVideo" autoplay muted playsinline></video>
+                  <div class="operator-preview-frame" id="operatorFrame"></div>
+                  <div class="operator-preview-text" id="operatorText"></div>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <aside class="side-panel operator-gallery-panel">
+            <section class="panel-section operator-gallery-section">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Step 3</p>
+                  <h3 class="panel-title panel-title-small">Pick Frame</h3>
+                </div>
+              </div>
+              <div class="frame-tray operator-frame-tray" id="frameTray"></div>
+            </section>
+          </aside>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
+

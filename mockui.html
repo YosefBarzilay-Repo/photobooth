@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>SNAPBOOTH | EVENT MODE</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "background": "#0e0e0e",
+              "primary": "#ff88b5",
+              "on-primary": "#610034",
+              "surface": "#0e0e0e",
+              "outline-variant": "#494847",
+              "error": "#ff6e84",
+            },
+            fontFamily: {
+              "headline": ["Space Grotesk"],
+              "body": ["Manrope"],
+              "label": ["Manrope"]
+            },
+          },
+        },
+      }
+    </script>
+<style>
+        .film-grain {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0.08;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+        .viewfinder-bracket {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-color: rgba(255, 255, 255, 0.3);
+            border-width: 2px;
+        }
+        .top-left { top: 40px; left: 40px; border-right: 0; border-bottom: 0; }
+        .top-right { top: 40px; right: 40px; border-left: 0; border-bottom: 0; }
+        .bottom-left { bottom: 40px; left: 40px; border-right: 0; border-top: 0; }
+        .bottom-right { bottom: 40px; right: 40px; border-left: 0; border-top: 0; }
+        
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.5; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(0.95); opacity: 0.5; }
+        }
+        .shutter-glow {
+            animation: pulse-ring 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-background font-body text-white overflow-hidden h-screen flex flex-col">
+<!-- Minimal Header -->
+<nav class="absolute top-0 w-full z-50 flex justify-center items-center p-8">
+<span class="font-headline text-3xl font-bold tracking-[0.2em] text-white uppercase">SNAPBOOTH</span>
+</nav>
+<!-- Hero Live Viewport -->
+<main class="flex-grow relative flex flex-col items-center justify-center p-0 md:p-12">
+<!-- Camera Container - Full Screen focus -->
+<div class="relative w-full h-full md:max-w-6xl md:aspect-[3/2] bg-black md:rounded-3xl overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.5)] border border-white/5">
+<!-- Film Grain Overlay -->
+<div class="film-grain"></div>
+<!-- Live Feed -->
+<img class="w-full h-full object-cover grayscale contrast-125" data-alt="first person perspective view of a trendy photo studio with bright neon lights and dark shadows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCr2ug-SNdqrkotM2IX75hHsnTmcoJiBdqerrElFDxKAi0LJe-eZeQbwRevG1Uc-GsAVQhXfr5h2U3HqojEsu6N09F9I-x1VeYzTjdx-S2yDZcHD_kwj39udIU8AV4aTkmKe1cWz_P25GgN_f5_9EOztb0ROPwvyx4bY4DmqB-Z0yK4NdzV1eJwSpXZv8DtGfbOQ-rYKQ8q0vnLZUSOEMTwoSQgqoQZHGE66vG9_R3V0wDXcXaAmk6i7WMyZPoC89sUP6yT9Qsd4zw"/>
+<!-- Viewfinder Elements -->
+<div class="viewfinder-bracket top-left"></div>
+<div class="viewfinder-bracket top-right"></div>
+<div class="viewfinder-bracket bottom-left"></div>
+<div class="viewfinder-bracket bottom-right"></div>
+<!-- Recording Indicator -->
+<div class="absolute top-10 left-10 flex items-center gap-3 px-4 py-2 bg-black/60 backdrop-blur-xl rounded-full border border-white/10">
+<div class="w-3 h-3 rounded-full bg-error animate-pulse"></div>
+<span class="font-headline text-xs uppercase tracking-[0.2em] font-bold">LIVE FEED</span>
+</div>
+<!-- Giant Countdown Typography -->
+<div class="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
+<span class="font-headline text-[25rem] md:text-[35rem] font-bold text-primary drop-shadow-[0_0_60px_rgba(255,136,181,0.6)] opacity-90 select-none">3</span>
+</div>
+</div>
+</main>
+<!-- Interaction Zone -->
+<footer class="absolute bottom-0 w-full flex flex-col items-center justify-center pb-12 pt-20 bg-gradient-to-t from-black via-black/80 to-transparent z-40">
+<div class="flex flex-col items-center gap-6">
+<span class="font-headline text-primary text-sm uppercase tracking-[0.4em] font-bold mb-2 animate-bounce">Tap to Snap</span>
+<!-- Massive Shutter Button -->
+<button class="relative group active:scale-90 transition-all duration-150">
+<!-- Glowing Background -->
+<div class="absolute -inset-8 bg-primary/20 rounded-full blur-3xl shutter-glow group-hover:bg-primary/30 transition-all"></div>
+<!-- Outer Ring -->
+<div class="relative w-32 h-32 md:w-40 md:h-40 rounded-full p-3 border-4 border-primary/40 flex items-center justify-center bg-transparent backdrop-blur-sm">
+<!-- Inner Button -->
+<div class="w-full h-full rounded-full bg-primary flex items-center justify-center shadow-[0_0_40px_rgba(255,136,181,0.5)] group-hover:shadow-[0_0_60px_rgba(255,136,181,0.7)] transition-all">
+<span class="material-symbols-outlined text-on-primary text-5xl md:text-6xl" style="font-variation-settings: 'FILL' 1;">photo_camera</span>
+</div>
+</div>
+</button>
+</div>
+</footer>
+<!-- Minimal Global Overlay Border -->
+<div class="fixed inset-0 border-[20px] border-black pointer-events-none z-[60] hidden md:block"></div>
+</body></html>

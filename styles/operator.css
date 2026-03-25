@@ -1,0 +1,180 @@
+.operator-page {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  padding: 0;
+  background:
+    radial-gradient(circle at top, rgba(255, 91, 154, 0.18), transparent 24%),
+    radial-gradient(circle at 82% 18%, rgba(54, 218, 248, 0.1), transparent 16%),
+    linear-gradient(180deg, #15161a 0%, #0a0b0e 100%);
+  backdrop-filter: blur(18px);
+}
+
+.operator-page-shell {
+  height: 100%;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  overflow: hidden;
+}
+
+.operator-page-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 4rem;
+  padding: 0 4.5rem;
+}
+
+.operator-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  text-align: center;
+}
+
+.panel-title {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  line-height: 1;
+  letter-spacing: -0.06em;
+}
+
+.panel-title-small {
+  font-size: clamp(1.3rem, 2vw, 1.8rem);
+}
+
+.operator-layout {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(320px, 360px) minmax(0, 1fr) minmax(250px, 300px);
+  gap: 1.25rem;
+  overflow: hidden;
+}
+
+.side-panel {
+  padding: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 30px;
+  background: linear-gradient(180deg, rgba(33, 34, 40, 0.94), rgba(20, 21, 26, 0.96));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+  overflow: auto;
+}
+
+.operator-preview-panel {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.operator-stage-shell {
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: transparent;
+  box-shadow: none;
+}
+
+.operator-preview-card {
+  width: 100%;
+  max-width: min(720px, 100%);
+  max-height: calc(100dvh - 13rem);
+  border-radius: 30px;
+  box-shadow: 0 34px 80px rgba(0, 0, 0, 0.42);
+}
+
+.panel-section + .panel-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.eyebrow,
+.field-label,
+.status-text,
+.operator-inline-hint {
+  color: var(--muted);
+}
+
+.eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+
+.operator-inline-hint,
+.status-text {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.field {
+  display: block;
+}
+
+.field + .field {
+  margin-top: 1rem;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  color: var(--text);
+  background: rgba(20, 20, 23, 0.96);
+  border: 1px solid var(--line);
+  appearance: none;
+}
+
+.field input[type="color"] {
+  min-height: 3.25rem;
+  padding: 0.35rem;
+}
+
+.field input[type="range"] {
+  padding-inline: 0.25rem;
+}
+
+.field-grid {
+  display: flex;
+  gap: 0.85rem;
+}
+
+.field-grid .field {
+  flex: 1;
+}
+
+.compact-grid {
+  align-items: end;
+}
+
+.field-grow {
+  flex: 1.6;
+}

@@ -1,0 +1,241 @@
+.viewfinder-corners {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.viewfinder-corners .corner {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-color: rgba(255, 255, 255, 0.28);
+  border-style: solid;
+  border-width: 2px;
+}
+
+.corner.top-left {
+  top: 2.5rem;
+  left: 2.5rem;
+  border-width: 2px 0 0 2px;
+}
+
+.corner.top-right {
+  top: 2.5rem;
+  right: 2.5rem;
+  border-width: 2px 2px 0 0;
+}
+
+.corner.bottom-left {
+  left: 2.5rem;
+  bottom: 2.5rem;
+  border-width: 0 0 2px 2px;
+}
+
+.corner.bottom-right {
+  right: 2.5rem;
+  bottom: 2.5rem;
+  border-width: 0 2px 2px 0;
+}
+
+#cameraPreview,
+#operatorPreviewVideo,
+#resultVideo {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  background: #050507;
+  transform-origin: center;
+}
+
+#resultVideo {
+  transform: scaleX(-1);
+}
+
+#cameraPreview,
+#operatorPreviewVideo {
+  transform: scaleX(-1);
+}
+
+.result-stage,
+.operator-preview-surface {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.film-grain,
+.flash-overlay,
+.countdown-overlay,
+.error-overlay,
+.empty-camera,
+.result-overlay-frame,
+.result-overlay-text,
+.operator-preview-frame,
+.operator-preview-text {
+  position: absolute;
+  inset: 0;
+}
+
+.film-grain {
+  pointer-events: none;
+  opacity: 0.08;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.camera-progress {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 5;
+  height: 0.55rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.camera-controls {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 6;
+  transform: translate(-50%, -50%);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.camera-controls .shutter-button {
+  pointer-events: auto;
+}
+
+.camera-progress-fill {
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-strong), var(--primary));
+  box-shadow: 0 0 16px rgba(255, 91, 154, 0.45);
+}
+
+.countdown-overlay {
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(10rem, 30vw, 20rem);
+  font-weight: 700;
+  line-height: 1;
+  color: #ffc7dc;
+  text-shadow: 0 0 50px rgba(255, 136, 181, 0.8);
+}
+
+.countdown-overlay.countdown-pop {
+  animation: countdown-rise 420ms ease both;
+}
+
+.flash-overlay {
+  background: #ffffff;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.flash-overlay.flash-active {
+  animation: flash 260ms ease-out;
+}
+
+.error-overlay,
+.empty-camera {
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 2rem;
+  color: var(--muted);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.52), rgba(0, 0, 0, 0.72));
+}
+
+.empty-camera .material-symbols-outlined,
+.error-overlay .material-symbols-outlined {
+  font-size: 3rem;
+  margin-bottom: 0.75rem;
+}
+
+.shutter-button {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  border: 3px solid rgba(255, 136, 181, 0.24);
+  border-radius: 50%;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.01);
+  backdrop-filter: blur(8px);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 0 36px rgba(255, 136, 181, 0.12);
+  transition: transform 150ms ease, box-shadow 200ms ease, background 200ms ease, opacity 200ms ease;
+  animation: shutter-fade 2.2s infinite ease-in-out;
+}
+
+.shutter-button::before {
+  content: "";
+  position: absolute;
+  inset: -20px;
+  border-radius: 50%;
+  background: rgba(255, 136, 181, 0.1);
+  filter: blur(22px);
+  opacity: 0.55;
+  z-index: 0;
+  animation: shutter-pulse 2.2s infinite ease-in-out;
+}
+
+.shutter-button:active {
+  transform: scale(0.92);
+}
+
+.shutter-button.shutter-exit {
+  animation: shutter-to-countdown 260ms ease forwards;
+}
+
+.shutter-core {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(255, 136, 181, 0.34), rgba(255, 91, 154, 0.2));
+  color: rgba(255, 245, 250, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 22px rgba(255, 136, 181, 0.18);
+}
+
+.shutter-core .material-symbols-outlined {
+  font-size: 2.5rem;
+}
+
+@keyframes flash {
+  from { opacity: 0.92; }
+  to { opacity: 0; }
+}
+
+@keyframes countdown-rise {
+  from { opacity: 0; transform: scale(0.76); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shutter-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.75; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes shutter-fade {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+
+@keyframes shutter-to-countdown {
+  to { opacity: 0; transform: scale(0.72); }
+}

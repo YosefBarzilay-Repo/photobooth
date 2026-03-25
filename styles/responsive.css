@@ -1,0 +1,76 @@
+@media (max-width: 1080px) {
+  .operator-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .operator-page-shell {
+    overflow: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .console {
+    flex-wrap: wrap;
+  }
+
+  .stage-brand-row {
+    margin-top: 0.6rem;
+  }
+
+  .camera-controls {
+    top: 50%;
+  }
+
+  .shutter-button {
+    width: 110px;
+    height: 110px;
+  }
+
+  .corner.top-left,
+  .corner.top-right,
+  .corner.bottom-left,
+  .corner.bottom-right {
+    top: 1.25rem;
+    left: 1.25rem;
+    right: 1.25rem;
+    bottom: 1.25rem;
+  }
+}
+
+@media (max-height: 860px) {
+  .app-shell {
+    padding: 0.5rem;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  .stage-shell {
+    padding: 0.5rem;
+  }
+
+  .stage-card {
+    width: min(100%, calc(100dvh - 11.5rem));
+  }
+
+  .console {
+    margin-top: 0.5rem;
+    gap: 0.5rem;
+  }
+
+  .stage-brand-row {
+    margin-top: 0.45rem;
+  }
+
+  .camera-controls {
+    top: 50%;
+  }
+
+  .shutter-button {
+    width: 104px;
+    height: 104px;
+  }
+
+  .console-button {
+    min-width: 7rem;
+    padding: 0.75rem 0.9rem;
+  }
+}

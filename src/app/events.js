@@ -1,3 +1,4 @@
+
 /**
  * @typedef {import("../types/app.js").AppState} AppState
  * @typedef {import("../types/dom.js").DomRefs} DomRefs
@@ -78,5 +79,12 @@ export default function wireEvents(dom, state, handlers) {
 
   dom.operatorPreviewVideo.addEventListener("pointerdown", (event) => {
     handlers.operatorScreen.setEffectDirectionFromPointer(event);
+  });
+
+  dom.kenBurnsToggle.addEventListener("change", () => {
+    state.kenBurnsEnabled = dom.kenBurnsToggle.checked;
+    dom.resultVideo.classList.toggle("ken-burns-effect", state.kenBurnsEnabled);
+    dom.kenBurnsPreview.classList.toggle("ken-burns-effect", state.kenBurnsEnabled);
+    localStorage.setItem("kenBurnsEnabled", String(state.kenBurnsEnabled));
   });
 }

@@ -27,7 +27,8 @@ export const APP_DEFAULTS = {
   overlayText: APP_STRINGS.brandName,
   overlayFont: "Space Grotesk",
   overlayColor: "#ff88b5",
-  overlaySize: 44
+  overlaySize: 44,
+  kenBurnsEnabled: false
 };
 
 export const APP_THRESHOLDS = {

@@ -32,6 +32,7 @@ export default function createAppStore() {
     overlayText: APP_DEFAULTS.overlayText,
     overlayFont: APP_DEFAULTS.overlayFont,
     overlayColor: APP_DEFAULTS.overlayColor,
-    overlaySize: APP_DEFAULTS.overlaySize
+    overlaySize: APP_DEFAULTS.overlaySize,
+    kenBurnsEnabled: APP_DEFAULTS.kenBurnsEnabled
   };
 }

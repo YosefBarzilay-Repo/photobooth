@@ -54,6 +54,8 @@ export default function createDomRefs() {
     resultText: getRequiredElement("resultText"),
     operatorFrame: getRequiredElement("operatorFrame"),
     operatorText: getRequiredElement("operatorText"),
-    recordingProgress: getRequiredElement("recordingProgress")
+    recordingProgress: getRequiredElement("recordingProgress"),
+    kenBurnsToggle: getRequiredElement("kenBurnsToggle"),
+    kenBurnsPreview: getRequiredElement("kenBurnsPreview")
   };
 }

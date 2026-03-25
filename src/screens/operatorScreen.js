@@ -71,6 +71,16 @@ export default function createOperatorScreen(dom, state, editorScreen) {
       : APP_STRINGS.effectHintIdle;
   }
 
+  function loadKenBurnsSetting() {
+    const savedSetting = localStorage.getItem("kenBurnsEnabled");
+    if (savedSetting !== null) {
+      state.kenBurnsEnabled = savedSetting === "true";
+      dom.kenBurnsToggle.checked = state.kenBurnsEnabled;
+    }
+    dom.resultVideo.classList.toggle("ken-burns-effect", state.kenBurnsEnabled);
+    dom.kenBurnsPreview.classList.toggle("ken-burns-effect", state.kenBurnsEnabled);
+  }
+
   /**
    * @param {boolean} isOpen
    */
@@ -123,6 +133,7 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     syncCameraEffectFromControl();
     syncCameraEffectSpeedFromControl();
     syncEffectUiState();
+    loadKenBurnsSetting();
   }
 
   /**
@@ -160,6 +171,6 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     syncDurationFromControl,
     syncCameraEffectFromControl,
     syncCameraEffectSpeedFromControl,
-    setEffectDirectionFromPointer
+    setEffectDirectionFromPointer,
   };
 }

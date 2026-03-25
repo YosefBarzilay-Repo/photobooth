@@ -178,3 +178,58 @@
 .field-grow {
   flex: 1.6;
 }
+
+.field-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.field-switch .field-label {
+  margin: 0;
+}
+
+.switch-track {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 99px;
+  background-color: rgba(20, 20, 23, 0.96);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: #fff;
+  transition: transform 0.2s ease;
+}
+
+input[type="checkbox"]:checked + .switch-track .switch-thumb {
+  transform: translateX(20px);
+}
+
+input[type="checkbox"]:checked + .switch-track {
+  background-color: var(--primary);
+}
+
+.ken-burns-preview-shell {
+  margin-top: 1rem;
+  padding: 0.5rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: rgba(20, 20, 23, 0.96);
+}
+
+.ken-burns-preview {
+  height: 120px;
+  border-radius: var(--radius-sm);
+  background-image: linear-gradient(45deg, #ff88b5, #5ddcff);
+}

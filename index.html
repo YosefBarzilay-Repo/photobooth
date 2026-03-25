@@ -140,8 +140,9 @@
               <label class="field field-inline">
                 <span class="field-label">Recording Duration</span>
                 <select id="durationSelect">
-                  <option value="4">4 seconds</option>
-                  <option value="6" selected>6 seconds</option>
+                  <option value="2">2 seconds</option>
+                  <option value="4" selected>4 seconds</option>
+                  <option value="6">6 seconds</option>
                   <option value="8">8 seconds</option>
                   <option value="10">10 seconds</option>
                 </select>
@@ -163,6 +164,25 @@
                 Set Zoom Direction
               </button>
               <p class="status-text" id="effectHint">Draw from the center to choose the zoom direction.</p>
+            </section>
+
+            <section class="panel-section">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Filters & Effects</p>
+                  <p class="panel-title panel-title-small">Playback Effects</p>
+                </div>
+              </div>
+              <label class="field field-inline field-switch">
+                <span class="field-label">Ken Burns Effect</span>
+                <input id="kenBurnsToggle" type="checkbox">
+                <span class="switch-track">
+                  <span class="switch-thumb"></span>
+                </span>
+              </label>
+              <div class="ken-burns-preview-shell">
+                <div class="ken-burns-preview" id="kenBurnsPreview"></div>
+              </div>
             </section>
           </aside>
 

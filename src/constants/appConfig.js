@@ -11,6 +11,8 @@ export const APP_STRINGS = {
   saveFolderDefault: "Browser default downloads"
 };
 
+export const VIDEO_FILE_EXTENSIONS = [".mp4", ".webm", ".mov", ".m4v", ".ogg"];
+
 export const APP_DEFAULTS = {
   mode: "camera",
   countdownSeconds: 3,

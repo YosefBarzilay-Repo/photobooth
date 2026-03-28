@@ -8,7 +8,13 @@ import { APP_STRINGS, APP_THRESHOLDS } from "../constants/appConfig.js";
 import { sleep, clearIntervalTimer } from "../utils/timing.js";
 import { startCameraStream, stopCameraStream } from "../services/cameraService.js";
 import { createMediaRecorder, createRecordingBlob, getRecordingExtension } from "../services/recordingService.js";
-import { createObjectUrl, saveRecording, buildTimestampFilename } from "../services/downloadService.js";
+import {
+  createObjectUrl,
+  saveRecording,
+  buildTimestampFilename,
+  loadSavedRecordingsFromDirectory,
+  revokeObjectUrl
+} from "../services/downloadService.js";
 
 function restartAnimation(element, className) {
   element.classList.remove(className);
@@ -290,6 +296,45 @@ export default function initApp() {
     }
   }
 
+  function clearSavedSlideshowEntries() {
+    state.savedSlideshowEntries
+      .filter((entry) => entry.source === "folder")
+      .forEach((entry) => revokeObjectUrl(entry.url));
+    state.savedSlideshowEntries = [];
+  }
+
+  async function refreshSavedSlideshowEntries() {
+    const savedSessionEntries = state.recordings
+      .filter((recording) => recording.saved)
+      .map((recording) => ({
+        filename: recording.filename,
+        url: recording.url,
+        source: "session"
+      }));
+
+    const savedByFilename = new Map(savedSessionEntries.map((entry) => [entry.filename, entry]));
+    const folderEntries = await loadSavedRecordingsFromDirectory(state.saveDirectoryHandle);
+
+    clearSavedSlideshowEntries();
+
+    folderEntries.forEach((entry) => {
+      if (!savedByFilename.has(entry.filename)) {
+        savedByFilename.set(entry.filename, {
+          filename: entry.filename,
+          url: entry.url,
+          source: "folder"
+        });
+        return;
+      }
+
+      revokeObjectUrl(entry.url);
+    });
+
+    state.savedSlideshowEntries = Array.from(savedByFilename.values()).sort((left, right) =>
+      left.filename.localeCompare(right.filename, undefined, { numeric: true })
+    );
+  }
+
   async function restoreFullscreenIfNeeded() {
     if (state.mode !== "camera") {
       return;
@@ -298,13 +343,13 @@ export default function initApp() {
   }
 
   function showRecordingAtIndex(index) {
-    if (state.recordings.length === 0) {
+    if (state.savedSlideshowEntries.length === 0) {
       return;
     }
 
-    const boundedIndex = ((index % state.recordings.length) + state.recordings.length) % state.recordings.length;
+    const boundedIndex = ((index % state.savedSlideshowEntries.length) + state.savedSlideshowEntries.length) % state.savedSlideshowEntries.length;
     state.slideshowIndex = boundedIndex;
-    editorScreen.showSlideshow(state.recordings[boundedIndex].url);
+    editorScreen.showSlideshow(state.savedSlideshowEntries[boundedIndex].url);
     syncModeUi();
     dom.resultVideo.play().catch((error) => {
       console.warn("Slideshow playback did not start.", error);
@@ -312,11 +357,21 @@ export default function initApp() {
   }
 
   async function startSlideshow() {
-    if (state.recordings.length === 0 || state.isRecording || state.captureInProgress) {
+    if (state.isRecording || state.captureInProgress) {
+      return;
+    }
+
+    await refreshSavedSlideshowEntries();
+    syncModeUi();
+    if (state.savedSlideshowEntries.length === 0) {
+      resetIdleSlideshowTimer();
       return;
     }
 
     clearIdleSlideshowTimer();
+    if (state.mode !== "slideshow") {
+      state.slideshowReturnMode = state.mode;
+    }
     showRecordingAtIndex(0);
   }
 
@@ -326,7 +381,11 @@ export default function initApp() {
     }
 
     dom.resultVideo.pause();
-    state.mode = "camera";
+    if (state.slideshowReturnMode === "editor") {
+      editorScreen.showResult();
+    } else {
+      state.mode = "camera";
+    }
     syncModeUi();
   }
 
@@ -335,11 +394,10 @@ export default function initApp() {
 
     if (
       state.slideshowIdleSeconds <= 0 ||
-      state.recordings.length === 0 ||
-      state.mode !== "camera" ||
       state.operatorPanelOpen ||
       state.isRecording ||
-      state.captureInProgress
+      state.captureInProgress ||
+      (state.mode !== "camera" && state.mode !== "editor")
     ) {
       return;
     }
@@ -411,7 +469,13 @@ export default function initApp() {
     }
 
     await saveRecording(state.recordingBlob, state.recordingFilename, state.saveDirectoryHandle);
+    const currentRecording = state.recordings.find((recording) => recording.filename === state.recordingFilename);
+    if (currentRecording) {
+      currentRecording.saved = true;
+    }
+    await refreshSavedSlideshowEntries();
     syncModeUi();
+    resetIdleSlideshowTimer();
   }
 
   async function handleRecordingStop() {
@@ -422,7 +486,8 @@ export default function initApp() {
     state.recordings.push({
       url: state.recordingUrl,
       blob: state.recordingBlob,
-      filename: state.recordingFilename
+      filename: state.recordingFilename,
+      saved: false
     });
     stopRecordingTimer();
     composedRecorder?.stop();
@@ -432,6 +497,7 @@ export default function initApp() {
     dom.recordingTimer.textContent = "00:00";
     editorScreen.showResult();
     syncModeUi();
+    resetIdleSlideshowTimer();
   }
 
   function stopRecording() {
@@ -526,6 +592,18 @@ export default function initApp() {
     editorScreen.handlePlaybackStateChange();
   }
 
+  async function pickSaveFolder() {
+    const didPickFolder = await operatorScreen.pickSaveFolder();
+    if (!didPickFolder) {
+      syncModeUi();
+      return;
+    }
+
+    await refreshSavedSlideshowEntries();
+    syncModeUi();
+    resetIdleSlideshowTimer();
+  }
+
   document.body.dataset.mode = state.mode;
   operatorScreen.syncControlsFromState();
   operatorScreen.renderFrameTray();
@@ -554,11 +632,13 @@ export default function initApp() {
     handleResultReset,
     handleResultEnded,
     handleSlideshowIdleSettingChange,
+    pickSaveFolder,
     saveCurrentRecording,
     startSlideshow,
     operatorScreen,
     editorScreen
   });
   syncModeUi();
+  void refreshSavedSlideshowEntries();
   void startCamera();
 }

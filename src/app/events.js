@@ -69,7 +69,7 @@ export default function wireEvents(dom, state, handlers) {
     void handlers.operatorScreen.syncLogoUploadFromControl();
   });
   dom.saveFolderButton.addEventListener("click", () => {
-    void handlers.operatorScreen.pickSaveFolder();
+    void handlers.pickSaveFolder();
   });
 
   dom.cameraText.addEventListener("click", handlers.operatorScreen.handleOverlayClick);
@@ -84,4 +84,3 @@ export default function wireEvents(dom, state, handlers) {
   window.addEventListener("pointercancel", handlers.operatorScreen.stopDialogInteraction);
   window.addEventListener("resize", handlers.operatorScreen.handleWindowResize);
 }
-

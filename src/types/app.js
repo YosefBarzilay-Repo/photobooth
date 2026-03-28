@@ -11,7 +11,11 @@
  */
 
 /**
- * @typedef {{ url: string, blob: Blob, filename: string }} RecordingEntry
+ * @typedef {{ url: string, blob: Blob, filename: string, saved: boolean }} RecordingEntry
+ */
+
+/**
+ * @typedef {{ url: string, filename: string, source: "session" | "folder" }} SlideshowEntry
  */
 
 /**
@@ -34,6 +38,7 @@
  *   recordingUrl: string,
  *   recordingFilename: string,
  *   recordings: RecordingEntry[],
+ *   savedSlideshowEntries: SlideshowEntry[],
  *   recordingChunks: Blob[],
  *   captureReady: boolean,
  *   captureInProgress: boolean,
@@ -44,6 +49,7 @@
  *   slideshowIdleSeconds: number,
  *   idleTimeoutId: number | null,
  *   slideshowIndex: number,
+ *   slideshowReturnMode: AppMode,
  *   recordIntervalId: number | null,
  *   recordStartedAt: number,
  *   activeFrameId: FrameId,

@@ -1,3 +1,5 @@
+import { VIDEO_FILE_EXTENSIONS } from "../constants/appConfig.js";
+
 function pad(value) {
   return String(value).padStart(2, "0");
 }
@@ -10,6 +12,11 @@ export function revokeObjectUrl(url) {
 
 export function createObjectUrl(blob) {
   return URL.createObjectURL(blob);
+}
+
+export function isVideoFilename(filename) {
+  const lowerCaseName = String(filename || "").toLowerCase();
+  return VIDEO_FILE_EXTENSIONS.some((extension) => lowerCaseName.endsWith(extension));
 }
 
 export function buildTimestampFilename(extension) {
@@ -37,4 +44,32 @@ export async function saveRecording(blob, filename, directoryHandle = null) {
   link.click();
   window.setTimeout(() => revokeObjectUrl(url), 1000);
   return filename;
+}
+
+export async function loadSavedRecordingsFromDirectory(directoryHandle) {
+  if (!directoryHandle || !("values" in directoryHandle)) {
+    return [];
+  }
+
+  const entries = [];
+
+  for await (const entry of directoryHandle.values()) {
+    if (entry.kind !== "file" || !isVideoFilename(entry.name)) {
+      continue;
+    }
+
+    try {
+      const file = await entry.getFile();
+      entries.push({
+        filename: entry.name,
+        blob: file,
+        url: createObjectUrl(file)
+      });
+    } catch {
+      // Ignore files that cannot be read.
+    }
+  }
+
+  entries.sort((left, right) => left.filename.localeCompare(right.filename, undefined, { numeric: true }));
+  return entries;
 }

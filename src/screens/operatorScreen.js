@@ -103,6 +103,12 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     return clamp(Math.round(value), APP_THRESHOLDS.minSlideshowIdleSeconds, APP_THRESHOLDS.maxSlideshowIdleSeconds);
   }
 
+  function syncOffField(input, value) {
+    input.value = value > 0 ? String(value) : "";
+    input.placeholder = "Off";
+    input.dataset.off = value <= 0 ? "true" : "false";
+  }
+
   function resetOperatorAccessClicks() {
     operatorAccessClickCount = 0;
     if (operatorAccessClickTimer !== null) {
@@ -113,23 +119,25 @@ export default function createOperatorScreen(dom, state, editorScreen) {
 
   function syncCountdownFromControl() {
     const countdownValue = clampCountdown(Number(dom.countdownInput.value) || 0);
-    dom.countdownInput.value = String(countdownValue);
     state.countdownSeconds = countdownValue;
+    syncOffField(dom.countdownInput, countdownValue);
   }
 
   function syncSlideshowIdleFromControl() {
     const idleValue = clampSlideshowIdle(Number(dom.slideshowIdleInput.value) || 0);
-    dom.slideshowIdleInput.value = String(idleValue);
     state.slideshowIdleSeconds = idleValue;
+    syncOffField(dom.slideshowIdleInput, idleValue);
   }
 
   function stepCountdown(delta) {
-    dom.countdownInput.value = String(clampCountdown((Number(dom.countdownInput.value) || 0) + delta));
+    const currentValue = state.countdownSeconds;
+    dom.countdownInput.value = String(clampCountdown(currentValue + delta));
     syncCountdownFromControl();
   }
 
   function stepSlideshowIdle(delta) {
-    dom.slideshowIdleInput.value = String(clampSlideshowIdle((Number(dom.slideshowIdleInput.value) || 0) + delta));
+    const currentValue = state.slideshowIdleSeconds;
+    dom.slideshowIdleInput.value = String(clampSlideshowIdle(currentValue + delta));
     syncSlideshowIdleFromControl();
   }
 
@@ -149,8 +157,8 @@ export default function createOperatorScreen(dom, state, editorScreen) {
   }
 
   function syncControlsFromState() {
-    dom.countdownInput.value = String(state.countdownSeconds);
-    dom.slideshowIdleInput.value = String(state.slideshowIdleSeconds);
+    syncOffField(dom.countdownInput, state.countdownSeconds);
+    syncOffField(dom.slideshowIdleInput, state.slideshowIdleSeconds);
     dom.textInput.value = state.overlayText;
     dom.fontSelect.value = state.overlayFont;
     dialogRect.width = APP_THRESHOLDS.dialogDefaultWidth;
@@ -241,7 +249,7 @@ export default function createOperatorScreen(dom, state, editorScreen) {
       state.saveDirectoryHandle = null;
       state.saveDirectoryName = APP_STRINGS.folderUnsupported;
       renderPreview();
-      return;
+      return false;
     }
 
     try {
@@ -249,8 +257,10 @@ export default function createOperatorScreen(dom, state, editorScreen) {
       state.saveDirectoryHandle = directoryHandle;
       state.saveDirectoryName = directoryHandle.name || APP_STRINGS.saveFolderDefault;
       renderPreview();
+      return true;
     } catch {
       // Ignore user cancellation.
+      return false;
     }
   }
 

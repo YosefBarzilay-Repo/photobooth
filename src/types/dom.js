@@ -26,6 +26,8 @@
  *   operatorDialogHeader: HTMLElement,
  *   operatorDialogResize: HTMLButtonElement,
  *   operatorCloseButton: HTMLButtonElement,
+ *   operatorCloseAppButton: HTMLButtonElement,
+ *   appVersionLabel: HTMLElement,
  *   appDialogOverlay: HTMLElement,
  *   appDialogTitle: HTMLElement,
  *   appDialogMessage: HTMLElement,

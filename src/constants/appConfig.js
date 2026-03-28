@@ -1,5 +1,5 @@
 export const APP_STRINGS = {
-  brandName: "SNAPBOOTH",
+  brandName: "PHOTOBOOTH",
   cameraUnsupported: "This browser does not support camera access.",
   secureContextRequired:
     "Camera access requires a secure page. Open this app from http://localhost instead of the file directly.",
@@ -7,8 +7,8 @@ export const APP_STRINGS = {
   previewLoadTimeout: "Timed out while waiting for the camera preview to become ready.",
   cameraAccessDenied: "Camera access was denied or is unavailable.",
   recordingFailed: "Unable to record video.",
-  folderUnsupported: "This browser does not support choosing a save folder.",
-  saveFolderDefault: "Browser default downloads"
+  folderUnsupported: "Photobooth could not open the save-folder picker on this device.",
+  saveFolderDefault: "Default save location"
 };
 
 export const VIDEO_FILE_EXTENSIONS = [".mp4", ".webm", ".mov", ".m4v", ".ogg"];
@@ -92,3 +92,5 @@ export const TEXT_COLOR_SWATCHES = [
   "#1b2533",
   "#000000"
 ];
+
+

@@ -1,5 +1,6 @@
 import { APP_STRINGS, APP_THRESHOLDS } from "../constants/appConfig.js";
 import renderFrameTray from "../components/frameTray.js";
+import { isDesktopApp, pickDesktopDirectory } from "../services/desktopService.js";
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -30,7 +31,7 @@ function getViewportLimits() {
   };
 }
 
-export default function createOperatorScreen(dom, state, editorScreen) {
+export default function createOperatorScreen(dom, state, editorScreen, onSettingsChanged = () => {}) {
   let operatorAccessClickCount = 0;
   let operatorAccessClickTimer = null;
   let dialogRect = {
@@ -43,6 +44,10 @@ export default function createOperatorScreen(dom, state, editorScreen) {
   let dialogInteraction = null;
   let dialogStartPointer = null;
   let dialogStartRect = null;
+
+  function notifySettingsChanged() {
+    onSettingsChanged(state);
+  }
 
   function syncDialogRect() {
     const limits = getViewportLimits();
@@ -121,12 +126,14 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     const countdownValue = clampCountdown(Number(dom.countdownInput.value) || 0);
     state.countdownSeconds = countdownValue;
     syncOffField(dom.countdownInput, countdownValue);
+    notifySettingsChanged();
   }
 
   function syncSlideshowIdleFromControl() {
     const idleValue = clampSlideshowIdle(Number(dom.slideshowIdleInput.value) || 0);
     state.slideshowIdleSeconds = idleValue;
     syncOffField(dom.slideshowIdleInput, idleValue);
+    notifySettingsChanged();
   }
 
   function stepCountdown(delta) {
@@ -154,6 +161,7 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     }
 
     renderPreview();
+    notifySettingsChanged();
   }
 
   function syncControlsFromState() {
@@ -197,6 +205,7 @@ export default function createOperatorScreen(dom, state, editorScreen) {
       state.activeFrameId = frameId;
       renderFrameTrayView();
       renderPreview();
+      notifySettingsChanged();
     });
   }
 
@@ -221,6 +230,7 @@ export default function createOperatorScreen(dom, state, editorScreen) {
       state.overlayTextRotation += direction * APP_THRESHOLDS.overlayRotationStep;
     }
     renderPreview();
+    notifySettingsChanged();
   }
 
   function deleteOverlay(target) {
@@ -238,6 +248,7 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     }
 
     renderPreview();
+    notifySettingsChanged();
   }
 
   function triggerLogoUpload() {
@@ -245,6 +256,24 @@ export default function createOperatorScreen(dom, state, editorScreen) {
   }
 
   async function pickSaveFolder() {
+    if (isDesktopApp()) {
+      try {
+        const selectedDirectory = await pickDesktopDirectory();
+        if (!selectedDirectory || Array.isArray(selectedDirectory)) {
+          return "cancelled";
+        }
+
+        state.saveDirectoryHandle = null;
+        state.saveDirectoryPath = selectedDirectory;
+        state.saveDirectoryName = selectedDirectory.split(/[\\/]/).filter(Boolean).pop() || APP_STRINGS.saveFolderDefault;
+        renderPreview();
+        notifySettingsChanged();
+        return "picked";
+      } catch {
+        return "cancelled";
+      }
+    }
+
     if (!("showDirectoryPicker" in window)) {
       state.saveDirectoryName = APP_STRINGS.folderUnsupported;
       renderPreview();
@@ -254,8 +283,10 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     try {
       const directoryHandle = await window.showDirectoryPicker();
       state.saveDirectoryHandle = directoryHandle;
+      state.saveDirectoryPath = "";
       state.saveDirectoryName = directoryHandle.name || APP_STRINGS.saveFolderDefault;
       renderPreview();
+      notifySettingsChanged();
       return "picked";
     } catch {
       return "cancelled";
@@ -281,6 +312,7 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     state.logoPosition = { x: 50, y: 20 };
     state.activeOverlayTarget = "logo";
     renderPreview();
+    notifySettingsChanged();
   }
 
   function handleOverlayClick(event) {
@@ -290,6 +322,7 @@ export default function createOperatorScreen(dom, state, editorScreen) {
       state.overlayColor = colorSwatch.dataset.overlayColor || state.overlayColor;
       state.showTextColorPalette = false;
       renderPreview();
+      notifySettingsChanged();
       return;
     }
 
@@ -414,6 +447,7 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     state.dragSurfaceSize = null;
     state.dragStartPosition = null;
     renderPreview();
+    notifySettingsChanged();
   }
 
   function startDialogInteraction(event) {

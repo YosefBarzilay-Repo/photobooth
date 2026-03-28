@@ -40,6 +40,8 @@ export default function createDomRefs() {
     operatorDialogHeader: getRequiredElement("operatorDialogHeader"),
     operatorDialogResize: getRequiredElement("operatorDialogResize"),
     operatorCloseButton: getRequiredElement("operatorCloseButton"),
+    operatorCloseAppButton: getRequiredElement("operatorCloseAppButton"),
+    appVersionLabel: getRequiredElement("appVersionLabel"),
     appDialogOverlay: getRequiredElement("appDialogOverlay"),
     appDialogTitle: getRequiredElement("appDialogTitle"),
     appDialogMessage: getRequiredElement("appDialogMessage"),

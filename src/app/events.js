@@ -39,6 +39,9 @@ export default function wireEvents(dom, state, handlers) {
   dom.operatorCloseButton.addEventListener("click", () => {
     handlers.closeOperatorPanel();
   });
+  dom.operatorCloseAppButton.addEventListener("click", () => {
+    void handlers.closeApp();
+  });
 
   dom.appDialogCloseButton.addEventListener("click", () => {
     handlers.hideAppDialog();

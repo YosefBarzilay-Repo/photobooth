@@ -1,0 +1,18 @@
+{
+  "name": "photobooth",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Photobooth Windows desktop app powered by Tauri",
+  "scripts": {
+    "build": "powershell -ExecutionPolicy Bypass -File scripts/build-static.ps1",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/plugin-dialog": "^2.6.0",
+    "@tauri-apps/plugin-fs": "^2.4.5"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.10.1"
+  }
+}

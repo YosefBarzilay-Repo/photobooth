@@ -45,7 +45,7 @@ export default function createCameraScreen(dom, state) {
     dom.resultSaveButton.disabled = !state.recordingBlob;
     dom.resultNewButton.classList.toggle("hidden", !showResultActions);
     dom.resultSlideshowButton.classList.toggle("hidden", !showResultActions);
-    dom.resultSlideshowButton.disabled = state.savedSlideshowEntries.length === 0 && !state.saveDirectoryHandle;
+    dom.resultSlideshowButton.disabled = state.savedSlideshowEntries.length === 0 && !state.saveDirectoryHandle && !state.saveDirectoryPath;
     dom.resultSettingsButton.classList.toggle("hidden", !showResultActions);
   }
 

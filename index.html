@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>SnapBooth</title>
+  <title>Photobooth</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
@@ -13,7 +13,7 @@
 <body>
   <div class="app-shell">
     <div class="app-titlebar">
-      <div class="brand app-brand-title">SnapBooth</div>
+      <div class="brand app-brand-title">Photobooth</div>
     </div>
 
     <main class="layout">
@@ -179,7 +179,7 @@
               <span class="material-symbols-outlined">folder_open</span>
               Choose Folder
             </button>
-            <p class="save-folder-label" id="saveFolderLabel">Browser default downloads</p>
+            <p class="save-folder-label" id="saveFolderLabel">Default save location</p>
           </section>
 
           <section class="panel-section">
@@ -190,6 +190,22 @@
             </div>
             <div class="frame-tray operator-frame-tray" id="frameTray"></div>
           </section>
+
+          <section class="panel-section">
+            <div class="section-header">
+              <div>
+                <p class="panel-title panel-title-small">Desktop</p>
+              </div>
+            </div>
+            <button class="console-button secondary-button" id="operatorCloseAppButton" type="button">
+              <span class="material-symbols-outlined">power_settings_new</span>
+              Close App
+            </button>
+          </section>
+        </div>
+
+        <div class="operator-dialog-footer">
+          <p class="operator-version-label" id="appVersionLabel">Version 1.0.0.0_0</p>
         </div>
 
         <button class="operator-dialog-resize" id="operatorDialogResize" type="button" aria-label="Resize settings dialog">

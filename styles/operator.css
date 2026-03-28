@@ -48,8 +48,21 @@
 .operator-dialog-body {
   flex: 1;
   min-height: 0;
-  padding: 0.25rem 1.25rem 1.25rem;
+  padding: 0.25rem 1.25rem 1rem;
   overflow: auto;
+}
+
+.operator-dialog-footer {
+  padding: 0.2rem 1.25rem 1.1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.operator-version-label {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .panel-title {

@@ -166,3 +166,36 @@ body[data-mode="slideshow"] .stage-card {
   justify-content: center;
   border-radius: 50%;
 }
+
+.app-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(2, 2, 4, 0.54);
+  backdrop-filter: blur(10px);
+}
+
+.app-dialog-card {
+  width: min(100%, 30rem);
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(22, 23, 29, 0.96), rgba(11, 12, 16, 0.92));
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+  padding: 1.15rem 1.2rem 1.25rem;
+}
+
+.app-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.app-dialog-message {
+  margin: 1rem 0 0;
+  color: var(--text);
+  line-height: 1.6;
+}

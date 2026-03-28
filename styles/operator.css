@@ -113,6 +113,21 @@
   align-items: center;
 }
 
+.stepper-control input {
+  text-align: center;
+  font-weight: 700;
+}
+
+.stepper-control input::-webkit-outer-spin-button,
+.stepper-control input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.stepper-control input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 .stepper-button {
   width: 3.25rem;
   height: 3.25rem;
@@ -123,17 +138,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-#countdownInput {
-  text-align: center;
-  font-weight: 700;
-}
-
-#countdownInput::-webkit-outer-spin-button,
-#countdownInput::-webkit-inner-spin-button {
-  appearance: none;
-  margin: 0;
 }
 
 .save-folder-label {
@@ -159,4 +163,3 @@
   justify-content: center;
   cursor: nwse-resize;
 }
-

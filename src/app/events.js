@@ -4,6 +4,10 @@
  */
 
 export default function wireEvents(dom, state, handlers) {
+  dom.openPreviewButton.addEventListener("click", () => {
+    handlers.openPreviewView();
+  });
+
   dom.snapButton.addEventListener("click", () => {
     void handlers.captureVideo();
   });
@@ -24,20 +28,25 @@ export default function wireEvents(dom, state, handlers) {
     void handlers.startSlideshow();
   });
 
+  dom.resultSettingsButton.addEventListener("click", () => {
+    handlers.openSettingsView();
+  });
+
   dom.resultVideo.addEventListener("play", handlers.editorScreen.handlePlaybackStateChange);
   dom.resultVideo.addEventListener("pause", handlers.editorScreen.handlePlaybackStateChange);
   dom.resultVideo.addEventListener("ended", handlers.handleResultEnded);
 
   dom.operatorCloseButton.addEventListener("click", () => {
-    handlers.operatorScreen.setOperatorPanelOpen(false);
-    handlers.handleSlideshowIdleSettingChange();
+    handlers.closeOperatorPanel();
   });
 
-  dom.operatorAccessTrigger.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    handlers.operatorScreen.setOperatorPanelOpen(true);
-    handlers.handleSlideshowIdleSettingChange();
+  dom.appDialogCloseButton.addEventListener("click", () => {
+    handlers.hideAppDialog();
+  });
+  dom.appDialogOverlay.addEventListener("click", (event) => {
+    if (event.target === dom.appDialogOverlay) {
+      handlers.hideAppDialog();
+    }
   });
 
   dom.countdownInput.addEventListener("input", handlers.operatorScreen.syncCountdownFromControl);

@@ -30,6 +30,7 @@
  * @typedef {{
  *   mode: AppMode,
  *   operatorPanelOpen: boolean,
+ *   operatorReturnMode: AppMode,
  *   saveDirectoryHandle: FileSystemDirectoryHandle | null,
  *   saveDirectoryName: string,
  *   stream: MediaStream | null,

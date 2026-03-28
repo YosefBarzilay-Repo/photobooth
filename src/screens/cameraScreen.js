@@ -18,8 +18,8 @@ export default function createCameraScreen(dom, state) {
     dom.editorStage.classList.toggle("hidden", !editorVisible);
     dom.console.classList.toggle("hidden", hideConsole);
     dom.recordControl.classList.toggle("hidden", !cameraMode);
-    dom.operatorAccessTrigger.classList.toggle("hidden", !cameraMode);
-    dom.operatorAccessTrigger.disabled = state.isRecording;
+    dom.openPreviewButton.classList.toggle("hidden", !cameraMode);
+    dom.openPreviewButton.disabled = !state.recordingUrl || state.isRecording || state.captureInProgress;
     dom.snapButton.classList.toggle("hidden", !cameraMode);
     dom.snapButton.classList.toggle("shutter-exit", false);
     dom.snapButton.classList.toggle("is-recording", state.isRecording);
@@ -46,6 +46,7 @@ export default function createCameraScreen(dom, state) {
     dom.resultNewButton.classList.toggle("hidden", !showResultActions);
     dom.resultSlideshowButton.classList.toggle("hidden", !showResultActions);
     dom.resultSlideshowButton.disabled = state.savedSlideshowEntries.length === 0 && !state.saveDirectoryHandle;
+    dom.resultSettingsButton.classList.toggle("hidden", !showResultActions);
   }
 
   function showError(message) {

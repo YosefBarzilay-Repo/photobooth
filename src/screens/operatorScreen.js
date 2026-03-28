@@ -246,10 +246,9 @@ export default function createOperatorScreen(dom, state, editorScreen) {
 
   async function pickSaveFolder() {
     if (!("showDirectoryPicker" in window)) {
-      state.saveDirectoryHandle = null;
       state.saveDirectoryName = APP_STRINGS.folderUnsupported;
       renderPreview();
-      return false;
+      return "unsupported";
     }
 
     try {
@@ -257,10 +256,9 @@ export default function createOperatorScreen(dom, state, editorScreen) {
       state.saveDirectoryHandle = directoryHandle;
       state.saveDirectoryName = directoryHandle.name || APP_STRINGS.saveFolderDefault;
       renderPreview();
-      return true;
+      return "picked";
     } catch {
-      // Ignore user cancellation.
-      return false;
+      return "cancelled";
     }
   }
 

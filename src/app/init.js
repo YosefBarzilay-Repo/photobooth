@@ -268,6 +268,16 @@ export default function initApp() {
     cameraScreen.syncModeUi();
   }
 
+  function showAppDialog(title, message) {
+    dom.appDialogTitle.textContent = title;
+    dom.appDialogMessage.textContent = message;
+    dom.appDialogOverlay.classList.remove("hidden");
+  }
+
+  function hideAppDialog() {
+    dom.appDialogOverlay.classList.add("hidden");
+  }
+
   function resetCaptureState() {
     state.captureInProgress = false;
     state.isRecording = false;
@@ -356,7 +366,8 @@ export default function initApp() {
     });
   }
 
-  async function startSlideshow() {
+  async function startSlideshow(options = {}) {
+    const { silent = false } = options;
     if (state.isRecording || state.captureInProgress) {
       return;
     }
@@ -364,6 +375,9 @@ export default function initApp() {
     await refreshSavedSlideshowEntries();
     syncModeUi();
     if (state.savedSlideshowEntries.length === 0) {
+      if (!silent) {
+        showAppDialog("Slideshow unavailable", "Save at least one video or choose a folder that already contains saved videos.");
+      }
       resetIdleSlideshowTimer();
       return;
     }
@@ -403,7 +417,7 @@ export default function initApp() {
     }
 
     state.idleTimeoutId = window.setTimeout(() => {
-      void startSlideshow();
+      void startSlideshow({ silent: true });
     }, state.slideshowIdleSeconds * 1000);
   }
 
@@ -416,6 +430,41 @@ export default function initApp() {
     if (state.mode === "slideshow") {
       stopSlideshow();
     }
+    resetIdleSlideshowTimer();
+  }
+
+  function openPreviewView() {
+    if (!state.recordingUrl) {
+      showAppDialog("Preview unavailable", "Record a video first, then open preview.");
+      return;
+    }
+
+    hideAppDialog();
+    editorScreen.showResult();
+    syncModeUi();
+    resetIdleSlideshowTimer();
+  }
+
+  function openSettingsView() {
+    hideAppDialog();
+    state.operatorReturnMode = state.mode;
+    state.mode = "camera";
+    operatorScreen.setOperatorPanelOpen(true);
+    syncModeUi();
+    resetIdleSlideshowTimer();
+  }
+
+  function closeOperatorPanel() {
+    operatorScreen.setOperatorPanelOpen(false);
+    hideAppDialog();
+
+    if (state.operatorReturnMode === "editor") {
+      editorScreen.showResult();
+    } else {
+      state.mode = "camera";
+    }
+
+    syncModeUi();
     resetIdleSlideshowTimer();
   }
 
@@ -474,6 +523,7 @@ export default function initApp() {
       currentRecording.saved = true;
     }
     await refreshSavedSlideshowEntries();
+    hideAppDialog();
     syncModeUi();
     resetIdleSlideshowTimer();
   }
@@ -516,6 +566,7 @@ export default function initApp() {
     state.captureInProgress = true;
     state.shutterAnimatingOut = state.countdownSeconds > 0;
     dom.snapButton.disabled = true;
+    hideAppDialog();
     syncModeUi();
 
     try {
@@ -579,6 +630,7 @@ export default function initApp() {
     dom.snapButton.disabled = false;
     dom.recordingTimer.textContent = "00:00";
     state.mode = "camera";
+    hideAppDialog();
     syncModeUi();
     resetIdleSlideshowTimer();
   }
@@ -593,13 +645,20 @@ export default function initApp() {
   }
 
   async function pickSaveFolder() {
-    const didPickFolder = await operatorScreen.pickSaveFolder();
-    if (!didPickFolder) {
+    const result = await operatorScreen.pickSaveFolder();
+    if (result === "cancelled") {
+      syncModeUi();
+      return;
+    }
+
+    if (result === "unsupported") {
+      showAppDialog("Folder access unavailable", APP_STRINGS.folderUnsupported);
       syncModeUi();
       return;
     }
 
     await refreshSavedSlideshowEntries();
+    hideAppDialog();
     syncModeUi();
     resetIdleSlideshowTimer();
   }
@@ -629,9 +688,13 @@ export default function initApp() {
   });
   wireEvents(dom, state, {
     captureVideo,
+    closeOperatorPanel,
     handleResultReset,
     handleResultEnded,
     handleSlideshowIdleSettingChange,
+    hideAppDialog,
+    openPreviewView,
+    openSettingsView,
     pickSaveFolder,
     saveCurrentRecording,
     startSlideshow,

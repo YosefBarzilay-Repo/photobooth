@@ -11,6 +11,7 @@ export default function createAppStore() {
   return {
     mode: APP_DEFAULTS.mode,
     operatorPanelOpen: false,
+    operatorReturnMode: APP_DEFAULTS.mode,
     saveDirectoryHandle: null,
     saveDirectoryName: APP_STRINGS.saveFolderDefault,
     stream: null,

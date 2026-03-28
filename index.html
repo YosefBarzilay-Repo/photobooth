@@ -47,9 +47,9 @@
 
         <div class="console" id="console">
           <div class="console-shell">
-            <button class="console-button hidden" id="operatorAccessTrigger" type="button" aria-label="Settings">
-              <span class="material-symbols-outlined">tune</span>
-              Settings
+            <button class="console-button hidden" id="openPreviewButton" type="button" aria-label="Open preview view">
+              <span class="material-symbols-outlined">play_circle</span>
+              Open Preview
             </button>
 
             <div class="record-control hidden" id="recordControl">
@@ -77,6 +77,10 @@
             <button class="console-button hidden" id="resultSlideshowButton" type="button" aria-label="Start slideshow">
               <span class="material-symbols-outlined">slideshow</span>
               Slideshow
+            </button>
+            <button class="console-button hidden" id="resultSettingsButton" type="button" aria-label="Open settings">
+              <span class="material-symbols-outlined">tune</span>
+              Settings
             </button>
           </div>
         </div>
@@ -187,6 +191,18 @@
         <button class="operator-dialog-resize" id="operatorDialogResize" type="button" aria-label="Resize settings dialog">
           <span class="material-symbols-outlined">open_in_full</span>
         </button>
+      </div>
+    </section>
+
+    <section class="app-dialog-overlay hidden" id="appDialogOverlay" aria-modal="true" role="dialog" aria-labelledby="appDialogTitle">
+      <div class="app-dialog-card">
+        <header class="app-dialog-header">
+          <h2 class="panel-title panel-title-small" id="appDialogTitle">Message</h2>
+          <button class="icon-button" id="appDialogCloseButton" type="button" aria-label="Close message">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </header>
+        <p class="app-dialog-message" id="appDialogMessage"></p>
       </div>
     </section>
   </div>

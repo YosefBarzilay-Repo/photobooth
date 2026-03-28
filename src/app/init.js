@@ -49,8 +49,8 @@ function drawVideoCover(ctx, video, width, height) {
   ctx.restore();
 }
 
-function drawOverlayText(ctx, state, width, height) {
-  if (!state.overlayText) {
+function drawOverlayText(ctx, state, width, height, metrics = null) {
+  if (!state.overlayText || !metrics) {
     return;
   }
 
@@ -58,23 +58,26 @@ function drawOverlayText(ctx, state, width, height) {
   ctx.translate((state.overlayTextPosition.x / 100) * width, (state.overlayTextPosition.y / 100) * height);
   ctx.rotate((state.overlayTextRotation * Math.PI) / 180);
   ctx.fillStyle = state.overlayColor;
-  ctx.font = `800 ${state.overlaySize}px "${state.overlayFont}", sans-serif`;
+  ctx.font = `800 ${metrics.fontSize}px "${state.overlayFont}", sans-serif`;
   ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
+  ctx.textBaseline = "alphabetic";
   ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
   ctx.shadowBlur = 20;
-  ctx.fillText(state.overlayText, 0, 0);
+  const textMetrics = ctx.measureText(state.overlayText);
+  const ascent = textMetrics.actualBoundingBoxAscent || metrics.fontSize * 0.8;
+  const descent = textMetrics.actualBoundingBoxDescent || metrics.fontSize * 0.2;
+  const baselineOffset = (ascent - descent) / 2;
+  ctx.fillText(state.overlayText, 0, baselineOffset);
   ctx.restore();
 }
 
-function drawOverlayLogo(ctx, state, width, height, logoImage) {
-  if (!logoImage) {
+function drawOverlayLogo(ctx, state, width, height, logoImage, metrics = null) {
+  if (!logoImage || !metrics) {
     return;
   }
 
-  const logoWidth = 160 * state.logoScale;
-  const ratio = logoImage.naturalHeight / logoImage.naturalWidth;
-  const logoHeight = logoWidth * ratio;
+  const logoWidth = metrics.width;
+  const logoHeight = metrics.height;
 
   ctx.save();
   ctx.translate((state.logoPosition.x / 100) * width, (state.logoPosition.y / 100) * height);
@@ -139,10 +142,61 @@ function drawFrameOverlay(ctx, frameId, width, height) {
   }
 }
 
-function createComposedRecorder(state, previewVideo) {
+function getCompositionSize(stageElement) {
+  const rect = stageElement.getBoundingClientRect();
+  const stageWidth = Math.max(1, rect.width || APP_THRESHOLDS.composedWidth);
+  const stageHeight = Math.max(1, rect.height || APP_THRESHOLDS.composedHeight);
+  const aspectRatio = stageWidth / stageHeight;
+
+  if (aspectRatio >= 1) {
+    return {
+      stageWidth,
+      stageHeight,
+      width: APP_THRESHOLDS.composedWidth,
+      height: Math.max(2, Math.round(APP_THRESHOLDS.composedWidth / aspectRatio))
+    };
+  }
+
+  return {
+    stageWidth,
+    stageHeight,
+    width: Math.max(2, Math.round(APP_THRESHOLDS.composedHeight * aspectRatio)),
+    height: APP_THRESHOLDS.composedHeight
+  };
+}
+
+function getOverlayMetrics(dom, state, compositionSize) {
+  const scaleX = compositionSize.width / compositionSize.stageWidth;
+  const scaleY = compositionSize.height / compositionSize.stageHeight;
+  const metrics = {
+    text: null,
+    logo: null
+  };
+
+  const textElement = dom.cameraText.querySelector(".overlay-caption");
+  if (textElement instanceof HTMLElement && state.overlayText) {
+    const fontSize = Number.parseFloat(window.getComputedStyle(textElement).fontSize) || state.overlaySize;
+    metrics.text = {
+      fontSize: Math.max(1, fontSize * scaleY)
+    };
+  }
+
+  const logoElement = dom.cameraText.querySelector(".overlay-logo-image");
+  if (logoElement instanceof HTMLImageElement && state.logoDataUrl) {
+    metrics.logo = {
+      width: Math.max(1, logoElement.offsetWidth * state.logoScale * scaleX),
+      height: Math.max(1, logoElement.offsetHeight * state.logoScale * scaleY)
+    };
+  }
+
+  return metrics;
+}
+
+function createComposedRecorder(state, previewVideo, dom) {
+  const compositionSize = getCompositionSize(dom.cameraStage);
   const canvas = document.createElement("canvas");
-  canvas.width = APP_THRESHOLDS.composedWidth;
-  canvas.height = APP_THRESHOLDS.composedHeight;
+  canvas.width = compositionSize.width;
+  canvas.height = compositionSize.height;
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     throw new Error(APP_STRINGS.recordingFailed);
@@ -158,10 +212,11 @@ function createComposedRecorder(state, previewVideo) {
   }
 
   const render = () => {
+    const overlayMetrics = getOverlayMetrics(dom, state, compositionSize);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawVideoCover(ctx, previewVideo, canvas.width, canvas.height);
-    drawOverlayLogo(ctx, state, canvas.width, canvas.height, logoImage);
-    drawOverlayText(ctx, state, canvas.width, canvas.height);
+    drawOverlayLogo(ctx, state, canvas.width, canvas.height, logoImage, overlayMetrics.logo);
+    drawOverlayText(ctx, state, canvas.width, canvas.height, overlayMetrics.text);
     drawFrameOverlay(ctx, state.activeFrameId, canvas.width, canvas.height);
     rafId = window.requestAnimationFrame(render);
   };
@@ -321,7 +376,7 @@ export default function initApp() {
       await sleep(APP_THRESHOLDS.postFlashDelayMs);
 
       state.recordingChunks = [];
-      composedRecorder = createComposedRecorder(state, dom.cameraPreview);
+      composedRecorder = createComposedRecorder(state, dom.cameraPreview, dom);
       state.recorder = createMediaRecorder(composedRecorder.stream);
       state.recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
@@ -409,3 +464,4 @@ export default function initApp() {
   syncModeUi();
   void startCamera();
 }
+

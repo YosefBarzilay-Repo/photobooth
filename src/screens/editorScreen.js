@@ -77,3 +77,4 @@ export default function createEditorScreen(dom, state) {
     syncPlaybackButton
   };
 }
+

@@ -26,14 +26,6 @@
             <video id="cameraPreview" autoplay muted playsinline></video>
             <div class="camera-overlay-frame" id="cameraFrame"></div>
             <div class="camera-overlay-text" id="cameraText"></div>
-            <div class="camera-controls">
-              <button class="shutter-button" id="snapButton" type="button" aria-label="Start recording">
-                <span class="shutter-core">
-                  <span class="material-symbols-outlined" id="snapButtonIcon">videocam</span>
-                </span>
-              </button>
-              <div class="recording-timer hidden" id="recordingTimer">00:00</div>
-            </div>
             <div class="empty-camera" id="emptyCamera">
               <span class="material-symbols-outlined">photo_camera</span>
               <p>Enable your camera to start the booth.</p>
@@ -46,24 +38,38 @@
           <section class="stage-card mode-editor hidden" id="editorStage">
             <div class="film-grain"></div>
             <div class="result-stage" id="resultStage">
-              <video id="resultVideo" playsinline loop controls></video>
+              <video id="resultVideo" playsinline loop></video>
               <div class="result-overlay-frame" id="resultFrame"></div>
               <div class="result-overlay-text" id="resultText"></div>
             </div>
           </section>
         </div>
 
-        <div class="stage-brand-row">
-          <div class="brand stage-brand" id="operatorAccessTrigger">SNAPBOOTH</div>
-        </div>
+        <div class="console" id="console">
+          <div class="console-shell">
+            <button class="console-button hidden" id="operatorAccessTrigger" type="button" aria-label="Settings">
+              <span class="material-symbols-outlined">tune</span>
+              Settings
+            </button>
 
-        <div class="console">
-          <button class="console-button icon-only hidden" id="resultRetakeButton" type="button" aria-label="Retake">
-            <span class="material-symbols-outlined">refresh</span>
-          </button>
-          <button class="console-button icon-only hidden" id="anotherShotButton" type="button" aria-label="Another clip">
-            <span class="material-symbols-outlined">videocam</span>
-          </button>
+            <div class="record-control hidden" id="recordControl">
+              <button class="shutter-button" id="snapButton" type="button" aria-label="Start recording">
+                <span class="shutter-core">
+                  <span class="material-symbols-outlined" id="snapButtonIcon">videocam</span>
+                </span>
+              </button>
+              <div class="recording-timer hidden" id="recordingTimer">00:00</div>
+            </div>
+
+            <button class="console-button hidden" id="resultPlayButton" type="button" aria-label="Play video">
+              <span class="material-symbols-outlined" id="resultPlayIcon">play_arrow</span>
+              Play
+            </button>
+            <button class="console-button hidden" id="resultNewButton" type="button" aria-label="Take new video">
+              <span class="material-symbols-outlined">videocam</span>
+              Take New
+            </button>
+          </div>
         </div>
       </section>
     </main>
@@ -167,3 +173,4 @@
   <script type="module" src="src/main.js"></script>
 </body>
 </html>
+

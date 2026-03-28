@@ -1,10 +1,11 @@
 @media (max-width: 720px) {
-  .console {
-    flex-wrap: wrap;
+  .console-shell {
+    gap: 0.6rem;
+    padding: 0.75rem;
   }
 
-  .stage-brand-row {
-    margin-top: 0.6rem;
+  .console {
+    bottom: 0.7rem;
   }
 
   .operator-dialog {
@@ -75,12 +76,11 @@
   }
 
   .console {
-    margin-top: 0.5rem;
-    gap: 0.5rem;
+    bottom: 0.6rem;
   }
 
-  .stage-brand-row {
-    margin-top: 0.45rem;
+  .console-shell {
+    padding: 0.7rem 0.85rem;
   }
 
   .operator-dialog {
@@ -90,11 +90,6 @@
   .shutter-button {
     width: 104px;
     height: 104px;
-  }
-
-  body[data-mode="camera"] .shutter-button {
-    width: 124px;
-    height: 124px;
   }
 
   .console-button {

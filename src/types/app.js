@@ -34,6 +34,7 @@
  *   isRecording: boolean,
  *   shutterAnimatingOut: boolean,
  *   countdownSeconds: number,
+ *   countdownValue: number | null,
  *   recordIntervalId: number | null,
  *   recordStartedAt: number,
  *   activeFrameId: FrameId,

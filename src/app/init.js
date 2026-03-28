@@ -207,6 +207,13 @@ export default function initApp() {
     cameraScreen.syncModeUi();
   }
 
+  function resetCaptureState() {
+    state.captureInProgress = false;
+    state.isRecording = false;
+    state.shutterAnimatingOut = false;
+    state.countdownValue = null;
+  }
+
   function stopRecordingTimer() {
     clearIntervalTimer(state.recordIntervalId);
     state.recordIntervalId = null;
@@ -220,6 +227,13 @@ export default function initApp() {
     restartAnimation(dom.flashOverlay, "flash-active");
   }
 
+  async function restoreFullscreenIfNeeded() {
+    if (state.mode !== "camera") {
+      return;
+    }
+    await requestFullscreenIfPossible();
+  }
+
   async function runCountdown() {
     if (state.countdownSeconds <= 0) {
       return;
@@ -227,16 +241,17 @@ export default function initApp() {
 
     await sleep(APP_THRESHOLDS.countdownLeadInMs);
     state.shutterAnimatingOut = false;
+    state.countdownValue = state.countdownSeconds;
     syncModeUi();
-    dom.countdownOverlay.classList.remove("hidden");
 
     for (let number = state.countdownSeconds; number >= 1; number -= 1) {
-      dom.countdownOverlay.textContent = String(number);
-      restartAnimation(dom.countdownOverlay, "countdown-pop");
+      state.countdownValue = number;
+      syncModeUi();
       await sleep(1000);
     }
 
-    dom.countdownOverlay.classList.add("hidden");
+    state.countdownValue = null;
+    syncModeUi();
   }
 
   function stopStream() {
@@ -275,9 +290,7 @@ export default function initApp() {
     stopRecordingTimer();
     composedRecorder?.stop();
     composedRecorder = null;
-    state.captureInProgress = false;
-    state.isRecording = false;
-    state.shutterAnimatingOut = false;
+    resetCaptureState();
     dom.snapButton.disabled = false;
     dom.recordingTimer.textContent = "00:00";
     editorScreen.showResult();
@@ -331,9 +344,7 @@ export default function initApp() {
       stopRecordingTimer();
       composedRecorder?.stop();
       composedRecorder = null;
-      state.captureInProgress = false;
-      state.isRecording = false;
-      state.shutterAnimatingOut = false;
+      resetCaptureState();
       dom.snapButton.disabled = false;
       syncModeUi();
       cameraScreen.showError(APP_STRINGS.recordingFailed);
@@ -353,9 +364,7 @@ export default function initApp() {
     stopRecordingTimer();
     composedRecorder?.stop();
     composedRecorder = null;
-    state.captureInProgress = false;
-    state.isRecording = false;
-    state.shutterAnimatingOut = false;
+    resetCaptureState();
     state.recordingChunks = [];
     state.recordingBlob = null;
 
@@ -374,6 +383,7 @@ export default function initApp() {
   operatorScreen.syncControlsFromState();
   operatorScreen.renderFrameTray();
   editorScreen.renderOverlayPreview();
+  editorScreen.syncPlaybackButton();
   void requestFullscreenIfPossible();
   document.addEventListener("pointerdown", () => {
     void requestFullscreenIfPossible();
@@ -381,10 +391,19 @@ export default function initApp() {
   document.addEventListener("keydown", () => {
     void requestFullscreenIfPossible();
   }, { once: true });
+  window.addEventListener("focus", () => {
+    void restoreFullscreenIfNeeded();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      void restoreFullscreenIfNeeded();
+    }
+  });
   wireEvents(dom, state, {
     captureVideo,
     handleResultReset,
-    operatorScreen
+    operatorScreen,
+    editorScreen
   });
   syncModeUi();
   void startCamera();

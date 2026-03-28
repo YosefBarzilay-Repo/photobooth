@@ -8,20 +8,28 @@ import { APP_STRINGS } from "../constants/appConfig.js";
 export default function createCameraScreen(dom, state) {
   function syncModeUi() {
     document.body.dataset.mode = state.mode;
+    const cameraMode = state.mode === "camera";
     const editorVisible = state.mode === "editor";
-    const hideShutter = state.mode !== "camera" || (state.captureInProgress && !state.shutterAnimatingOut && !state.isRecording);
+    const countdownActive = state.countdownValue !== null;
+    const hideShutter = !cameraMode || (state.captureInProgress && !countdownActive && !state.isRecording);
     const showResultActions = state.mode === "editor";
+    const hideConsole = state.operatorPanelOpen;
 
     dom.cameraStage.classList.toggle("hidden", editorVisible);
     dom.editorStage.classList.toggle("hidden", !editorVisible);
+    dom.console.classList.toggle("hidden", hideConsole);
+    dom.recordControl.classList.toggle("hidden", !cameraMode);
+    dom.operatorAccessTrigger.classList.toggle("hidden", !cameraMode);
+    dom.operatorAccessTrigger.disabled = state.isRecording;
     dom.snapButton.classList.toggle("hidden", hideShutter);
     dom.snapButton.classList.toggle("shutter-exit", state.shutterAnimatingOut);
     dom.snapButton.classList.toggle("is-recording", state.isRecording);
+    dom.snapButton.classList.toggle("is-countdown", countdownActive);
     dom.snapButton.ariaLabel = state.isRecording ? "Stop recording" : "Start recording";
-    dom.snapButtonIcon.textContent = state.isRecording ? "stop" : "videocam";
+    dom.snapButtonIcon.textContent = countdownActive ? String(state.countdownValue) : state.isRecording ? "stop" : "videocam";
     dom.recordingTimer.classList.toggle("hidden", !state.isRecording);
-    dom.resultRetakeButton.classList.toggle("hidden", !showResultActions);
-    dom.anotherShotButton.classList.toggle("hidden", !showResultActions);
+    dom.resultPlayButton.classList.toggle("hidden", !showResultActions);
+    dom.resultNewButton.classList.toggle("hidden", !showResultActions);
   }
 
   function showError(message) {

@@ -11,7 +11,6 @@ export default function wireEvents(dom, state, handlers) {
   dom.cameraStage.addEventListener("click", (event) => {
     const target = /** @type {HTMLElement} */ (event.target);
     if (
-      target.closest("#operatorAccessTrigger") ||
       target.closest("button") ||
       target.closest(".overlay-tool-button") ||
       target.closest(".overlay-color-swatch")
@@ -24,13 +23,17 @@ export default function wireEvents(dom, state, handlers) {
     }
   });
 
-  dom.resultRetakeButton.addEventListener("click", () => {
+  dom.resultPlayButton.addEventListener("click", () => {
+    handlers.editorScreen.togglePlayback();
+  });
+
+  dom.resultNewButton.addEventListener("click", () => {
     void handlers.handleResultReset();
   });
 
-  dom.anotherShotButton.addEventListener("click", () => {
-    void handlers.handleResultReset();
-  });
+  dom.resultVideo.addEventListener("play", handlers.editorScreen.handlePlaybackStateChange);
+  dom.resultVideo.addEventListener("pause", handlers.editorScreen.handlePlaybackStateChange);
+  dom.resultVideo.addEventListener("ended", handlers.editorScreen.handlePlaybackStateChange);
 
   dom.operatorCloseButton.addEventListener("click", () => {
     handlers.operatorScreen.setOperatorPanelOpen(false);
@@ -39,7 +42,7 @@ export default function wireEvents(dom, state, handlers) {
   dom.operatorAccessTrigger.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    handlers.operatorScreen.registerOperatorAccessClick();
+    handlers.operatorScreen.setOperatorPanelOpen(true);
   });
 
   dom.countdownInput.addEventListener("input", handlers.operatorScreen.syncCountdownFromControl);

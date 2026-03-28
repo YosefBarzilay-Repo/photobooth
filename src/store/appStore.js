@@ -23,6 +23,7 @@ export default function createAppStore() {
     isRecording: false,
     shutterAnimatingOut: false,
     countdownSeconds: APP_DEFAULTS.countdownSeconds,
+    countdownValue: null,
     recordIntervalId: null,
     recordStartedAt: 0,
     activeFrameId: APP_DEFAULTS.activeFrameId,

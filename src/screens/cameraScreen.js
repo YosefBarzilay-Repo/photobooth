@@ -1,4 +1,4 @@
-import { APP_STRINGS } from "../constants/appConfig.js";
+﻿import { APP_STRINGS } from "../constants/appConfig.js";
 
 /**
  * @typedef {import("../types/app.js").AppState} AppState
@@ -9,22 +9,24 @@ export default function createCameraScreen(dom, state) {
   function syncModeUi() {
     document.body.dataset.mode = state.mode;
     const cameraMode = state.mode === "camera";
-    const editorVisible = state.mode === "editor" || state.mode === "slideshow";
+    const editorVisible = state.mode === "editor";
     const countdownActive = state.countdownValue !== null;
     const showResultActions = state.mode === "editor";
-    const hideConsole = state.operatorPanelOpen || state.mode === "slideshow";
+    const hideConsole = state.operatorPanelOpen || state.galleryPanelOpen;
+    const resultActionsDisabled = state.isSaving;
 
     dom.cameraStage.classList.toggle("hidden", editorVisible);
     dom.editorStage.classList.toggle("hidden", !editorVisible);
     dom.console.classList.toggle("hidden", hideConsole);
     dom.recordControl.classList.toggle("hidden", !cameraMode);
     dom.openPreviewButton.classList.toggle("hidden", !cameraMode);
-    dom.openPreviewButton.disabled = state.isRecording || state.captureInProgress;
+    dom.openPreviewButton.disabled = state.isRecording || state.captureInProgress || state.isSaving;
     dom.snapButton.classList.toggle("hidden", !cameraMode);
     dom.snapButton.classList.toggle("shutter-exit", false);
     dom.snapButton.classList.toggle("is-recording", state.isRecording);
     dom.snapButton.classList.toggle("is-countdown", countdownActive);
     dom.snapButton.ariaLabel = state.isRecording ? "Stop recording" : "Start recording";
+    dom.snapButton.disabled = state.isSaving;
 
     const showLabel = countdownActive || state.isRecording;
     dom.snapButtonIcon.classList.toggle("hidden", showLabel);
@@ -40,13 +42,27 @@ export default function createCameraScreen(dom, state) {
     }
 
     dom.recordingTimer.classList.add("hidden");
-    dom.resultPlayButton.classList.toggle("hidden", !showResultActions);
-    dom.resultSaveButton.classList.toggle("hidden", !showResultActions);
-    dom.resultSaveButton.disabled = !state.recordingBlob;
     dom.resultNewButton.classList.toggle("hidden", !showResultActions);
+    dom.previewSeparatorPrimary.classList.toggle("hidden", !showResultActions);
+    dom.resultSaveButton.classList.toggle("hidden", !showResultActions);
+    dom.resultSaveButton.disabled = !state.recordingBlob || resultActionsDisabled;
+    dom.resultSaveButton.classList.toggle("is-busy", state.isSaving);
+    dom.resultSaveIcon.textContent = state.isSaving ? "progress_activity" : "download";
+    dom.resultSaveLabel.textContent = state.isSaving ? "Saving..." : "Save";
+    dom.resultPlayButton.classList.toggle("hidden", !showResultActions);
+    dom.resultPlayButton.disabled = !state.recordingUrl || resultActionsDisabled;
+    dom.resultGalleryButton.classList.toggle("hidden", !showResultActions);
+    dom.resultGalleryButton.disabled = resultActionsDisabled;
+    dom.previewSeparatorSecondary.classList.toggle("hidden", !showResultActions);
+    dom.resultProjectsButton.classList.toggle("hidden", !showResultActions);
+    dom.resultProjectsButton.disabled = resultActionsDisabled;
+    dom.previewSeparatorTertiary.classList.toggle("hidden", !showResultActions);
     dom.resultSlideshowButton.classList.toggle("hidden", !showResultActions);
-    dom.resultSlideshowButton.disabled = state.savedSlideshowEntries.length === 0 && !state.saveDirectoryHandle && !state.saveDirectoryPath;
+    dom.resultSlideshowButton.disabled = resultActionsDisabled;
+    dom.previewSeparatorQuaternary.classList.toggle("hidden", !showResultActions);
     dom.resultSettingsButton.classList.toggle("hidden", !showResultActions);
+    dom.resultSettingsButton.disabled = resultActionsDisabled;
+    dom.resultNewButton.disabled = resultActionsDisabled;
   }
 
   function showError(message) {

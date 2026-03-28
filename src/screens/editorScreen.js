@@ -11,6 +11,12 @@ import { renderOverlayLayer } from "../components/overlayRenderer.js";
  * @param {AppState} state
  */
 export default function createEditorScreen(dom, state) {
+  function syncEmptyState() {
+    const shouldShowEmptyState = !state.recordingUrl;
+    dom.resultEmptyState.classList.toggle("hidden", !shouldShowEmptyState);
+    dom.resultVideo.classList.toggle("hidden", shouldShowEmptyState);
+  }
+
   function syncPlaybackButton() {
     const paused = dom.resultVideo.paused || dom.resultVideo.ended;
     dom.resultPlayIcon.textContent = paused ? "play_arrow" : "pause";
@@ -26,6 +32,7 @@ export default function createEditorScreen(dom, state) {
 
   function loadResultSource(url) {
     if (!url) {
+      syncEmptyState();
       return;
     }
 
@@ -35,22 +42,20 @@ export default function createEditorScreen(dom, state) {
     dom.resultVideo.style.transform = "none";
     dom.resultVideo.loop = false;
     dom.resultVideo.load();
+    syncEmptyState();
     syncPlaybackButton();
   }
 
   function showResult() {
     if (state.recordingUrl) {
       loadResultSource(state.recordingUrl);
+    } else {
+      syncEmptyState();
     }
 
     state.mode = "editor";
     renderOverlayPreview();
-  }
-
-  function showSlideshow(url) {
-    loadResultSource(url);
-    state.mode = "slideshow";
-    renderOverlayPreview();
+    syncEmptyState();
   }
 
   function togglePlayback() {
@@ -76,6 +81,7 @@ export default function createEditorScreen(dom, state) {
     dom.resultVideo.pause();
     dom.resultVideo.removeAttribute("src");
     dom.resultVideo.load();
+    syncEmptyState();
     syncPlaybackButton();
   }
 
@@ -86,10 +92,10 @@ export default function createEditorScreen(dom, state) {
   return {
     renderOverlayPreview,
     showResult,
-    showSlideshow,
     togglePlayback,
     resetResultVideo,
     handlePlaybackStateChange,
-    syncPlaybackButton
+    syncPlaybackButton,
+    syncEmptyState
   };
 }

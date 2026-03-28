@@ -1,6 +1,7 @@
-import { APP_STRINGS, APP_THRESHOLDS } from "../constants/appConfig.js";
+import { APP_STRINGS, APP_THRESHOLDS, DISABLED_AUDIO_INPUT_ID } from "../constants/appConfig.js";
 import renderFrameTray from "../components/frameTray.js";
-import { isDesktopApp, pickDesktopDirectory } from "../services/desktopService.js";
+import { getDefaultRecordingsDirectory, isDesktopApp, pickDesktopDirectory } from "../services/desktopService.js";
+import { logger } from "../services/logger.js";
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -29,6 +30,20 @@ function getViewportLimits() {
     maxX: Math.max(APP_THRESHOLDS.dialogEdgeMargin, window.innerWidth - APP_THRESHOLDS.dialogEdgeMargin),
     maxY: Math.max(APP_THRESHOLDS.dialogEdgeMargin, window.innerHeight - APP_THRESHOLDS.dialogEdgeMargin)
   };
+}
+
+function replaceSelectOptions(select, options, selectedValue) {
+  select.replaceChildren();
+
+  options.forEach((option) => {
+    const optionElement = document.createElement("option");
+    optionElement.value = option.value;
+    optionElement.textContent = option.label;
+    select.appendChild(optionElement);
+  });
+
+  const hasSelected = options.some((option) => option.value === selectedValue);
+  select.value = hasSelected ? selectedValue : options[0]?.value || "";
 }
 
 export default function createOperatorScreen(dom, state, editorScreen, onSettingsChanged = () => {}) {
@@ -67,7 +82,6 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
 
   function renderPreview() {
     editorScreen.renderOverlayPreview();
-    dom.saveFolderLabel.textContent = state.saveDirectoryName;
     dom.console.classList.toggle("hidden", state.operatorPanelOpen);
     syncDialogRect();
   }
@@ -104,10 +118,6 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     return Math.max(0, Math.min(120, Math.round(value)));
   }
 
-  function clampSlideshowIdle(value) {
-    return clamp(Math.round(value), APP_THRESHOLDS.minSlideshowIdleSeconds, APP_THRESHOLDS.maxSlideshowIdleSeconds);
-  }
-
   function syncOffField(input, value) {
     input.value = value > 0 ? String(value) : "";
     input.placeholder = "Off";
@@ -129,23 +139,10 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     notifySettingsChanged();
   }
 
-  function syncSlideshowIdleFromControl() {
-    const idleValue = clampSlideshowIdle(Number(dom.slideshowIdleInput.value) || 0);
-    state.slideshowIdleSeconds = idleValue;
-    syncOffField(dom.slideshowIdleInput, idleValue);
-    notifySettingsChanged();
-  }
-
   function stepCountdown(delta) {
     const currentValue = state.countdownSeconds;
     dom.countdownInput.value = String(clampCountdown(currentValue + delta));
     syncCountdownFromControl();
-  }
-
-  function stepSlideshowIdle(delta) {
-    const currentValue = state.slideshowIdleSeconds;
-    dom.slideshowIdleInput.value = String(clampSlideshowIdle(currentValue + delta));
-    syncSlideshowIdleFromControl();
   }
 
   function syncOverlayControls() {
@@ -164,15 +161,32 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     notifySettingsChanged();
   }
 
+  function syncMediaInputSelections() {
+    state.videoInputId = dom.cameraInputSelect.value;
+    state.audioInputId = dom.audioInputSelect.value || DISABLED_AUDIO_INPUT_ID;
+    void logger.audit("Operator changed media input selection.", {
+      videoInputId: state.videoInputId || "default",
+      audioInputId: state.audioInputId || "default"
+    });
+    notifySettingsChanged();
+  }
+
+  function populateMediaDeviceOptions({ videoOptions, audioOptions }) {
+    replaceSelectOptions(dom.cameraInputSelect, videoOptions, state.videoInputId);
+    replaceSelectOptions(dom.audioInputSelect, audioOptions, state.audioInputId);
+    state.videoInputId = dom.cameraInputSelect.value;
+    state.audioInputId = dom.audioInputSelect.value;
+  }
+
   function syncControlsFromState() {
     syncOffField(dom.countdownInput, state.countdownSeconds);
-    syncOffField(dom.slideshowIdleInput, state.slideshowIdleSeconds);
     dom.textInput.value = state.overlayText;
     dom.fontSelect.value = state.overlayFont;
+    dom.cameraInputSelect.value = state.videoInputId;
+    dom.audioInputSelect.value = state.audioInputId || DISABLED_AUDIO_INPUT_ID;
     dialogRect.width = APP_THRESHOLDS.dialogDefaultWidth;
     dialogRect.height = Math.max(APP_THRESHOLDS.dialogMinHeight, window.innerHeight - APP_THRESHOLDS.dialogEdgeMargin * 2);
     syncCountdownFromControl();
-    syncSlideshowIdleFromControl();
     syncDialogRect();
     renderPreview();
   }
@@ -258,24 +272,38 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   async function pickSaveFolder() {
     if (isDesktopApp()) {
       try {
-        const selectedDirectory = await pickDesktopDirectory();
+        const defaultPath = state.saveDirectoryPath || await getDefaultRecordingsDirectory().catch(() => "");
+        void logger.audit("Choose folder requested.", {
+          currentSaveDirectoryPath: state.saveDirectoryPath,
+          dialogDefaultPath: defaultPath
+        });
+        const selectedDirectory = await pickDesktopDirectory(defaultPath);
         if (!selectedDirectory || Array.isArray(selectedDirectory)) {
+          void logger.info("Choose folder dialog cancelled.", { defaultPath });
           return "cancelled";
         }
 
         state.saveDirectoryHandle = null;
         state.saveDirectoryPath = selectedDirectory;
         state.saveDirectoryName = selectedDirectory.split(/[\\/]/).filter(Boolean).pop() || APP_STRINGS.saveFolderDefault;
+        void logger.info("Save folder selected.", {
+          selectedDirectory,
+          saveDirectoryName: state.saveDirectoryName
+        });
         renderPreview();
         notifySettingsChanged();
         return "picked";
-      } catch {
+      } catch (error) {
+        void logger.exception("Choose folder dialog failed.", error, {
+          currentSaveDirectoryPath: state.saveDirectoryPath
+        });
         return "cancelled";
       }
     }
 
     if (!("showDirectoryPicker" in window)) {
       state.saveDirectoryName = APP_STRINGS.folderUnsupported;
+      void logger.warn("Choose folder is unsupported in this browser environment.");
       renderPreview();
       return "unsupported";
     }
@@ -285,10 +313,12 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
       state.saveDirectoryHandle = directoryHandle;
       state.saveDirectoryPath = "";
       state.saveDirectoryName = directoryHandle.name || APP_STRINGS.saveFolderDefault;
+      void logger.info("Browser save folder selected.", { saveDirectoryName: state.saveDirectoryName });
       renderPreview();
       notifySettingsChanged();
       return "picked";
-    } catch {
+    } catch (error) {
+      void logger.exception("Browser choose folder dialog failed.", error);
       return "cancelled";
     }
   }
@@ -311,6 +341,10 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     state.logoRotation = 0;
     state.logoPosition = { x: 50, y: 20 };
     state.activeOverlayTarget = "logo";
+    void logger.audit("Operator uploaded logo overlay.", {
+      filename: file.name,
+      size: file.size
+    });
     renderPreview();
     notifySettingsChanged();
   }
@@ -517,9 +551,9 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     syncControlsFromState,
     syncOverlayControls,
     syncCountdownFromControl,
-    syncSlideshowIdleFromControl,
+    syncMediaInputSelections,
+    populateMediaDeviceOptions,
     stepCountdown,
-    stepSlideshowIdle,
     setOperatorPanelOpen,
     registerOperatorAccessClick,
     renderFrameTray: renderFrameTrayView,
@@ -536,3 +570,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     handleWindowResize
   };
 }
+
+
+
+

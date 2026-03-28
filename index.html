@@ -43,6 +43,10 @@
             <div class="film-grain"></div>
             <div class="result-stage" id="resultStage">
               <video id="resultVideo" playsinline></video>
+              <div class="result-empty-state" id="resultEmptyState">
+                <span class="material-symbols-outlined">video_library</span>
+                <p>No video recorded yet. Record a clip to preview it here.</p>
+              </div>
               <div class="result-overlay-frame" id="resultFrame"></div>
               <div class="result-overlay-text" id="resultText"></div>
             </div>
@@ -66,22 +70,34 @@
               <div class="recording-timer hidden" id="recordingTimer">00:00</div>
             </div>
 
-            <button class="console-button hidden" id="resultPlayButton" type="button" aria-label="Play video">
-              <span class="material-symbols-outlined" id="resultPlayIcon">play_arrow</span>
-              Play
-            </button>
-            <button class="console-button hidden" id="resultSaveButton" type="button" aria-label="Save video">
-              <span class="material-symbols-outlined">download</span>
-              Save
-            </button>
             <button class="console-button hidden" id="resultNewButton" type="button" aria-label="Take new video">
               <span class="material-symbols-outlined">videocam</span>
               Take New
             </button>
-            <button class="console-button hidden" id="resultSlideshowButton" type="button" aria-label="Start slideshow">
+            <span class="console-separator hidden" id="previewSeparatorPrimary" aria-hidden="true">|</span>
+            <button class="console-button hidden" id="resultSaveButton" type="button" aria-label="Save video">
+              <span class="material-symbols-outlined" id="resultSaveIcon">download</span>
+              <span id="resultSaveLabel">Save</span>
+            </button>
+            <button class="console-button hidden" id="resultPlayButton" type="button" aria-label="Play video">
+              <span class="material-symbols-outlined" id="resultPlayIcon">play_arrow</span>
+              Play
+            </button>
+            <button class="console-button hidden" id="resultGalleryButton" type="button" aria-label="Open gallery">
+              <span class="material-symbols-outlined">video_library</span>
+              Gallery
+            </button>
+            <span class="console-separator hidden" id="previewSeparatorSecondary" aria-hidden="true">|</span>
+            <button class="console-button hidden" id="resultProjectsButton" type="button" aria-label="Open projects">
+              <span class="material-symbols-outlined">folder_copy</span>
+              Projects
+            </button>
+            <span class="console-separator hidden" id="previewSeparatorTertiary" aria-hidden="true">|</span>
+            <button class="console-button hidden" id="resultSlideshowButton" type="button" aria-label="Open slideshow window">
               <span class="material-symbols-outlined">slideshow</span>
               Slideshow
             </button>
+            <span class="console-separator hidden" id="previewSeparatorQuaternary" aria-hidden="true">|</span>
             <button class="console-button hidden" id="resultSettingsButton" type="button" aria-label="Open settings">
               <span class="material-symbols-outlined">tune</span>
               Settings
@@ -106,12 +122,12 @@
           <section class="panel-section">
             <div class="section-header">
               <div>
-                <p class="panel-title panel-title-small">Caption</p>
+                <p class="panel-title panel-title-small">Video Editor</p>
               </div>
             </div>
             <label class="field">
               <span class="field-label">Text</span>
-              <input id="textInput" type="text" maxlength="60" placeholder="Type your caption">
+              <input id="textInput" type="text" maxlength="60" placeholder="Type your caption" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
             </label>
             <label class="field field-inline">
               <span class="field-label">Font</span>
@@ -122,12 +138,24 @@
                 <option value="Courier New">Courier New</option>
               </select>
             </label>
+            <button class="console-button secondary-button" id="logoUploadButton" type="button">
+              <span class="material-symbols-outlined">image</span>
+              Upload Logo
+            </button>
+            <input id="logoInput" type="file" accept="image/*" class="hidden">
+            <div class="field">
+              <span class="field-label">Filter</span>
+              <p class="settings-note">Use the frame picker below to style the saved video output.</p>
+            </div>
+            <div class="frame-tray operator-frame-tray" id="frameTray"></div>
           </section>
+
+          <div class="panel-separator" aria-hidden="true"></div>
 
           <section class="panel-section">
             <div class="section-header">
               <div>
-                <p class="panel-title panel-title-small">Recording</p>
+                <p class="panel-title panel-title-small">Recording Countdown</p>
               </div>
             </div>
             <div class="field field-inline">
@@ -142,32 +170,9 @@
                 </button>
               </div>
             </div>
-            <div class="field field-inline">
-              <span class="field-label">Slideshow After Idle Seconds</span>
-              <div class="stepper-control">
-                <button class="stepper-button" id="slideshowIdleMinusButton" type="button" aria-label="Decrease slideshow idle timer">
-                  <span class="material-symbols-outlined">remove</span>
-                </button>
-                <input id="slideshowIdleInput" type="number" min="0" max="600" step="1" value="0" inputmode="numeric">
-                <button class="stepper-button" id="slideshowIdlePlusButton" type="button" aria-label="Increase slideshow idle timer">
-                  <span class="material-symbols-outlined">add</span>
-                </button>
-              </div>
-            </div>
           </section>
 
-          <section class="panel-section">
-            <div class="section-header">
-              <div>
-                <p class="panel-title panel-title-small">Branding</p>
-              </div>
-            </div>
-            <button class="console-button secondary-button" id="logoUploadButton" type="button">
-              <span class="material-symbols-outlined">image</span>
-              Upload Logo
-            </button>
-            <input id="logoInput" type="file" accept="image/*" class="hidden">
-          </section>
+          <div class="panel-separator" aria-hidden="true"></div>
 
           <section class="panel-section">
             <div class="section-header">
@@ -179,22 +184,38 @@
               <span class="material-symbols-outlined">folder_open</span>
               Choose Folder
             </button>
-            <p class="save-folder-label" id="saveFolderLabel">Default save location</p>
+            
           </section>
+
+          <div class="panel-separator" aria-hidden="true"></div>
 
           <section class="panel-section">
             <div class="section-header">
               <div>
-                <h3 class="panel-title panel-title-small">Frame</h3>
+                <p class="panel-title panel-title-small">Recording Inputs</p>
               </div>
             </div>
-            <div class="frame-tray operator-frame-tray" id="frameTray"></div>
+            <label class="field field-inline">
+              <span class="field-label">Camera Input</span>
+              <select id="cameraInputSelect">
+                <option value="">System Default Camera</option>
+              </select>
+            </label>
+            <label class="field field-inline">
+              <span class="field-label">Audio Input</span>
+              <select id="audioInputSelect">
+                <option value="">System Default Microphone</option>
+                <option value="__none__">Audio Off</option>
+              </select>
+            </label>
           </section>
+
+          <div class="panel-separator" aria-hidden="true"></div>
 
           <section class="panel-section">
             <div class="section-header">
               <div>
-                <p class="panel-title panel-title-small">Desktop</p>
+                <p class="panel-title panel-title-small">Close App</p>
               </div>
             </div>
             <button class="console-button secondary-button" id="operatorCloseAppButton" type="button">
@@ -214,6 +235,66 @@
       </div>
     </section>
 
+    <section class="operator-page hidden" id="galleryPanel" aria-label="Gallery">
+      <div class="operator-dialog gallery-dialog" id="galleryDialog">
+        <header class="operator-dialog-header" id="galleryDialogHeader">
+          <div class="operator-heading">
+            <div class="brand operator-dialog-brand">Library</div>
+            <p class="gallery-status" id="galleryStatus">0 saved videos</p>
+            <div class="gallery-tabs" role="tablist" aria-label="Library views">
+              <button class="gallery-tab is-active" id="galleryTabVideos" type="button" role="tab" aria-selected="true">Videos</button>
+              <button class="gallery-tab" id="galleryTabProjects" type="button" role="tab" aria-selected="false">Projects</button>
+            </div>
+          </div>
+          <button class="icon-button" id="galleryCloseButton" type="button" title="Close gallery">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </header>
+
+        <div class="operator-dialog-body gallery-dialog-body" id="galleryDialogBody">
+          <div class="gallery-list" id="galleryList"></div>
+          <div class="gallery-empty hidden" id="galleryEmptyState">
+            <span class="material-symbols-outlined" id="galleryEmptyIcon">video_library</span>
+            <p id="galleryEmptyText">No saved videos yet. Save a recording to show it here.</p>
+          </div>
+        </div>
+
+        <div class="operator-dialog-footer gallery-dialog-footer">
+          <p class="operator-version-label" id="galleryFooterLabel">Open a saved video to load it into preview.</p>
+          <button class="secondary-button gallery-footer-action" id="galleryOpenFolderButton" type="button">
+            <span class="material-symbols-outlined">folder_open</span>
+            Open Folder
+          </button>
+        </div>
+
+        <button class="operator-dialog-resize" id="galleryDialogResize" type="button" aria-label="Resize gallery dialog">
+          <span class="material-symbols-outlined">open_in_full</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="launch-overlay" id="launchOverlay" aria-hidden="true">
+      <div class="launch-overlay-brand">Photobooth</div>
+    </section>
+
+    <section class="app-dialog-overlay hidden" id="projectDialogOverlay" aria-modal="true" role="dialog" aria-labelledby="projectDialogTitle">
+      <div class="app-dialog-card project-dialog-card">
+        <header class="app-dialog-header">
+          <h2 class="panel-title panel-title-small" id="projectDialogTitle">Open New Project?</h2>
+        </header>
+        <p class="app-dialog-message project-dialog-message" id="projectDialogMessage">Create a new project folder for this event, or continue with the current setup.</p>
+        <label class="field">
+          <span class="field-label">Project Name</span>
+          <input id="projectNameInput" type="text" maxlength="80" placeholder="Event name" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+        </label>
+        <p class="dialog-error hidden" id="projectDialogError"></p>
+        <div class="app-dialog-actions">
+          <button class="secondary-button" id="projectContinueButton" type="button">Continue Current</button>
+          <button class="primary-button" id="projectCreateButton" type="button">Create Project</button>
+        </div>
+      </div>
+    </section>
+
     <section class="app-dialog-overlay hidden" id="appDialogOverlay" aria-modal="true" role="dialog" aria-labelledby="appDialogTitle">
       <div class="app-dialog-card">
         <header class="app-dialog-header">
@@ -223,6 +304,10 @@
           </button>
         </header>
         <p class="app-dialog-message" id="appDialogMessage"></p>
+        <div class="app-dialog-actions hidden" id="appDialogActions">
+          <button class="secondary-button" id="appDialogCancelButton" type="button">No</button>
+          <button class="primary-button" id="appDialogConfirmButton" type="button">Yes</button>
+        </div>
       </div>
     </section>
   </div>
@@ -230,3 +315,5 @@
   <script type="module" src="src/main.js"></script>
 </body>
 </html>
+
+

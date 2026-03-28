@@ -56,6 +56,10 @@
   transform: scaleX(-1);
 }
 
+#resultVideo.hidden {
+  display: none;
+}
+
 .result-stage {
   position: relative;
   width: 100%;
@@ -67,6 +71,7 @@
 .countdown-overlay,
 .error-overlay,
 .empty-camera,
+.result-empty-state,
 .camera-overlay-frame,
 .camera-overlay-text,
 .result-overlay-frame,
@@ -97,7 +102,8 @@
 }
 
 .error-overlay,
-.empty-camera {
+.empty-camera,
+.result-empty-state {
   z-index: 2;
   display: grid;
   place-items: center;
@@ -108,9 +114,16 @@
 }
 
 .empty-camera .material-symbols-outlined,
-.error-overlay .material-symbols-outlined {
+.error-overlay .material-symbols-outlined,
+.result-empty-state .material-symbols-outlined {
   font-size: 3rem;
   margin-bottom: 0.75rem;
+}
+
+.result-empty-state {
+  background:
+    radial-gradient(circle at center, rgba(255, 136, 181, 0.16), transparent 45%),
+    linear-gradient(180deg, rgba(5, 5, 7, 0.82), rgba(5, 5, 7, 0.94));
 }
 
 .shutter-button {
@@ -215,4 +228,3 @@
   0%, 100% { opacity: 0.2; }
   50% { opacity: 1; }
 }
-

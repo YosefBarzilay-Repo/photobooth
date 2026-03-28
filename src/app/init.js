@@ -3,6 +3,7 @@ import createDomRefs from "./dom.js";
 import createCameraScreen from "../screens/cameraScreen.js";
 import createEditorScreen from "../screens/editorScreen.js";
 import createOperatorScreen from "../screens/operatorScreen.js";
+import createGalleryScreen from "../screens/galleryScreen.js";
 import wireEvents from "./events.js";
 import { APP_DEFAULTS, APP_STRINGS, APP_THRESHOLDS } from "../constants/appConfig.js";
 import { sleep, clearIntervalTimer } from "../utils/timing.js";
@@ -10,16 +11,23 @@ import { startCameraStream, stopCameraStream } from "../services/cameraService.j
 import { createMediaRecorder, createRecordingBlob, getRecordingExtension } from "../services/recordingService.js";
 import {
   createObjectUrl,
+  deleteSavedRecording,
   saveRecording,
   buildTimestampFilename,
-  loadSavedRecordingsFromDirectory,
-  revokeObjectUrl
+  loadSavedRecordingsFromDirectory
 } from "../services/downloadService.js";
 import {
   closeDesktopApp,
+  createDesktopProjectDirectory,
+  deleteDesktopProjectDirectory,
+  getDefaultRecordingsDirectory,
   getDesktopAppVersion,
   getFullscreenState,
   isDesktopApp,
+  listDesktopProjects,
+  openDesktopSlideshowWindow,
+  openDesktopDirectory,
+  renameDesktopProjectDirectory,
   setFullscreenState
 } from "../services/desktopService.js";
 import {
@@ -27,6 +35,12 @@ import {
   loadPersistedSettings,
   persistSettings
 } from "../services/settingsPersistence.js";
+import {
+  buildAudioInputOptions,
+  buildVideoInputOptions,
+  enumerateInputDevices
+} from "../services/mediaDeviceService.js";
+import { logger } from "../services/logger.js";
 
 function restartAnimation(element, className) {
   element.classList.remove(className);
@@ -51,6 +65,35 @@ function formatErrorMessage(error, fallbackMessage) {
   }
 
   return fallbackMessage;
+}
+
+function getParentDirectory(directoryPath) {
+  const normalized = String(directoryPath || "").trim().replace(/[\\/]+$/, "");
+  if (!normalized) {
+    return "";
+  }
+
+  const lastSlashIndex = Math.max(normalized.lastIndexOf("\\"), normalized.lastIndexOf("/"));
+  if (lastSlashIndex <= 0) {
+    return "";
+  }
+
+  return normalized.slice(0, lastSlashIndex);
+}
+
+const VALID_PROJECT_NAME_PATTERN = /^[A-Za-z0-9 .-]+$/;
+
+function validateProjectName(projectName) {
+  const normalizedName = String(projectName || "").trim();
+  if (!normalizedName) {
+    return APP_STRINGS.projectNameRequired;
+  }
+
+  if (!VALID_PROJECT_NAME_PATTERN.test(normalizedName)) {
+    return APP_STRINGS.projectNameInvalid;
+  }
+
+  return "";
 }
 
 function drawVideoCover(ctx, video, width, height) {
@@ -233,6 +276,15 @@ function createComposedRecorder(state, previewVideo, dom) {
   }
 
   const stream = canvas.captureStream(APP_THRESHOLDS.composedFps);
+  const sourceStream = previewVideo.srcObject instanceof MediaStream ? previewVideo.srcObject : null;
+  sourceStream?.getAudioTracks().forEach((track) => {
+    try {
+      stream.addTrack(track.clone());
+    } catch {
+      // Ignore audio tracks that cannot be cloned into the composed stream.
+    }
+  });
+
   let rafId = 0;
   let logoImage = null;
 
@@ -290,35 +342,257 @@ export default function initApp() {
   const state = createAppStore();
   state.isDesktopApp = isDesktopApp();
   applyPersistedSettings(state, { ...APP_DEFAULTS, saveFolderDefault: APP_STRINGS.saveFolderDefault }, loadPersistedSettings());
+  void logger.info("Photobooth app initialization started.", {
+    isDesktopApp: state.isDesktopApp,
+    saveDirectoryPath: state.saveDirectoryPath,
+    saveDirectoryName: state.saveDirectoryName
+  });
   const dom = createDomRefs();
   const cameraScreen = createCameraScreen(dom, state);
   const editorScreen = createEditorScreen(dom, state);
   const operatorScreen = createOperatorScreen(dom, state, editorScreen, persistSettings);
   let composedRecorder = null;
+  let cameraSessionId = 0;
+  let dialogResolver = null;
+  let dialogIsConfirmation = false;
 
   function syncModeUi() {
     cameraScreen.syncModeUi();
   }
 
+  function resetDialogState() {
+    dialogResolver = null;
+    dialogIsConfirmation = false;
+  }
+
+  function hideAppDialog(result = false) {
+    dom.appDialogOverlay.classList.add("hidden");
+    const resolver = dialogResolver;
+    resetDialogState();
+    if (resolver) {
+      resolver(Boolean(result));
+    }
+  }
+
   function showAppDialog(title, message) {
     dom.appDialogTitle.textContent = title;
     dom.appDialogMessage.textContent = message;
+    dom.appDialogActions.classList.remove("hidden");
+    dom.appDialogCancelButton.classList.add("hidden");
+    dom.appDialogConfirmButton.textContent = "OK";
     dom.appDialogOverlay.classList.remove("hidden");
+    resetDialogState();
   }
 
-  function hideAppDialog() {
-    dom.appDialogOverlay.classList.add("hidden");
+  function requestConfirmation({ title, message, confirmLabel = "Yes", cancelLabel = "No" }) {
+    dom.appDialogTitle.textContent = title;
+    dom.appDialogMessage.textContent = message;
+    dom.appDialogCancelButton.textContent = cancelLabel;
+    dom.appDialogConfirmButton.textContent = confirmLabel;
+    dom.appDialogCancelButton.classList.remove("hidden");
+    dom.appDialogActions.classList.remove("hidden");
+    dom.appDialogOverlay.classList.remove("hidden");
+    dialogIsConfirmation = true;
+
+    return new Promise((resolve) => {
+      dialogResolver = resolve;
+    });
+  }
+
+  function showProjectDialog() {
+    dom.projectDialogError.textContent = "";
+    dom.projectDialogError.classList.add("hidden");
+    dom.projectNameInput.value = "";
+    dom.projectDialogOverlay.classList.remove("hidden");
+    window.setTimeout(() => dom.projectNameInput.focus(), 0);
+  }
+
+  function hideProjectDialog() {
+    dom.projectDialogOverlay.classList.add("hidden");
+  }
+
+  function showProjectError(message) {
+    dom.projectDialogError.textContent = message;
+    dom.projectDialogError.classList.remove("hidden");
+  }
+
+  function hasUnsavedRecording() {
+    if (!state.recordingBlob || !state.recordingFilename) {
+      return false;
+    }
+
+    const currentRecording = state.recordings.find((recording) => recording.filename === state.recordingFilename);
+    return !currentRecording?.saved;
+  }
+
+  async function confirmDiscardIfNeeded(actionLabel) {
+    if (!hasUnsavedRecording()) {
+      return true;
+    }
+
+    return requestConfirmation({
+      title: "Unsaved Video",
+      message: `You have an unsaved video. Discard it and ${actionLabel}?`,
+      confirmLabel: "Yes",
+      cancelLabel: "No"
+    });
+  }
+
+  async function refreshMediaDeviceOptions() {
+    const { videoInputs, audioInputs } = await enumerateInputDevices();
+    operatorScreen.populateMediaDeviceOptions({
+      videoOptions: buildVideoInputOptions(videoInputs),
+      audioOptions: buildAudioInputOptions(audioInputs)
+    });
+    persistSettings(state);
   }
 
   function showErrorDialog(title, error, fallbackMessage) {
+    void logger.exception("Error dialog shown.", error, { title, fallbackMessage });
     showAppDialog(title, formatErrorMessage(error, fallbackMessage));
   }
+
+  function applyPreviewEntry(entry) {
+    state.recordingBlob = null;
+    state.recordingUrl = entry.url;
+    state.recordingFilename = entry.filename;
+    state.recordingPath = entry.path || "";
+    editorScreen.showResult();
+    syncModeUi();
+  }
+
+  async function loadGalleryEntries() {
+    const source = state.isDesktopApp ? state.saveDirectoryPath : state.saveDirectoryHandle;
+    void logger.debug("Loading gallery entries for main app.", {
+      source: typeof source === "string" ? source : source?.name || ""
+    });
+    return loadSavedRecordingsFromDirectory(source);
+  }
+
+  async function deleteGalleryEntry(entry) {
+    await deleteSavedRecording(entry, state.isDesktopApp ? state.saveDirectoryPath : state.saveDirectoryHandle);
+
+    if (!state.recordingBlob && state.recordingPath && entry.path && state.recordingPath === entry.path) {
+      state.recordingUrl = "";
+      state.recordingFilename = "";
+      state.recordingPath = "";
+      editorScreen.resetResultVideo();
+      editorScreen.showResult();
+    }
+
+    syncModeUi();
+  }
+
+  async function loadProjects() {
+    if (!state.isDesktopApp) {
+      return [];
+    }
+    return listDesktopProjects();
+  }
+  function setActiveProject(projectPath, projectName) {
+    state.saveDirectoryHandle = null;
+    state.saveDirectoryPath = projectPath;
+    state.saveDirectoryName = projectName;
+    persistSettings(state);
+  }
+  async function openProject(project) {
+    setActiveProject(project.path, project.name);
+    hideAppDialog();
+    syncModeUi();
+  }
+  async function openProjectFolder(project) {
+    try {
+      await openDesktopDirectory(project.path);
+    } catch (error) {
+      showErrorDialog("Folder unavailable", error, APP_STRINGS.openFolderUnavailable);
+    }
+  }
+  async function renameProject(project) {
+    if (!state.isDesktopApp) {
+      return;
+    }
+    const requestedName = window.prompt("Enter the new project name.", project.name);
+    if (requestedName === null) {
+      return;
+    }
+    const projectName = requestedName.trim();
+    const validationError = validateProjectName(projectName);
+    if (validationError) {
+      showAppDialog("Rename failed", validationError);
+      return;
+    }
+    try {
+      const renamedPath = await renameDesktopProjectDirectory(project.path, projectName);
+      if (state.saveDirectoryPath === project.path) {
+        setActiveProject(renamedPath, projectName);
+      }
+      hideAppDialog();
+    } catch (error) {
+      showErrorDialog("Rename failed", error, "Photobooth could not rename the selected project.");
+    }
+  }
+  async function deleteProject(project) {
+    if (!state.isDesktopApp) {
+      return;
+    }
+    const confirmed = await requestConfirmation({
+      title: "Delete Project",
+      message: `Delete ${project.name} and all videos in this folder?`,
+      confirmLabel: "Yes",
+      cancelLabel: "No"
+    });
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await deleteDesktopProjectDirectory(project.path);
+      if (state.saveDirectoryPath === project.path) {
+        state.saveDirectoryPath = await getDefaultRecordingsDirectory();
+        state.saveDirectoryName = APP_STRINGS.saveFolderDefault;
+        state.saveDirectoryHandle = null;
+        persistSettings(state);
+      }
+      if (!state.recordingBlob && state.recordingPath && state.recordingPath.toLowerCase().startsWith(project.path.toLowerCase())) {
+        state.recordingUrl = "";
+        state.recordingFilename = "";
+        state.recordingPath = "";
+        editorScreen.resetResultVideo();
+        editorScreen.showResult();
+      }
+      hideAppDialog();
+      syncModeUi();
+    } catch (error) {
+      showErrorDialog("Delete failed", error, "Photobooth could not delete the selected project.");
+    }
+  }
+  const galleryScreen = createGalleryScreen(dom, state, {
+    loadEntries: loadGalleryEntries,
+    loadProjects,
+    openEntry(entry) {
+      galleryScreen.setGalleryPanelOpen(false);
+      hideAppDialog();
+      applyPreviewEntry(entry);
+    },
+    async deleteEntry(entry) {
+      try {
+        await deleteGalleryEntry(entry);
+      } catch (error) {
+        showErrorDialog("Delete failed", error, "Photobooth could not delete the selected video.");
+      }
+    },
+    openProject,
+    openProjectFolder,
+    renameProject,
+    deleteProject
+  });
 
   async function loadAppVersion() {
     try {
       const version = await getDesktopAppVersion();
       dom.appVersionLabel.textContent = `Version ${version.displayVersion}`;
-    } catch {
+      void logger.info("Loaded app version.", version);
+    } catch (error) {
+      void logger.exception("Failed to load app version.", error);
       dom.appVersionLabel.textContent = "Version 1.0.0.0_0";
     }
   }
@@ -344,52 +618,6 @@ export default function initApp() {
     restartAnimation(dom.flashOverlay, "flash-active");
   }
 
-  function clearIdleSlideshowTimer() {
-    if (state.idleTimeoutId !== null) {
-      window.clearTimeout(state.idleTimeoutId);
-      state.idleTimeoutId = null;
-    }
-  }
-
-  function clearSavedSlideshowEntries() {
-    state.savedSlideshowEntries
-      .filter((entry) => entry.source === "folder")
-      .forEach((entry) => revokeObjectUrl(entry.url));
-    state.savedSlideshowEntries = [];
-  }
-
-  async function refreshSavedSlideshowEntries() {
-    const savedSessionEntries = state.recordings
-      .filter((recording) => recording.saved)
-      .map((recording) => ({
-        filename: recording.filename,
-        url: recording.url,
-        source: "session"
-      }));
-
-    const savedByFilename = new Map(savedSessionEntries.map((entry) => [entry.filename, entry]));
-    const folderEntries = await loadSavedRecordingsFromDirectory(state.isDesktopApp ? state.saveDirectoryPath : state.saveDirectoryHandle);
-
-    clearSavedSlideshowEntries();
-
-    folderEntries.forEach((entry) => {
-      if (!savedByFilename.has(entry.filename)) {
-        savedByFilename.set(entry.filename, {
-          filename: entry.filename,
-          url: entry.url,
-          source: "folder"
-        });
-        return;
-      }
-
-      revokeObjectUrl(entry.url);
-    });
-
-    state.savedSlideshowEntries = Array.from(savedByFilename.values()).sort((left, right) =>
-      left.filename.localeCompare(right.filename, undefined, { numeric: true })
-    );
-  }
-
   async function restoreFullscreenIfNeeded() {
     if (state.mode !== "camera") {
       return;
@@ -400,6 +628,19 @@ export default function initApp() {
   }
 
   async function closeApp() {
+    const confirmed = await requestConfirmation({
+      title: "Close App",
+      message: hasUnsavedRecording()
+        ? "You have an unsaved video. Close the app and discard it?"
+        : "Are you sure you want to close the app?",
+      confirmLabel: "Yes",
+      cancelLabel: "No"
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
     try {
       await closeDesktopApp();
     } catch (error) {
@@ -407,103 +648,103 @@ export default function initApp() {
     }
   }
 
-  function showRecordingAtIndex(index) {
-    if (state.savedSlideshowEntries.length === 0) {
-      return;
-    }
-
-    const boundedIndex = ((index % state.savedSlideshowEntries.length) + state.savedSlideshowEntries.length) % state.savedSlideshowEntries.length;
-    state.slideshowIndex = boundedIndex;
-    editorScreen.showSlideshow(state.savedSlideshowEntries[boundedIndex].url);
-    syncModeUi();
-    dom.resultVideo.play().catch((error) => {
-      console.warn("Slideshow playback did not start.", error);
-    });
-  }
-
-  async function startSlideshow(options = {}) {
-    const { silent = false } = options;
-    if (state.isRecording || state.captureInProgress) {
-      return;
-    }
-
-    await refreshSavedSlideshowEntries();
-    syncModeUi();
-    if (state.savedSlideshowEntries.length === 0) {
-      if (!silent) {
-        showAppDialog("Slideshow unavailable", "Save at least one video or choose a folder that already contains saved videos.");
+  async function openSlideshowWindow() {
+    try {
+      if (!state.isDesktopApp) {
+        showAppDialog("Desktop only", "The separate slideshow screen is available in the installed desktop app.");
+        return;
       }
-      resetIdleSlideshowTimer();
-      return;
-    }
 
-    clearIdleSlideshowTimer();
-    if (state.mode !== "slideshow") {
-      state.slideshowReturnMode = state.mode;
+      await logger.audit("Open slideshow window requested.", { saveDirectoryPath: state.saveDirectoryPath });
+      await openDesktopSlideshowWindow();
+      hideAppDialog();
+      void logger.info("Slideshow window opened.");
+    } catch (error) {
+      showErrorDialog("Slideshow unavailable", error, "Photobooth could not open the slideshow screen.");
     }
-    showRecordingAtIndex(0);
   }
 
-  function stopSlideshow() {
-    if (state.mode !== "slideshow") {
-      return;
+  async function openGalleryPanel(initialView = "videos") {
+    try {
+      hideAppDialog();
+      await galleryScreen.openGalleryPanel(initialView);
+      syncModeUi();
+    } catch (error) {
+      showErrorDialog("Gallery unavailable", error, "Photobooth could not open the gallery.");
     }
+  }
 
-    dom.resultVideo.pause();
-    if (state.slideshowReturnMode === "editor") {
-      editorScreen.showResult();
-    } else {
-      state.mode = "camera";
-      void restoreFullscreenIfNeeded();
-    }
+  function closeGalleryPanel() {
+    galleryScreen.setGalleryPanelOpen(false);
     syncModeUi();
   }
 
-  function resetIdleSlideshowTimer() {
-    clearIdleSlideshowTimer();
+  async function openGalleryFolder(view = state.galleryView) {
+    try {
+      if (!state.isDesktopApp) {
+        showAppDialog("Folder access unavailable", APP_STRINGS.openFolderUnavailable);
+        return;
+      }
 
-    if (
-      state.slideshowIdleSeconds <= 0 ||
-      state.operatorPanelOpen ||
-      state.isRecording ||
-      state.captureInProgress ||
-      (state.mode !== "camera" && state.mode !== "editor")
-    ) {
-      return;
+      const directoryPath = view === "projects" ? await getDefaultRecordingsDirectory() : state.saveDirectoryPath || await getDefaultRecordingsDirectory();
+      void logger.audit("Open gallery folder requested.", { directoryPath });
+      await openDesktopDirectory(directoryPath);
+      void logger.info("Gallery folder opened.", { directoryPath });
+    } catch (error) {
+      showErrorDialog("Folder unavailable", error, APP_STRINGS.openFolderUnavailable);
     }
-
-    state.idleTimeoutId = window.setTimeout(() => {
-      void startSlideshow({ silent: true });
-    }, state.slideshowIdleSeconds * 1000);
   }
 
-  function handleSlideshowIdleSettingChange() {
-    operatorScreen.syncSlideshowIdleFromControl();
-    resetIdleSlideshowTimer();
+  function resetProjectDesignState() {
+    state.activeFrameId = APP_DEFAULTS.activeFrameId;
+    state.activeOverlayTarget = APP_DEFAULTS.activeOverlayTarget;
+    state.showTextColorPalette = APP_DEFAULTS.showTextColorPalette;
+    state.overlayText = APP_DEFAULTS.overlayText;
+    state.overlayFont = APP_DEFAULTS.overlayFont;
+    state.overlayColor = APP_DEFAULTS.overlayColor;
+    state.overlaySize = APP_DEFAULTS.overlaySize;
+    state.overlayTextPosition = { ...APP_DEFAULTS.overlayTextPosition };
+    state.overlayTextRotation = APP_DEFAULTS.overlayTextRotation;
+    state.logoDataUrl = APP_DEFAULTS.logoDataUrl;
+    state.logoScale = APP_DEFAULTS.logoScale;
+    state.logoRotation = APP_DEFAULTS.logoRotation;
+    state.logoPosition = { ...APP_DEFAULTS.logoPosition };
+    state.draggingOverlayTarget = null;
+    state.overlayInteraction = null;
+    state.dragPointerId = null;
+    state.dragStartPointer = null;
+    state.dragSurfaceSize = null;
+    state.dragStartPosition = null;
+    state.dragStartScale = APP_DEFAULTS.logoScale;
+    state.dragStartTextSize = APP_DEFAULTS.overlaySize;
+    dom.logoInput.value = "";
+    operatorScreen.syncControlsFromState();
+    operatorScreen.renderFrameTray();
+    editorScreen.renderOverlayPreview();
+    syncModeUi();
   }
-
-  function handleUserActivity() {
-    if (state.mode === "slideshow") {
-      stopSlideshow();
-    }
-    resetIdleSlideshowTimer();
-  }
-
   function openPreviewView() {
     hideAppDialog();
+    closeGalleryPanel();
+    stopStream();
     editorScreen.showResult();
     syncModeUi();
-    resetIdleSlideshowTimer();
   }
 
-  function openSettingsView() {
+  async function openSettingsView() {
     hideAppDialog();
+    closeGalleryPanel();
     state.operatorReturnMode = state.mode;
+    dom.resultVideo.pause();
     state.mode = "camera";
     operatorScreen.setOperatorPanelOpen(true);
     syncModeUi();
-    resetIdleSlideshowTimer();
-    void restoreFullscreenIfNeeded();
+    try {
+      await refreshMediaDeviceOptions();
+    } catch {
+      // Ignore device list failures here; startCamera will surface stream errors.
+    }
+    void startCamera();
   }
 
   function closeOperatorPanel() {
@@ -511,14 +752,14 @@ export default function initApp() {
     hideAppDialog();
 
     if (state.operatorReturnMode === "editor") {
+      stopStream();
       editorScreen.showResult();
     } else {
       state.mode = "camera";
-      void restoreFullscreenIfNeeded();
+      void startCamera();
     }
 
     syncModeUi();
-    resetIdleSlideshowTimer();
   }
 
   async function runCountdown() {
@@ -542,8 +783,10 @@ export default function initApp() {
   }
 
   function stopStream() {
+    cameraSessionId += 1;
     stopCameraStream(state.stream, [dom.cameraPreview]);
     state.stream = null;
+    state.captureReady = false;
   }
 
   async function startCamera() {
@@ -551,56 +794,98 @@ export default function initApp() {
     state.mode = "camera";
     syncModeUi();
 
+    const sessionId = cameraSessionId + 1;
+    cameraSessionId = sessionId;
+    void logger.info("Camera start requested.", {
+      sessionId,
+      videoInputId: state.videoInputId || "default",
+      audioInputId: state.audioInputId || "default"
+    });
+
     try {
-      stopStream();
-      state.stream = await startCameraStream([dom.cameraPreview]);
+      stopCameraStream(state.stream, [dom.cameraPreview]);
+      state.stream = null;
+      const stream = await startCameraStream([dom.cameraPreview], {
+        videoInputId: state.videoInputId,
+        audioInputId: state.audioInputId
+      });
+      if (cameraSessionId !== sessionId) {
+        stopCameraStream(stream, [dom.cameraPreview]);
+        return;
+      }
+
+      state.stream = stream;
       state.captureReady = true;
       dom.emptyCamera.classList.add("hidden");
+      try {
+        await refreshMediaDeviceOptions();
+      } catch {
+        // Device labels are best-effort.
+      }
     } catch (error) {
-      console.error(error);
+      if (cameraSessionId !== sessionId) {
+        return;
+      }
+
+      void logger.exception("Camera start failed.", error, { sessionId });
       state.captureReady = false;
       dom.emptyCamera.classList.add("hidden");
       showErrorDialog("Camera unavailable", error, APP_STRINGS.cameraAccessDenied);
+      cameraScreen.showError(APP_STRINGS.cameraAccessDenied);
     }
 
-    resetIdleSlideshowTimer();
-    void restoreFullscreenIfNeeded();
+    if (cameraSessionId === sessionId) {
+      void restoreFullscreenIfNeeded();
+    }
   }
 
   async function saveCurrentRecording() {
     if (!state.recordingBlob || !state.recordingFilename) {
+      void logger.warn("Save requested without an active recording.");
       return;
     }
 
+    void logger.audit("Save current recording requested.", { filename: state.recordingFilename });
+
+    state.isSaving = true;
+    syncModeUi();
+
     try {
-      const savedFilename = await saveRecording(
+      const savedPath = await saveRecording(
         state.recordingBlob,
         state.recordingFilename,
         state.isDesktopApp ? state.saveDirectoryPath : state.saveDirectoryHandle
       );
 
-      if (!savedFilename) {
+      if (!savedPath) {
         return;
       }
+
+      state.recordingPath = typeof savedPath === "string" ? savedPath : state.recordingPath;
 
       const currentRecording = state.recordings.find((recording) => recording.filename === state.recordingFilename);
       if (currentRecording) {
         currentRecording.saved = true;
       }
-      await refreshSavedSlideshowEntries();
       hideAppDialog();
       syncModeUi();
-      resetIdleSlideshowTimer();
+      void logger.info("Current recording saved successfully.", {
+        filename: state.recordingFilename,
+        savedPath: state.recordingPath
+      });
     } catch (error) {
       showErrorDialog("Save failed", error, "Photobooth could not save the recording.");
+    } finally {
+      state.isSaving = false;
+      syncModeUi();
     }
   }
 
   async function handleRecordingStop() {
     state.recordingBlob = createRecordingBlob(state.recordingChunks, state.recorder);
     state.recordingUrl = createObjectUrl(state.recordingBlob);
-    const extension = getRecordingExtension(state.recordingBlob.type || state.recorder?.mimeType || "video/webm");
-    state.recordingFilename = buildTimestampFilename(extension);
+    state.recordingFilename = buildTimestampFilename(getRecordingExtension(state.recordingBlob.type || state.recorder?.mimeType || "video/webm"));
+    state.recordingPath = "";
     state.recordings.push({
       url: state.recordingUrl,
       blob: state.recordingBlob,
@@ -613,9 +898,9 @@ export default function initApp() {
     resetCaptureState();
     dom.snapButton.disabled = false;
     dom.recordingTimer.textContent = "00:00";
+    stopStream();
     editorScreen.showResult();
     syncModeUi();
-    resetIdleSlideshowTimer();
   }
 
   function stopRecording() {
@@ -626,11 +911,21 @@ export default function initApp() {
 
   async function startRecordingFlow() {
     if (!state.captureReady || state.captureInProgress || !state.stream) {
+      void logger.warn("Start recording ignored because capture is not ready.", {
+        captureReady: state.captureReady,
+        captureInProgress: state.captureInProgress,
+        hasStream: Boolean(state.stream)
+      });
       return;
     }
 
-    clearIdleSlideshowTimer();
     operatorScreen.syncCountdownFromControl();
+    void logger.audit("Start recording requested.", {
+      countdownSeconds: state.countdownSeconds,
+      frameId: state.activeFrameId,
+      hasOverlayText: Boolean(state.overlayText),
+      hasLogo: Boolean(state.logoDataUrl)
+    });
     state.captureInProgress = true;
     state.shutterAnimatingOut = state.countdownSeconds > 0;
     dom.snapButton.disabled = true;
@@ -662,8 +957,12 @@ export default function initApp() {
       state.recordIntervalId = window.setInterval(updateRecordingTimer, APP_THRESHOLDS.recordingTimerIntervalMs);
       updateRecordingTimer();
       syncModeUi();
+      void logger.info("Recording started.", {
+        mimeType: state.recorder.mimeType,
+        chunkIntervalMs: APP_THRESHOLDS.recorderChunkIntervalMs
+      });
     } catch (error) {
-      console.error(error);
+      void logger.exception("Recording start failed.", error);
       stopRecordingTimer();
       composedRecorder?.stop();
       composedRecorder = null;
@@ -671,7 +970,6 @@ export default function initApp() {
       dom.snapButton.disabled = false;
       syncModeUi();
       showErrorDialog("Recording error", error, APP_STRINGS.recordingFailed);
-      resetIdleSlideshowTimer();
     }
   }
 
@@ -685,6 +983,11 @@ export default function initApp() {
   }
 
   async function handleResultReset() {
+    const canDiscard = await confirmDiscardIfNeeded("take a new video");
+    if (!canDiscard) {
+      return;
+    }
+
     stopRecordingTimer();
     composedRecorder?.stop();
     composedRecorder = null;
@@ -693,29 +996,27 @@ export default function initApp() {
     state.recordingBlob = null;
     state.recordingUrl = "";
     state.recordingFilename = "";
+    state.recordingPath = "";
 
     editorScreen.resetResultVideo();
     dom.snapButton.disabled = false;
     dom.recordingTimer.textContent = "00:00";
     state.mode = "camera";
     hideAppDialog();
+    closeGalleryPanel();
     syncModeUi();
-    resetIdleSlideshowTimer();
-    void restoreFullscreenIfNeeded();
+    void startCamera();
   }
 
   function handleResultEnded() {
-    if (state.mode === "slideshow") {
-      showRecordingAtIndex(state.slideshowIndex + 1);
-      return;
-    }
-
     editorScreen.handlePlaybackStateChange();
   }
 
   async function pickSaveFolder() {
+    void logger.audit("Main app choose folder action started.");
     const result = await operatorScreen.pickSaveFolder();
     if (result === "cancelled") {
+      void logger.info("Main app choose folder action cancelled.");
       syncModeUi();
       return;
     }
@@ -725,23 +1026,127 @@ export default function initApp() {
       syncModeUi();
       return;
     }
-
-    await refreshSavedSlideshowEntries();
     hideAppDialog();
     syncModeUi();
-    resetIdleSlideshowTimer();
   }
+
+  async function handleMediaInputChange() {
+    operatorScreen.syncMediaInputSelections();
+    if (state.mode === "camera") {
+      await startCamera();
+    }
+  }
+
+  async function handleCreateProject() {
+    const projectName = dom.projectNameInput.value.trim();
+    const validationError = validateProjectName(projectName);
+    if (validationError) {
+      void logger.warn("Project creation blocked by validation.", { projectName, validationError });
+      showProjectError(validationError);
+      return;
+    }
+
+    try {
+      void logger.audit("Project creation requested.", { projectName });
+      if (state.isDesktopApp) {
+        const baseDirectory = await getDefaultRecordingsDirectory();
+        const projectDirectory = await createDesktopProjectDirectory(projectName, baseDirectory);
+        state.saveDirectoryPath = projectDirectory;
+        state.saveDirectoryName = projectDirectory.split(/[\\/]/).filter(Boolean).pop() || projectName;
+      } else {
+        state.saveDirectoryName = projectName;
+      }
+
+      resetProjectDesignState();
+      persistSettings(state);
+      hideProjectDialog();
+      void logger.info("Project created successfully.", {
+        projectName,
+        saveDirectoryPath: state.saveDirectoryPath,
+        saveDirectoryName: state.saveDirectoryName
+      });
+    } catch (error) {
+      void logger.exception("Project creation failed.", error, { projectName });
+      showProjectError(formatErrorMessage(error, APP_STRINGS.projectCreateFailed));
+    }
+  }
+
+  async function bootstrapApp() {
+    editorScreen.showResult();
+    syncModeUi();
+    void logger.info("Bootstrap sequence started.");
+
+    try {
+      await Promise.all([
+        loadAppVersion(),
+        refreshMediaDeviceOptions(),
+        getFullscreenState().then((fullscreen) => {
+          state.isFullscreen = fullscreen;
+          syncModeUi();
+        })
+      ]);
+    } finally {
+      await sleep(600);
+      dom.launchOverlay.classList.add("hidden");
+      showProjectDialog();
+      void logger.info("Bootstrap sequence completed.");
+    }
+  }
+
+  dom.appDialogCloseButton.addEventListener("click", () => {
+    hideAppDialog(false);
+  });
+  dom.appDialogCancelButton.addEventListener("click", () => {
+    hideAppDialog(false);
+  });
+  dom.appDialogConfirmButton.addEventListener("click", () => {
+    hideAppDialog(dialogIsConfirmation);
+  });
+  dom.projectContinueButton.addEventListener("click", () => {
+    hideProjectDialog();
+  });
+  dom.projectCreateButton.addEventListener("click", () => {
+    void handleCreateProject();
+  });
+  dom.projectNameInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void handleCreateProject();
+    }
+  });
+  dom.cameraInputSelect.addEventListener("change", () => {
+    void handleMediaInputChange();
+  });
+  dom.audioInputSelect.addEventListener("change", () => {
+    void handleMediaInputChange();
+  });
+  navigator.mediaDevices?.addEventListener?.("devicechange", () => {
+    void refreshMediaDeviceOptions();
+  });
 
   window.addEventListener("error", (event) => {
     if (!event.message && !event.error) {
       return;
     }
 
+    void logger.exception("Unhandled window error.", event.error || event.message, {
+      message: event.message || ""
+    });
     showErrorDialog("Photobooth", event.error || event.message, "An unexpected error occurred.");
   });
 
   window.addEventListener("unhandledrejection", (event) => {
+    void logger.exception("Unhandled promise rejection.", event.reason);
     showErrorDialog("Photobooth", event.reason, "An unexpected error occurred.");
+  });
+
+  window.addEventListener("beforeunload", (event) => {
+    if (!hasUnsavedRecording()) {
+      return;
+    }
+
+    event.preventDefault();
+    event.returnValue = "";
   });
 
   document.body.dataset.mode = state.mode;
@@ -749,11 +1154,7 @@ export default function initApp() {
   operatorScreen.renderFrameTray();
   editorScreen.renderOverlayPreview();
   editorScreen.syncPlaybackButton();
-  void loadAppVersion();
-  void getFullscreenState().then((fullscreen) => {
-    state.isFullscreen = fullscreen;
-    syncModeUi();
-  });
+  editorScreen.syncEmptyState();
   void requestFullscreenIfPossible().then((fullscreen) => {
     state.isFullscreen = fullscreen;
     syncModeUi();
@@ -772,32 +1173,42 @@ export default function initApp() {
   }, { once: true });
   window.addEventListener("focus", () => {
     void restoreFullscreenIfNeeded();
+    if (state.galleryPanelOpen) {
+      void galleryScreen.refreshGallery();
+    }
   });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
       void restoreFullscreenIfNeeded();
+      if (state.galleryPanelOpen) {
+        void galleryScreen.refreshGallery();
+      }
     }
-  });
-  ["pointerdown", "keydown", "pointermove"].forEach((eventName) => {
-    document.addEventListener(eventName, handleUserActivity, { passive: true });
   });
   wireEvents(dom, state, {
     captureVideo,
+    closeGalleryPanel,
     closeOperatorPanel,
     handleResultReset,
     handleResultEnded,
-    handleSlideshowIdleSettingChange,
     hideAppDialog,
+    openGalleryFolder,
+    openGalleryPanel,
     openPreviewView,
     openSettingsView,
     pickSaveFolder,
     saveCurrentRecording,
-    startSlideshow,
+    openSlideshowWindow,
     closeApp,
     operatorScreen,
-    editorScreen
+    editorScreen,
+    galleryScreen
   });
   syncModeUi();
-  void refreshSavedSlideshowEntries();
-  void startCamera();
+  void bootstrapApp();
 }
+
+
+
+
+

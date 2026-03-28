@@ -1,0 +1,228 @@
+:root {
+  color-scheme: dark;
+  --library-bg: #050507;
+  --library-panel: rgba(15, 16, 21, 0.92);
+  --library-line: rgba(255, 255, 255, 0.1);
+  --library-text: #f5f4f8;
+  --library-muted: rgba(245, 244, 248, 0.7);
+  --library-accent: #ff88b5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top, rgba(255, 136, 181, 0.18), transparent 28%),
+    linear-gradient(180deg, #121218, #050507 58%);
+  color: var(--library-text);
+  font-family: "Manrope", sans-serif;
+}
+
+body {
+  min-height: 100vh;
+}
+
+button {
+  font: inherit;
+}
+
+.library-shell,
+.slideshow-shell {
+  min-height: 100vh;
+  padding: 1.5rem;
+}
+
+.library-header,
+.slideshow-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.library-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.library-eyebrow {
+  margin: 0 0 0.35rem;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--library-muted);
+}
+
+.library-title {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.8rem, 2vw, 2.6rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.library-subtitle {
+  margin: 0.45rem 0 0;
+  color: var(--library-muted);
+}
+
+.library-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid var(--library-line);
+  border-radius: 999px;
+  padding: 0.85rem 1.2rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--library-text);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.gallery-card {
+  border: 1px solid var(--library-line);
+  border-radius: 24px;
+  overflow: hidden;
+  background: var(--library-panel);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+.gallery-video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: block;
+  background: #000;
+  object-fit: cover;
+}
+
+.gallery-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem 1.1rem;
+}
+
+.gallery-card-name {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--library-text);
+  word-break: break-word;
+}
+
+.gallery-card-index {
+  color: var(--library-muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.library-empty {
+  min-height: 60vh;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 2rem;
+  color: var(--library-muted);
+}
+
+.library-empty .material-symbols-outlined {
+  font-size: 3.2rem;
+  margin-bottom: 0.9rem;
+  color: var(--library-accent);
+}
+
+.library-empty h2 {
+  margin: 0;
+  color: var(--library-text);
+  font-family: "Space Grotesk", sans-serif;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.library-empty p {
+  margin: 0.75rem 0 0;
+  max-width: 32rem;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.slideshow-stage {
+  position: relative;
+  min-height: calc(100vh - 8rem);
+  border: 1px solid var(--library-line);
+  border-radius: 28px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.slideshow-video {
+  width: 100%;
+  height: 100%;
+  min-height: calc(100vh - 8rem);
+  display: block;
+  object-fit: contain;
+  background: #000;
+}
+
+.slideshow-meta {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.95rem 1.05rem;
+  border-radius: 999px;
+  background: rgba(5, 5, 7, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  color: var(--library-text);
+}
+
+@media (max-width: 720px) {
+  .library-shell,
+  .slideshow-shell {
+    padding: 1rem;
+  }
+
+  .library-header,
+  .slideshow-header,
+  .gallery-card-footer,
+  .slideshow-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .library-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .slideshow-video {
+    min-height: calc(100vh - 10rem);
+  }
+}

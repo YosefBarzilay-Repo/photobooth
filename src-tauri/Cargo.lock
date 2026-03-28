@@ -2475,6 +2475,7 @@ dependencies = [
 name = "photobooth"
 version = "1.0.0"
 dependencies = [
+ "chrono",
  "log",
  "serde",
  "serde_json",

@@ -3,7 +3,9 @@
   "identifier": "default",
   "description": "enables the Photobooth desktop window capabilities",
   "windows": [
-    "main"
+    "main",
+    "slideshow",
+    "gallery"
   ],
   "permissions": [
     "core:default",

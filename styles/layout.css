@@ -76,7 +76,7 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 1rem;
+  bottom: 1.8rem;
   z-index: 12;
   display: flex;
   justify-content: center;
@@ -86,17 +86,20 @@
 .console-shell {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.85rem;
-  max-width: min(94vw, 70rem);
-  padding: 0.95rem 1.05rem;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 0.65rem;
+  max-width: min(96vw, 100rem);
+  padding: 0.85rem 1rem;
   border-radius: 999px;
   background: rgba(5, 5, 7, 0.42);
   border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(16px);
   box-shadow: 0 20px 45px rgba(0, 0, 0, 0.32);
   pointer-events: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
 }
 
 .record-control {
@@ -107,14 +110,12 @@
 }
 
 body[data-mode="camera"] .app-shell,
-body[data-mode="editor"] .app-shell,
-body[data-mode="slideshow"] .app-shell {
+body[data-mode="editor"] .app-shell {
   padding: 0;
 }
 
 body[data-mode="camera"] .stage-shell,
-body[data-mode="editor"] .stage-shell,
-body[data-mode="slideshow"] .stage-shell {
+body[data-mode="editor"] .stage-shell {
   padding: 0;
   border-radius: 0;
   background: #050507;
@@ -122,8 +123,7 @@ body[data-mode="slideshow"] .stage-shell {
 }
 
 body[data-mode="camera"] .stage-card,
-body[data-mode="editor"] .stage-card,
-body[data-mode="slideshow"] .stage-card {
+body[data-mode="editor"] .stage-card {
   width: 100%;
   height: 100%;
   max-height: none;
@@ -140,6 +140,7 @@ body[data-mode="slideshow"] .stage-card {
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.04);
   color: inherit;
+  transition: transform 140ms ease, background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
 
 .console-button,
@@ -151,23 +152,51 @@ body[data-mode="slideshow"] .stage-card {
   justify-content: center;
   gap: 0.65rem;
   border-radius: 999px;
-  padding: 0.9rem 1.35rem;
+  padding: 0.82rem 1.1rem;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 800;
 }
 
 .console-button {
-  min-width: 10.2rem;
-  min-height: 4.9rem;
+  min-width: auto;
+  min-height: 4.1rem;
   color: var(--text);
   background: rgba(255, 255, 255, 0.08);
+  flex: 0 0 auto;
+}
+
+.console-button:hover:not(:disabled),
+.primary-button:hover,
+.danger-button:hover,
+.secondary-button:hover,
+.icon-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 136, 181, 0.42);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.console-button:active:not(:disabled),
+.primary-button:active,
+.danger-button:active,
+.secondary-button:active,
+.icon-button:active {
+  transform: translateY(1px) scale(0.98);
 }
 
 .console-button:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+.console-separator {
+  color: rgba(255, 255, 255, 0.4);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  flex: 0 0 auto;
 }
 
 .secondary-button {
@@ -214,4 +243,19 @@ body[data-mode="slideshow"] .stage-card {
   margin: 1rem 0 0;
   color: var(--text);
   line-height: 1.6;
+}
+
+
+.console-button.is-busy .material-symbols-outlined {
+  animation: photobooth-spin 900ms linear infinite;
+}
+
+@keyframes photobooth-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }

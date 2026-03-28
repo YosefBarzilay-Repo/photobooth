@@ -2,6 +2,8 @@
  * @typedef {import("../types/app.js").AppState} AppState
  */
 
+import { logger } from "./logger.js";
+
 const STORAGE_KEY = "photobooth.operatorSettings.v1";
 
 function isObject(value) {
@@ -25,12 +27,17 @@ export function loadPersistedSettings() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
+      void logger.debug("No persisted operator settings found.");
       return null;
     }
 
     const parsed = JSON.parse(raw);
+    void logger.info("Loaded persisted operator settings.", {
+      hasSaveDirectoryPath: typeof parsed?.saveDirectoryPath === "string" && parsed.saveDirectoryPath.length > 0
+    });
     return isObject(parsed) ? parsed : null;
-  } catch {
+  } catch (error) {
+    void logger.exception("Failed to load persisted operator settings.", error);
     return null;
   }
 }
@@ -41,7 +48,6 @@ export function applyPersistedSettings(state, defaults, savedSettings) {
   }
 
   state.countdownSeconds = Number.isFinite(savedSettings.countdownSeconds) ? savedSettings.countdownSeconds : defaults.countdownSeconds;
-  state.slideshowIdleSeconds = Number.isFinite(savedSettings.slideshowIdleSeconds) ? savedSettings.slideshowIdleSeconds : defaults.slideshowIdleSeconds;
   state.activeFrameId = typeof savedSettings.activeFrameId === "string" ? savedSettings.activeFrameId : defaults.activeFrameId;
   state.overlayText = typeof savedSettings.overlayText === "string" ? savedSettings.overlayText : defaults.overlayText;
   state.overlayFont = typeof savedSettings.overlayFont === "string" ? savedSettings.overlayFont : defaults.overlayFont;
@@ -57,6 +63,8 @@ export function applyPersistedSettings(state, defaults, savedSettings) {
   state.saveDirectoryName = typeof savedSettings.saveDirectoryName === "string" && savedSettings.saveDirectoryName.trim()
     ? savedSettings.saveDirectoryName
     : defaults.saveFolderDefault;
+  state.videoInputId = typeof savedSettings.videoInputId === "string" ? savedSettings.videoInputId : defaults.videoInputId;
+  state.audioInputId = typeof savedSettings.audioInputId === "string" ? savedSettings.audioInputId : defaults.audioInputId;
 
   if (state.overlayText) {
     state.activeOverlayTarget = "text";
@@ -70,7 +78,6 @@ export function applyPersistedSettings(state, defaults, savedSettings) {
 export function persistSettings(state) {
   const snapshot = {
     countdownSeconds: state.countdownSeconds,
-    slideshowIdleSeconds: state.slideshowIdleSeconds,
     activeFrameId: state.activeFrameId,
     overlayText: state.overlayText,
     overlayFont: state.overlayFont,
@@ -83,8 +90,18 @@ export function persistSettings(state) {
     logoRotation: state.logoRotation,
     logoPosition: state.logoPosition,
     saveDirectoryPath: state.saveDirectoryPath,
-    saveDirectoryName: state.saveDirectoryName
+    saveDirectoryName: state.saveDirectoryName,
+    videoInputId: state.videoInputId,
+    audioInputId: state.audioInputId
   };
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+    void logger.debug("Persisted operator settings.", {
+      saveDirectoryPath: snapshot.saveDirectoryPath,
+      saveDirectoryName: snapshot.saveDirectoryName
+    });
+  } catch (error) {
+    void logger.exception("Failed to persist operator settings.", error);
+  }
 }

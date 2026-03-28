@@ -1,5 +1,5 @@
 /**
- * @typedef {"camera" | "editor" | "slideshow"} AppMode
+ * @typedef {"camera" | "editor"} AppMode
  */
 
 /**
@@ -15,7 +15,7 @@
  */
 
 /**
- * @typedef {{ url: string, filename: string, source: "session" | "folder" }} SlideshowEntry
+ * @typedef {"videos" | "projects"} GalleryView
  */
 
 /**
@@ -30,6 +30,8 @@
  * @typedef {{
  *   mode: AppMode,
  *   operatorPanelOpen: boolean,
+ *   galleryPanelOpen: boolean,
+ *   galleryView: GalleryView,
  *   operatorReturnMode: AppMode,
  *   saveDirectoryHandle: FileSystemDirectoryHandle | null,
  *   saveDirectoryPath: string,
@@ -41,19 +43,16 @@
  *   recordingBlob: Blob | null,
  *   recordingUrl: string,
  *   recordingFilename: string,
+ *   recordingPath: string,
  *   recordings: RecordingEntry[],
- *   savedSlideshowEntries: SlideshowEntry[],
  *   recordingChunks: Blob[],
  *   captureReady: boolean,
  *   captureInProgress: boolean,
  *   isRecording: boolean,
+ *   isSaving: boolean,
  *   shutterAnimatingOut: boolean,
  *   countdownSeconds: number,
  *   countdownValue: number | null,
- *   slideshowIdleSeconds: number,
- *   idleTimeoutId: number | null,
- *   slideshowIndex: number,
- *   slideshowReturnMode: AppMode,
  *   recordIntervalId: number | null,
  *   recordStartedAt: number,
  *   activeFrameId: FrameId,
@@ -76,7 +75,9 @@
  *   logoDataUrl: string,
  *   logoScale: number,
  *   logoRotation: number,
- *   logoPosition: Vector2
+ *   logoPosition: Vector2,
+ *   videoInputId: string,
+ *   audioInputId: string
  * }} AppState
  */
 
@@ -89,3 +90,4 @@
  */
 
 export {};
+

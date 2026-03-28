@@ -1,4 +1,4 @@
-import { APP_DEFAULTS, APP_STRINGS } from "../constants/appConfig.js";
+﻿import { APP_DEFAULTS, APP_STRINGS } from "../constants/appConfig.js";
 
 /**
  * @typedef {import("../types/app.js").AppState} AppState
@@ -11,6 +11,8 @@ export default function createAppStore() {
   return {
     mode: APP_DEFAULTS.mode,
     operatorPanelOpen: false,
+    galleryPanelOpen: false,
+    galleryView: "videos",
     operatorReturnMode: APP_DEFAULTS.mode,
     saveDirectoryHandle: null,
     saveDirectoryPath: "",
@@ -22,19 +24,16 @@ export default function createAppStore() {
     recordingBlob: null,
     recordingUrl: "",
     recordingFilename: "",
+    recordingPath: "",
     recordings: [],
-    savedSlideshowEntries: [],
     recordingChunks: [],
     captureReady: false,
     captureInProgress: false,
     isRecording: false,
+    isSaving: false,
     shutterAnimatingOut: false,
     countdownSeconds: APP_DEFAULTS.countdownSeconds,
     countdownValue: null,
-    slideshowIdleSeconds: APP_DEFAULTS.slideshowIdleSeconds,
-    idleTimeoutId: null,
-    slideshowIndex: 0,
-    slideshowReturnMode: APP_DEFAULTS.mode,
     recordIntervalId: null,
     recordStartedAt: 0,
     activeFrameId: APP_DEFAULTS.activeFrameId,
@@ -57,6 +56,8 @@ export default function createAppStore() {
     logoDataUrl: APP_DEFAULTS.logoDataUrl,
     logoScale: APP_DEFAULTS.logoScale,
     logoRotation: APP_DEFAULTS.logoRotation,
-    logoPosition: { ...APP_DEFAULTS.logoPosition }
+    logoPosition: { ...APP_DEFAULTS.logoPosition },
+    videoInputId: APP_DEFAULTS.videoInputId,
+    audioInputId: APP_DEFAULTS.audioInputId
   };
 }

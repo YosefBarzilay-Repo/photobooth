@@ -1,19 +1,65 @@
 # Photobooth Desktop App
 
-Photobooth is now packaged as a Windows desktop application using Tauri.
+Photobooth is packaged as a Windows desktop application using Tauri.
 
-## Built installer
+## Current local build
 
-The generated Windows installer is:
+The repo is currently staged at build `21` via `build-info.json`.
 
-`src-tauri\target\release\bundle\nsis\Photobooth_1.0.0_x64-setup.exe`
+## Build outputs
 
-## Install and run
+The main outputs are:
 
-1. Run `Photobooth_1.0.0_x64-setup.exe`.
-2. Complete the installer.
-3. Launch **Photobooth** from the Start menu or desktop shortcut.
-4. The app opens in fullscreen by default.
+- Release exe: `src-tauri\target\release\photobooth.exe`
+- Windows installer: `src-tauri\target\release\bundle\nsis\Photobooth_1.0.0_x64-setup.exe`
+- Installed app: `C:\Users\Admin\AppData\Local\Photobooth\photobooth.exe`
+
+## Upgrade the app yourself
+
+From `C:\Projects\photobooth`:
+
+```powershell
+npm.cmd run build
+```
+
+What that does:
+
+- increments `build\build-number.txt`
+- regenerates `build-info.json`
+- restages the frontend into `dist\`
+- rebuilds the Tauri release exe
+- creates a fresh NSIS installer
+
+After the build finishes, install the new version with:
+
+```powershell
+Start-Process -FilePath .\src-tauri\target\release\bundle\nsis\Photobooth_1.0.0_x64-setup.exe -ArgumentList '/S' -Wait
+```
+
+Then launch the installed app:
+
+```powershell
+Start-Process -FilePath $env:LOCALAPPDATA\Photobooth\photobooth.exe
+```
+
+## Fast checks after upgrading
+
+Use these to confirm you are running the new build:
+
+- Open **Settings** and check the version label at the bottom.
+- Confirm the settings order starts with **Video Editor**.
+- Open **Gallery** and verify the new **Open Folder** button exists.
+- Open the project dialog and confirm clicking outside does not close it.
+
+## Frontend-only restage
+
+If you only want to refresh `dist\` and bump the build number without rebuilding the exe, run:
+
+```powershell
+npm.cmd run build:static
+```
+
+That does not update the installed app by itself. You still need `npm.cmd run build` and reinstall if you want the desktop app to change.
 
 ## Desktop controls
 
@@ -28,31 +74,3 @@ Photobooth was built with:
 - Node.js
 - Rust via `rustup`
 - Microsoft Visual C++ Build Tools
-
-## Rebuild the installer
-
-From `C:\Projects\photobooth`:
-
-```powershell
-npm.cmd run tauri build
-```
-
-That command:
-
-- stages the static frontend into `dist\`
-- builds the Tauri desktop app
-- creates the NSIS installer in `src-tauri\target\release\bundle\nsis\`
-
-## Project structure for desktop packaging
-
-- `src-tauri\` contains the Tauri Rust project and Windows bundle configuration.
-- `scripts\build-static.ps1` copies the static frontend into `dist\` before packaging.
-- `src\services\desktopService.js` contains the Tauri desktop integration.
-
-## Verified on this machine
-
-- Installer built successfully.
-- Silent install completed successfully.
-- Installed executable launched successfully from:
-
-`C:\Users\Admin\AppData\Local\Photobooth\photobooth.exe`

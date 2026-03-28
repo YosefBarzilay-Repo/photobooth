@@ -8,15 +8,20 @@ export const APP_STRINGS = {
   cameraAccessDenied: "Camera access was denied or is unavailable.",
   recordingFailed: "Unable to record video.",
   folderUnsupported: "Photobooth could not open the save-folder picker on this device.",
-  saveFolderDefault: "Default save location"
+  saveFolderDefault: "Default save location",
+  projectNameRequired: "Enter a project name to create a new folder.",
+  projectNameInvalid: "Use only letters, numbers, spaces, periods, and hyphens in the project name.",
+  projectNameExists: "A project folder with that name already exists. Choose a different name.",
+  projectCreateFailed: "Photobooth could not create the project folder.",
+  openFolderUnavailable: "Photobooth could not open the gallery folder from this device.",
+  noMediaDevices: "No media input devices were found on this machine."
 };
 
 export const VIDEO_FILE_EXTENSIONS = [".mp4", ".webm", ".mov", ".m4v", ".ogg"];
 
 export const APP_DEFAULTS = {
-  mode: "camera",
+  mode: "editor",
   countdownSeconds: 3,
-  slideshowIdleSeconds: 0,
   activeFrameId: "none",
   activeOverlayTarget: null,
   showTextColorPalette: false,
@@ -29,7 +34,9 @@ export const APP_DEFAULTS = {
   logoDataUrl: "",
   logoScale: 1,
   logoRotation: 0,
-  logoPosition: { x: 50, y: 20 }
+  logoPosition: { x: 50, y: 20 },
+  videoInputId: "",
+  audioInputId: ""
 };
 
 export const APP_THRESHOLDS = {
@@ -49,8 +56,6 @@ export const APP_THRESHOLDS = {
   maxOverlayY: 94,
   minOverlayX: 6,
   maxOverlayX: 94,
-  minSlideshowIdleSeconds: 0,
-  maxSlideshowIdleSeconds: 600,
   dialogMinWidth: 360,
   dialogMinHeight: 420,
   dialogDefaultWidth: 420,
@@ -68,14 +73,22 @@ export const CAMERA_CONFIG = {
     height: { ideal: 720 },
     aspectRatio: { ideal: 16 / 9 }
   },
-  audio: false
+  audio: {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true
+  }
 };
+
+export const DISABLED_AUDIO_INPUT_ID = "__none__";
 
 export const DOWNLOAD_CONFIG = {
   preferredMimeTypes: [
     "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+    "video/mp4;codecs=h264,aac",
     "video/mp4",
     "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp8,opus",
     "video/webm"
   ],
   defaultFileExtension: "mp4",
@@ -92,5 +105,3 @@ export const TEXT_COLOR_SWATCHES = [
   "#1b2533",
   "#000000"
 ];
-
-

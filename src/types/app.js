@@ -3,15 +3,15 @@
  */
 
 /**
- * @typedef {"none" | "zoom-in" | "zoom-out"} CameraEffect
- */
-
-/**
  * @typedef {"none" | "classic" | "polaroid" | "film" | "neon" | "floral" | "minimal"} FrameId
  */
 
 /**
  * @typedef {{ x: number, y: number }} Vector2
+ */
+
+/**
+ * @typedef {"text" | "logo" | null} OverlayTarget
  */
 
 /**
@@ -28,18 +28,24 @@
  *   shutterAnimatingOut: boolean,
  *   countdownSeconds: number,
  *   recordingDurationSeconds: number,
- *   cameraEffect: CameraEffect,
- *   cameraEffectSpeed: number,
- *   cameraEffectDirection: Vector2,
- *   settingEffectDirection: boolean,
  *   recordIntervalId: number | null,
  *   recordStopTimeoutId: number | null,
  *   recordStartedAt: number,
  *   activeFrameId: FrameId,
+ *   activeOverlayTarget: OverlayTarget,
+ *   draggingOverlayTarget: OverlayTarget,
+ *   dragStartPointer: Vector2 | null,
+ *   dragStartPosition: Vector2 | null,
  *   overlayText: string,
  *   overlayFont: string,
  *   overlayColor: string,
- *   overlaySize: number
+ *   overlaySize: number,
+ *   overlayTextPosition: Vector2,
+ *   overlayTextRotation: number,
+ *   logoDataUrl: string,
+ *   logoScale: number,
+ *   logoRotation: number,
+ *   logoPosition: Vector2
  * }} AppState
  */
 

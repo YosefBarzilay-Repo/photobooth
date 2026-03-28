@@ -1,4 +1,3 @@
-
 /**
  * @typedef {import("../types/app.js").AppState} AppState
  * @typedef {import("../types/dom.js").DomRefs} DomRefs
@@ -10,17 +9,20 @@
  * @param {{
  *   captureVideo: () => Promise<void>,
  *   handleResultReset: () => Promise<void>,
- *   downloadVideo: () => void,
  *   operatorScreen: {
  *     setOperatorPanelOpen: (isOpen: boolean) => void,
  *     registerOperatorAccessClick: () => void,
  *     syncCountdownFromControl: () => void,
+ *     stepCountdown: (delta: number) => void,
  *     syncDurationFromControl: () => void,
- *     syncCameraEffectFromControl: () => void,
- *     syncCameraEffectSpeedFromControl: () => void,
  *     syncOverlayControls: () => void,
- *     syncEffectUiState: () => void,
- *     setEffectDirectionFromPointer: (event: PointerEvent) => void
+ *     renderFrameTray: () => void,
+ *     triggerLogoUpload: () => void,
+ *     syncLogoUploadFromControl: () => Promise<void>,
+ *     handleOverlayClick: (event: MouseEvent) => void,
+ *     startOverlayDrag: (event: PointerEvent) => void,
+ *     dragOverlay: (event: PointerEvent) => void,
+ *     stopOverlayDrag: () => void
  *   }
  * }} handlers
  */
@@ -48,8 +50,6 @@ export default function wireEvents(dom, state, handlers) {
     void handlers.handleResultReset();
   });
 
-  dom.downloadButton.addEventListener("click", handlers.downloadVideo);
-
   dom.operatorCloseButton.addEventListener("click", () => {
     handlers.operatorScreen.setOperatorPanelOpen(false);
   });
@@ -60,31 +60,28 @@ export default function wireEvents(dom, state, handlers) {
     handlers.operatorScreen.registerOperatorAccessClick();
   });
 
-  dom.countdownSelect.addEventListener("change", handlers.operatorScreen.syncCountdownFromControl);
-  dom.durationSelect.addEventListener("change", handlers.operatorScreen.syncDurationFromControl);
-  dom.cameraEffectSelect.addEventListener("change", handlers.operatorScreen.syncCameraEffectFromControl);
-  dom.cameraEffectSpeedInput.addEventListener("input", handlers.operatorScreen.syncCameraEffectSpeedFromControl);
-  dom.setZoomDirectionButton.addEventListener("click", () => {
-    if (state.cameraEffect === "none") {
-      return;
-    }
-
-    state.settingEffectDirection = !state.settingEffectDirection;
-    handlers.operatorScreen.syncEffectUiState();
+  dom.countdownInput.addEventListener("input", handlers.operatorScreen.syncCountdownFromControl);
+  dom.countdownInput.addEventListener("change", handlers.operatorScreen.syncCountdownFromControl);
+  dom.countdownMinusButton.addEventListener("click", () => {
+    handlers.operatorScreen.stepCountdown(-1);
   });
+  dom.countdownPlusButton.addEventListener("click", () => {
+    handlers.operatorScreen.stepCountdown(1);
+  });
+  dom.durationSelect.addEventListener("change", handlers.operatorScreen.syncDurationFromControl);
 
   [dom.textInput, dom.fontSelect, dom.colorInput, dom.sizeInput].forEach((input) => {
     input.addEventListener("input", handlers.operatorScreen.syncOverlayControls);
   });
 
-  dom.operatorPreviewVideo.addEventListener("pointerdown", (event) => {
-    handlers.operatorScreen.setEffectDirectionFromPointer(event);
+  dom.logoUploadButton.addEventListener("click", handlers.operatorScreen.triggerLogoUpload);
+  dom.logoInput.addEventListener("change", () => {
+    void handlers.operatorScreen.syncLogoUploadFromControl();
   });
 
-  dom.kenBurnsToggle.addEventListener("change", () => {
-    state.kenBurnsEnabled = dom.kenBurnsToggle.checked;
-    dom.resultVideo.classList.toggle("ken-burns-effect", state.kenBurnsEnabled);
-    dom.kenBurnsPreview.classList.toggle("ken-burns-effect", state.kenBurnsEnabled);
-    localStorage.setItem("kenBurnsEnabled", String(state.kenBurnsEnabled));
-  });
+  dom.operatorText.addEventListener("click", handlers.operatorScreen.handleOverlayClick);
+  dom.operatorText.addEventListener("pointerdown", handlers.operatorScreen.startOverlayDrag);
+  window.addEventListener("pointermove", handlers.operatorScreen.dragOverlay);
+  window.addEventListener("pointerup", handlers.operatorScreen.stopOverlayDrag);
+  window.addEventListener("pointercancel", handlers.operatorScreen.stopOverlayDrag);
 }

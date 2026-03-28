@@ -9,7 +9,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:FILL@0..1" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="styles/ken-burns.css">
 </head>
 <body>
   <div class="app-shell">
@@ -59,17 +58,11 @@
         </div>
 
         <div class="console">
-          <button class="console-button hidden" id="resultRetakeButton" type="button">
+          <button class="console-button icon-only hidden" id="resultRetakeButton" type="button" aria-label="Retake">
             <span class="material-symbols-outlined">refresh</span>
-            Retake
           </button>
-          <button class="console-button hidden" id="anotherShotButton" type="button">
+          <button class="console-button icon-only hidden" id="anotherShotButton" type="button" aria-label="Another clip">
             <span class="material-symbols-outlined">videocam</span>
-            Another Clip
-          </button>
-          <button class="console-button hidden" id="downloadButton" type="button">
-            <span class="material-symbols-outlined">download</span>
-            Save Video
           </button>
         </div>
       </section>
@@ -91,11 +84,9 @@
             <section class="panel-section">
               <div class="section-header">
                 <div>
-                  <p class="eyebrow">Step 1</p>
-                  <p class="panel-title panel-title-small">Overlay Copy</p>
+                  <p class="panel-title panel-title-small">Caption</p>
                 </div>
               </div>
-              <p class="operator-inline-hint" id="placeHint">This text displays over the saved preview.</p>
               <label class="field">
                 <span class="field-label">Text</span>
                 <input id="textInput" type="text" maxlength="60" placeholder="Type your caption">
@@ -107,7 +98,7 @@
                 </label>
                 <label class="field field-grow">
                   <span class="field-label">Size</span>
-                  <input id="sizeInput" type="range" min="24" max="96" step="2" value="44">
+                  <input id="sizeInput" type="range" min="24" max="120" step="2" value="44">
                 </label>
               </div>
               <label class="field field-inline">
@@ -124,65 +115,53 @@
             <section class="panel-section">
               <div class="section-header">
                 <div>
-                  <p class="eyebrow">Step 2</p>
-                  <p class="panel-title panel-title-small">Booth Controls</p>
+                  <p class="panel-title panel-title-small">Recording</p>
                 </div>
               </div>
-              <label class="field field-inline">
-                <span class="field-label">Countdown</span>
-                <select id="countdownSelect">
-                  <option value="0">0 seconds</option>
-                  <option value="3" selected>3 seconds</option>
-                  <option value="5">5 seconds</option>
-                  <option value="10">10 seconds</option>
-                </select>
-              </label>
+              <div class="field field-inline">
+                <span class="field-label">Countdown Seconds</span>
+                <div class="stepper-control">
+                  <button class="stepper-button" id="countdownMinusButton" type="button" aria-label="Decrease countdown">
+                    <span class="material-symbols-outlined">remove</span>
+                  </button>
+                  <input id="countdownInput" type="number" min="0" max="120" step="1" value="3" inputmode="numeric">
+                  <button class="stepper-button" id="countdownPlusButton" type="button" aria-label="Increase countdown">
+                    <span class="material-symbols-outlined">add</span>
+                  </button>
+                </div>
+              </div>
               <label class="field field-inline">
                 <span class="field-label">Recording Duration</span>
                 <select id="durationSelect">
                   <option value="2">2 seconds</option>
-                  <option value="4" selected>4 seconds</option>
-                  <option value="6">6 seconds</option>
+                  <option value="4">4 seconds</option>
+                  <option value="6" selected>6 seconds</option>
                   <option value="8">8 seconds</option>
                   <option value="10">10 seconds</option>
                 </select>
               </label>
-              <label class="field field-inline">
-                <span class="field-label">Camera Effect</span>
-                <select id="cameraEffectSelect">
-                  <option value="none">None</option>
-                  <option value="zoom-in">Zoom In</option>
-                  <option value="zoom-out">Zoom Out</option>
-                </select>
-              </label>
-              <label class="field field-inline">
-                <span class="field-label">Zoom Speed</span>
-                <input id="cameraEffectSpeedInput" type="range" min="0.4" max="2.4" step="0.1" value="1">
-              </label>
-              <button class="console-button secondary-button" id="setZoomDirectionButton" type="button">
-                <span class="material-symbols-outlined">north_east</span>
-                Set Zoom Direction
-              </button>
-              <p class="status-text" id="effectHint">Draw from the center to choose the zoom direction.</p>
             </section>
 
             <section class="panel-section">
               <div class="section-header">
                 <div>
-                  <p class="eyebrow">Filters & Effects</p>
-                  <p class="panel-title panel-title-small">Playback Effects</p>
+                  <p class="panel-title panel-title-small">Branding</p>
                 </div>
               </div>
-              <label class="field field-inline field-switch">
-                <span class="field-label">Ken Burns Effect</span>
-                <input id="kenBurnsToggle" type="checkbox">
-                <span class="switch-track">
-                  <span class="switch-thumb"></span>
-                </span>
-              </label>
-              <div class="ken-burns-preview-shell">
-                <div class="ken-burns-preview" id="kenBurnsPreview"></div>
+              <button class="console-button secondary-button" id="logoUploadButton" type="button">
+                <span class="material-symbols-outlined">image</span>
+                Upload Logo
+              </button>
+              <input id="logoInput" type="file" accept="image/*" class="hidden">
+            </section>
+
+            <section class="panel-section">
+              <div class="section-header">
+                <div>
+                  <h3 class="panel-title panel-title-small">Frame</h3>
+                </div>
               </div>
+              <div class="frame-tray operator-frame-tray" id="frameTray"></div>
             </section>
           </aside>
 
@@ -196,7 +175,7 @@
               </div>
               <section class="stage-card operator-preview-card">
                 <div class="film-grain"></div>
-                <div class="operator-preview-surface">
+                <div class="operator-preview-surface" id="operatorPreviewSurface">
                   <video id="operatorPreviewVideo" autoplay muted playsinline></video>
                   <div class="operator-preview-frame" id="operatorFrame"></div>
                   <div class="operator-preview-text" id="operatorText"></div>
@@ -204,18 +183,6 @@
               </section>
             </div>
           </section>
-
-          <aside class="side-panel operator-gallery-panel">
-            <section class="panel-section operator-gallery-section">
-              <div class="section-header">
-                <div>
-                  <p class="eyebrow">Step 3</p>
-                  <h3 class="panel-title panel-title-small">Pick Frame</h3>
-                </div>
-              </div>
-              <div class="frame-tray operator-frame-tray" id="frameTray"></div>
-            </section>
-          </aside>
         </div>
       </div>
     </section>
@@ -224,4 +191,3 @@
   <script type="module" src="src/main.js"></script>
 </body>
 </html>
-

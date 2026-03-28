@@ -1,7 +1,3 @@
-/**
- * @typedef {import("../types/app.js").Vector2} Vector2
- */
-
 export const APP_STRINGS = {
   brandName: "SNAPBOOTH",
   cameraUnsupported: "This browser does not support camera access.",
@@ -10,25 +6,25 @@ export const APP_STRINGS = {
   previewLoadFailed: "Video element failed to load the camera stream.",
   previewLoadTimeout: "Timed out while waiting for the camera preview to become ready.",
   cameraAccessDenied: "Camera access was denied or is unavailable.",
-  recordingFailed: "Unable to record video.",
-  effectHintDisabled: "Choose a camera effect to enable directional zoom.",
-  effectHintPicking: "Draw from the center toward the zoom direction.",
-  effectHintIdle: "Draw from the center to choose the zoom direction."
+  recordingFailed: "Unable to record video."
 };
 
 export const APP_DEFAULTS = {
   mode: "camera",
   countdownSeconds: 3,
   recordingDurationSeconds: 6,
-  cameraEffect: "none",
-  cameraEffectSpeed: 1,
-  cameraEffectDirection: /** @type {Vector2} */ ({ x: 0, y: -1 }),
   activeFrameId: "none",
+  activeOverlayTarget: "text",
   overlayText: APP_STRINGS.brandName,
   overlayFont: "Space Grotesk",
   overlayColor: "#ff88b5",
   overlaySize: 44,
-  kenBurnsEnabled: false
+  overlayTextPosition: { x: 50, y: 84 },
+  overlayTextRotation: 0,
+  logoDataUrl: "",
+  logoScale: 1,
+  logoRotation: 0,
+  logoPosition: { x: 50, y: 20 }
 };
 
 export const APP_THRESHOLDS = {
@@ -39,7 +35,15 @@ export const APP_THRESHOLDS = {
   postFlashDelayMs: 120,
   recordingProgressIntervalMs: 80,
   recorderChunkIntervalMs: 200,
-  directionIgnoreRadiusPx: 8
+  overlayRotationStep: 8,
+  textResizeStep: 6,
+  logoScaleStep: 0.12,
+  minLogoScale: 0.3,
+  maxLogoScale: 3,
+  minOverlayY: 8,
+  maxOverlayY: 92,
+  minOverlayX: 8,
+  maxOverlayX: 92
 };
 
 export const CAMERA_CONFIG = {
@@ -50,15 +54,6 @@ export const CAMERA_CONFIG = {
     aspectRatio: { ideal: 1 }
   },
   audio: false
-};
-
-export const EFFECT_CONFIG = {
-  minSpeed: 0.1,
-  phaseDivisor: 900,
-  scaleRange: 0.18,
-  zoomOutBaseScale: 0.82,
-  maxOffsetRatio: 0.18,
-  translateRangePx: 18
 };
 
 export const DOWNLOAD_CONFIG = {

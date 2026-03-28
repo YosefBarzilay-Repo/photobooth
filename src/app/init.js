@@ -20,7 +20,25 @@ function restartAnimation(element, className) {
   element.classList.add(className);
 }
 
-// TODO(refactor): If product scope returns to photo or canvas export, split the capture flow by media mode instead of expanding this initializer.
+async function requestFullscreenIfPossible() {
+  if (!document.fullscreenEnabled || document.fullscreenElement) {
+    return;
+  }
+
+  const root = document.documentElement;
+  const requestFullscreen = root.requestFullscreen?.bind(root);
+
+  if (!requestFullscreen) {
+    return;
+  }
+
+  try {
+    await requestFullscreen();
+  } catch {
+    // Ignore browser rejections; a later user gesture may allow fullscreen.
+  }
+}
+
 export default function initApp() {
   const state = createAppStore();
   const dom = createDomRefs();
@@ -99,6 +117,7 @@ export default function initApp() {
     }
 
     state.recordingUrl = createObjectUrl(state.recordingBlob);
+    downloadRecording(state.recordingUrl);
     state.captureInProgress = false;
     state.shutterAnimatingOut = false;
     dom.snapButton.disabled = false;
@@ -106,9 +125,6 @@ export default function initApp() {
     syncModeUi();
   }
 
-  /**
-   * @param {boolean} finalize
-   */
   function stopRecording(finalize = true) {
     stopRecordingTimers();
 
@@ -151,14 +167,8 @@ export default function initApp() {
       state.recorder.start(APP_THRESHOLDS.recorderChunkIntervalMs);
       state.recordStartedAt = Date.now();
       dom.recordingProgress.style.width = "0%";
-      state.recordIntervalId = window.setInterval(
-        updateRecordingProgress,
-        APP_THRESHOLDS.recordingProgressIntervalMs
-      );
-      state.recordStopTimeoutId = window.setTimeout(
-        () => stopRecording(true),
-        state.recordingDurationSeconds * 1000
-      );
+      state.recordIntervalId = window.setInterval(updateRecordingProgress, APP_THRESHOLDS.recordingProgressIntervalMs);
+      state.recordStopTimeoutId = window.setTimeout(() => stopRecording(true), state.recordingDurationSeconds * 1000);
     } catch (error) {
       console.error(error);
       state.captureInProgress = false;
@@ -167,14 +177,6 @@ export default function initApp() {
       syncModeUi();
       cameraScreen.showError(APP_STRINGS.recordingFailed);
     }
-  }
-
-  function downloadVideo() {
-    if (!state.recordingBlob || !state.recordingUrl) {
-      return;
-    }
-
-    downloadRecording(state.recordingUrl);
   }
 
   async function handleResultReset() {
@@ -199,15 +201,18 @@ export default function initApp() {
   operatorScreen.syncControlsFromState();
   operatorScreen.renderFrameTray();
   editorScreen.renderOverlayPreview();
+  void requestFullscreenIfPossible();
+  document.addEventListener("pointerdown", () => {
+    void requestFullscreenIfPossible();
+  }, { once: true });
+  document.addEventListener("keydown", () => {
+    void requestFullscreenIfPossible();
+  }, { once: true });
   wireEvents(dom, state, {
     captureVideo,
     handleResultReset,
-    downloadVideo,
     operatorScreen
   });
-  cameraScreen.startPreviewEffectLoop();
   syncModeUi();
   void startCamera();
 }
-
-

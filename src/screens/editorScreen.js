@@ -1,5 +1,5 @@
 import renderFrameMarkup from "../components/frameMarkup.js";
-import { renderOverlayText } from "../components/overlayRenderer.js";
+import { renderOverlayLayer } from "../components/overlayRenderer.js";
 
 /**
  * @typedef {import("../types/app.js").AppState} AppState
@@ -14,8 +14,8 @@ export default function createEditorScreen(dom, state) {
   function renderOverlayPreview() {
     dom.resultFrame.innerHTML = renderFrameMarkup(state.activeFrameId);
     dom.operatorFrame.innerHTML = renderFrameMarkup(state.activeFrameId);
-    renderOverlayText(dom.resultText, state);
-    renderOverlayText(dom.operatorText, state);
+    renderOverlayLayer(dom.resultText, state);
+    renderOverlayLayer(dom.operatorText, state, { interactive: true });
   }
 
   function showResult() {

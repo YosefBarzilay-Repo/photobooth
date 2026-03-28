@@ -19,10 +19,13 @@ export function createObjectUrl(blob) {
 
 /**
  * @param {string} url
+ * @returns {string}
  */
 export function downloadRecording(url) {
+  const filename = `${DOWNLOAD_CONFIG.filePrefix}-${Date.now()}.${DOWNLOAD_CONFIG.fileExtension}`;
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${DOWNLOAD_CONFIG.filePrefix}-${Date.now()}.${DOWNLOAD_CONFIG.fileExtension}`;
+  link.download = filename;
   link.click();
+  return filename;
 }

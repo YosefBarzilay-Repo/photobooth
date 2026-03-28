@@ -1,5 +1,4 @@
 import { APP_STRINGS } from "../constants/appConfig.js";
-import { applyVideoEffectStyles } from "../utils/effectMath.js";
 
 /**
  * @typedef {import("../types/app.js").AppState} AppState
@@ -11,8 +10,6 @@ import { applyVideoEffectStyles } from "../utils/effectMath.js";
  * @param {AppState} state
  */
 export default function createCameraScreen(dom, state) {
-  let previewLoopStarted = false;
-
   function syncModeUi() {
     document.body.dataset.mode = state.mode;
     const editorVisible = state.mode === "editor";
@@ -25,7 +22,6 @@ export default function createCameraScreen(dom, state) {
     dom.snapButton.classList.toggle("shutter-exit", state.shutterAnimatingOut);
     dom.resultRetakeButton.classList.toggle("hidden", !showResultActions);
     dom.anotherShotButton.classList.toggle("hidden", !showResultActions);
-    dom.downloadButton.classList.toggle("hidden", !showResultActions);
   }
 
   /**
@@ -52,39 +48,9 @@ export default function createCameraScreen(dom, state) {
     dom.errorOverlay.classList.add("hidden");
   }
 
-  function startPreviewEffectLoop() {
-    if (previewLoopStarted) {
-      return;
-    }
-
-    previewLoopStarted = true;
-
-    const tick = () => {
-      if (state.mode === "camera" && state.captureReady) {
-        applyVideoEffectStyles(
-          dom.cameraPreview,
-          state.cameraEffect,
-          state.cameraEffectSpeed,
-          state.cameraEffectDirection
-        );
-        applyVideoEffectStyles(
-          dom.operatorPreviewVideo,
-          state.cameraEffect,
-          state.cameraEffectSpeed,
-          state.cameraEffectDirection
-        );
-      }
-
-      window.requestAnimationFrame(tick);
-    };
-
-    window.requestAnimationFrame(tick);
-  }
-
   return {
     syncModeUi,
     showError,
-    clearError,
-    startPreviewEffectLoop
+    clearError
   };
 }

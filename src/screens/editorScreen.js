@@ -26,10 +26,11 @@ export default function createEditorScreen(dom, state) {
 
   function showResult() {
     if (state.recordingUrl) {
+      dom.resultVideo.pause();
       dom.resultVideo.src = state.recordingUrl;
       dom.resultVideo.currentTime = 0;
-      dom.resultVideo.pause();
       dom.resultVideo.style.transform = "none";
+      dom.resultVideo.load();
       syncPlaybackButton();
     }
 

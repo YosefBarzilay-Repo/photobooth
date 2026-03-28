@@ -23,6 +23,7 @@ export default function createDomRefs() {
     recordControl: getRequiredElement("recordControl"),
     snapButton: getRequiredElement("snapButton"),
     snapButtonIcon: getRequiredElement("snapButtonIcon"),
+    snapButtonLabel: getRequiredElement("snapButtonLabel"),
     resultPlayButton: getRequiredElement("resultPlayButton"),
     resultPlayIcon: getRequiredElement("resultPlayIcon"),
     resultNewButton: getRequiredElement("resultNewButton"),

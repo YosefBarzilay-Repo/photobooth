@@ -221,6 +221,7 @@ export default function initApp() {
 
   function updateRecordingTimer() {
     dom.recordingTimer.textContent = formatElapsedTime(state.recordStartedAt);
+    syncModeUi();
   }
 
   function flash() {
@@ -408,4 +409,3 @@ export default function initApp() {
   syncModeUi();
   void startCamera();
 }
-

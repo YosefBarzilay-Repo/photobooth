@@ -182,15 +182,22 @@
   font-size: 1.75rem;
 }
 
-.shutter-button.is-countdown .shutter-core .material-symbols-outlined {
-  font-size: 1.55rem;
+.shutter-label {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.1rem;
   font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: rgba(255, 245, 250, 0.94);
+}
+
+.shutter-button.is-countdown .shutter-label {
+  font-size: 1.55rem;
   letter-spacing: 0.02em;
 }
 
-.shutter-button.is-recording .shutter-core .material-symbols-outlined {
-  font-size: 0.9rem;
-  font-weight: 700;
+.shutter-button.is-recording .shutter-label {
+  font-size: 0.86rem;
   letter-spacing: 0.08em;
 }
 

@@ -9,6 +9,7 @@
  *   recordControl: HTMLElement,
  *   snapButton: HTMLButtonElement,
  *   snapButtonIcon: HTMLElement,
+ *   snapButtonLabel: HTMLElement,
  *   resultPlayButton: HTMLButtonElement,
  *   resultPlayIcon: HTMLElement,
  *   resultNewButton: HTMLButtonElement,

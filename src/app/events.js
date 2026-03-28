@@ -8,21 +8,6 @@ export default function wireEvents(dom, state, handlers) {
     void handlers.captureVideo();
   });
 
-  dom.cameraStage.addEventListener("click", (event) => {
-    const target = /** @type {HTMLElement} */ (event.target);
-    if (
-      target.closest("button") ||
-      target.closest(".overlay-tool-button") ||
-      target.closest(".overlay-color-swatch")
-    ) {
-      return;
-    }
-
-    if (state.mode === "camera" && !state.captureInProgress && !state.operatorPanelOpen) {
-      void handlers.captureVideo();
-    }
-  });
-
   dom.resultPlayButton.addEventListener("click", () => {
     handlers.editorScreen.togglePlayback();
   });

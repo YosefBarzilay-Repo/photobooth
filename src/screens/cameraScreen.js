@@ -11,7 +11,6 @@ export default function createCameraScreen(dom, state) {
     const cameraMode = state.mode === "camera";
     const editorVisible = state.mode === "editor";
     const countdownActive = state.countdownValue !== null;
-    const hideShutter = !cameraMode || (state.captureInProgress && !countdownActive && !state.isRecording);
     const showResultActions = state.mode === "editor";
     const hideConsole = state.operatorPanelOpen;
 
@@ -21,18 +20,23 @@ export default function createCameraScreen(dom, state) {
     dom.recordControl.classList.toggle("hidden", !cameraMode);
     dom.operatorAccessTrigger.classList.toggle("hidden", !cameraMode);
     dom.operatorAccessTrigger.disabled = state.isRecording;
-    dom.snapButton.classList.toggle("hidden", hideShutter);
-    dom.snapButton.classList.toggle("shutter-exit", state.shutterAnimatingOut);
+    dom.snapButton.classList.toggle("hidden", !cameraMode);
+    dom.snapButton.classList.toggle("shutter-exit", false);
     dom.snapButton.classList.toggle("is-recording", state.isRecording);
     dom.snapButton.classList.toggle("is-countdown", countdownActive);
     dom.snapButton.ariaLabel = state.isRecording ? "Stop recording" : "Start recording";
 
+    const showLabel = countdownActive || state.isRecording;
+    dom.snapButtonIcon.classList.toggle("hidden", showLabel);
+    dom.snapButtonLabel.classList.toggle("hidden", !showLabel);
+
     if (countdownActive) {
-      dom.snapButtonIcon.textContent = String(state.countdownValue);
+      dom.snapButtonLabel.textContent = String(state.countdownValue);
     } else if (state.isRecording) {
-      dom.snapButtonIcon.textContent = dom.recordingTimer.textContent || "00:00";
+      dom.snapButtonLabel.textContent = dom.recordingTimer.textContent || "00:00";
     } else {
       dom.snapButtonIcon.textContent = "videocam";
+      dom.snapButtonLabel.textContent = "";
     }
 
     dom.recordingTimer.classList.add("hidden");

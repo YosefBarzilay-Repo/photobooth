@@ -19,7 +19,7 @@ export default function createCameraScreen(dom, state) {
     dom.console.classList.toggle("hidden", hideConsole);
     dom.recordControl.classList.toggle("hidden", !cameraMode);
     dom.openPreviewButton.classList.toggle("hidden", !cameraMode);
-    dom.openPreviewButton.disabled = !state.recordingUrl || state.isRecording || state.captureInProgress;
+    dom.openPreviewButton.disabled = state.isRecording || state.captureInProgress;
     dom.snapButton.classList.toggle("hidden", !cameraMode);
     dom.snapButton.classList.toggle("shutter-exit", false);
     dom.snapButton.classList.toggle("is-recording", state.isRecording);

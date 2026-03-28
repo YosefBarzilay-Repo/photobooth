@@ -434,11 +434,6 @@ export default function initApp() {
   }
 
   function openPreviewView() {
-    if (!state.recordingUrl) {
-      showAppDialog("Preview unavailable", "Record a video first, then open preview.");
-      return;
-    }
-
     hideAppDialog();
     editorScreen.showResult();
     syncModeUi();

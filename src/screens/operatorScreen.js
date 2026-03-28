@@ -1,51 +1,61 @@
 import { APP_STRINGS, APP_THRESHOLDS } from "../constants/appConfig.js";
 import renderFrameTray from "../components/frameTray.js";
 
-/**
- * @typedef {import("../types/app.js").AppState} AppState
- * @typedef {import("../types/app.js").OverlayTarget} OverlayTarget
- * @typedef {import("../types/dom.js").DomRefs} DomRefs
- */
-
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-/**
- * @param {OverlayTarget} target
- * @param {AppState} state
- * @returns {{ x: number, y: number }}
- */
 function getOverlayPosition(target, state) {
   return target === "logo" ? state.logoPosition : state.overlayTextPosition;
 }
 
-/**
- * @param {OverlayTarget} target
- * @param {AppState} state
- * @param {{ x: number, y: number }} position
- */
 function setOverlayPosition(target, state, position) {
   if (target === "logo") {
     state.logoPosition = position;
     return;
   }
-
   state.overlayTextPosition = position;
 }
 
-/**
- * @param {DomRefs} dom
- * @param {AppState} state
- * @param {{ renderOverlayPreview: () => void }} editorScreen
- */
+function getOverlayInteractionElement(dom, target) {
+  return dom.operatorText.querySelector(`.overlay-item-${target}`);
+}
+
 export default function createOperatorScreen(dom, state, editorScreen) {
   let operatorAccessClickCount = 0;
-  /** @type {number | null} */
   let operatorAccessClickTimer = null;
 
   function renderPreview() {
     editorScreen.renderOverlayPreview();
+    dom.saveFolderLabel.textContent = state.saveDirectoryName;
+  }
+
+  function syncSelectedOverlayElement() {
+    if (!state.draggingOverlayTarget) {
+      return;
+    }
+
+    const element = getOverlayInteractionElement(dom, state.draggingOverlayTarget);
+    if (!(element instanceof HTMLElement)) {
+      return;
+    }
+
+    const position = getOverlayPosition(state.draggingOverlayTarget, state);
+    element.style.left = `${position.x}%`;
+    element.style.top = `${position.y}%`;
+
+    if (state.draggingOverlayTarget === "logo") {
+      element.style.transform = `translate(-50%, -50%) rotate(${state.logoRotation}deg) scale(${state.logoScale})`;
+      return;
+    }
+
+    element.style.transform = `translate(-50%, -50%) rotate(${state.overlayTextRotation}deg)`;
+    const caption = element.querySelector(".overlay-caption");
+    if (caption instanceof HTMLElement) {
+      caption.style.fontSize = `${state.overlaySize}px`;
+      caption.style.color = state.overlayColor;
+      caption.style.fontFamily = `"${state.overlayFont}", sans-serif`;
+    }
   }
 
   function clampCountdown(value) {
@@ -71,18 +81,16 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     syncCountdownFromControl();
   }
 
-  function syncDurationFromControl() {
-    state.recordingDurationSeconds = Number(dom.durationSelect.value) || 0;
-  }
-
   function syncOverlayControls() {
     state.overlayText = dom.textInput.value.trim();
     state.overlayFont = dom.fontSelect.value;
-    state.overlayColor = dom.colorInput.value;
-    state.overlaySize = Number(dom.sizeInput.value) || 44;
 
     if (state.overlayText && !state.activeOverlayTarget) {
       state.activeOverlayTarget = "text";
+    }
+
+    if (!state.overlayText && state.activeOverlayTarget === "text") {
+      state.activeOverlayTarget = state.logoDataUrl ? "logo" : null;
     }
 
     renderPreview();
@@ -90,13 +98,9 @@ export default function createOperatorScreen(dom, state, editorScreen) {
 
   function syncControlsFromState() {
     dom.countdownInput.value = String(state.countdownSeconds);
-    dom.durationSelect.value = String(state.recordingDurationSeconds);
     dom.textInput.value = state.overlayText;
     dom.fontSelect.value = state.overlayFont;
-    dom.colorInput.value = state.overlayColor;
-    dom.sizeInput.value = String(state.overlaySize);
     syncCountdownFromControl();
-    syncDurationFromControl();
     renderPreview();
   }
 
@@ -140,46 +144,31 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     }
 
     state.activeOverlayTarget = target;
+    state.showTextColorPalette = false;
     renderPreview();
   }
 
-  function applyOverlayAction(target, action) {
-    if (!target) {
-      return;
+  function rotateOverlay(target, direction) {
+    if (target === "logo") {
+      state.logoRotation += direction * APP_THRESHOLDS.overlayRotationStep;
+    } else if (target === "text") {
+      state.overlayTextRotation += direction * APP_THRESHOLDS.overlayRotationStep;
+    }
+    renderPreview();
+  }
+
+  function deleteOverlay(target) {
+    if (target === "logo") {
+      state.logoDataUrl = "";
+      dom.logoInput.value = "";
+      state.activeOverlayTarget = state.overlayText ? "text" : null;
     }
 
     if (target === "text") {
-      if (action === "delete") {
-        state.overlayText = "";
-        dom.textInput.value = "";
-        state.activeOverlayTarget = state.logoDataUrl ? "logo" : null;
-      } else if (action === "grow") {
-        state.overlaySize = clamp(state.overlaySize + APP_THRESHOLDS.textResizeStep, 24, 160);
-        dom.sizeInput.value = String(state.overlaySize);
-      } else if (action === "shrink") {
-        state.overlaySize = clamp(state.overlaySize - APP_THRESHOLDS.textResizeStep, 24, 160);
-        dom.sizeInput.value = String(state.overlaySize);
-      } else if (action === "rotate-left") {
-        state.overlayTextRotation -= APP_THRESHOLDS.overlayRotationStep;
-      } else if (action === "rotate-right") {
-        state.overlayTextRotation += APP_THRESHOLDS.overlayRotationStep;
-      }
-    }
-
-    if (target === "logo") {
-      if (action === "delete") {
-        state.logoDataUrl = "";
-        dom.logoInput.value = "";
-        state.activeOverlayTarget = state.overlayText ? "text" : null;
-      } else if (action === "grow") {
-        state.logoScale = clamp(state.logoScale + APP_THRESHOLDS.logoScaleStep, APP_THRESHOLDS.minLogoScale, APP_THRESHOLDS.maxLogoScale);
-      } else if (action === "shrink") {
-        state.logoScale = clamp(state.logoScale - APP_THRESHOLDS.logoScaleStep, APP_THRESHOLDS.minLogoScale, APP_THRESHOLDS.maxLogoScale);
-      } else if (action === "rotate-left") {
-        state.logoRotation -= APP_THRESHOLDS.overlayRotationStep;
-      } else if (action === "rotate-right") {
-        state.logoRotation += APP_THRESHOLDS.overlayRotationStep;
-      }
+      state.overlayText = "";
+      dom.textInput.value = "";
+      state.activeOverlayTarget = state.logoDataUrl ? "logo" : null;
+      state.showTextColorPalette = false;
     }
 
     renderPreview();
@@ -189,9 +178,26 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     dom.logoInput.click();
   }
 
+  async function pickSaveFolder() {
+    if (!("showDirectoryPicker" in window)) {
+      state.saveDirectoryHandle = null;
+      state.saveDirectoryName = APP_STRINGS.folderUnsupported;
+      renderPreview();
+      return;
+    }
+
+    try {
+      const directoryHandle = await window.showDirectoryPicker();
+      state.saveDirectoryHandle = directoryHandle;
+      state.saveDirectoryName = directoryHandle.name || APP_STRINGS.saveFolderDefault;
+      renderPreview();
+    } catch {
+      // Ignore user cancellation.
+    }
+  }
+
   async function syncLogoUploadFromControl() {
     const [file] = dom.logoInput.files || [];
-
     if (!file) {
       return;
     }
@@ -212,74 +218,136 @@ export default function createOperatorScreen(dom, state, editorScreen) {
   }
 
   function handleOverlayClick(event) {
-    const target = /** @type {HTMLElement | null} */ (event.target instanceof HTMLElement ? event.target : null);
-    const actionButton = target?.closest("[data-overlay-action]");
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    const colorSwatch = target?.closest("[data-overlay-color]");
+    if (colorSwatch instanceof HTMLElement) {
+      state.overlayColor = colorSwatch.dataset.overlayColor || state.overlayColor;
+      state.showTextColorPalette = false;
+      renderPreview();
+      return;
+    }
 
+    const actionButton = target?.closest("[data-overlay-action]");
     if (actionButton instanceof HTMLElement) {
-      applyOverlayAction(
-        /** @type {OverlayTarget} */ (actionButton.dataset.overlayType || state.activeOverlayTarget),
-        actionButton.dataset.overlayAction || ""
-      );
+      const overlayType = actionButton.dataset.overlayType || state.activeOverlayTarget;
+      const action = actionButton.dataset.overlayAction || "";
+
+      if (action === "delete") {
+        deleteOverlay(overlayType);
+      } else if (action === "rotate-left") {
+        rotateOverlay(overlayType, -1);
+      } else if (action === "rotate-right") {
+        rotateOverlay(overlayType, 1);
+      } else if (action === "color" && overlayType === "text") {
+        state.showTextColorPalette = !state.showTextColorPalette;
+        renderPreview();
+      }
       return;
     }
 
     const overlayBody = target?.closest(".overlay-item-body");
     const overlayType = overlayBody instanceof HTMLElement ? overlayBody.dataset.overlayType : null;
-
     if (overlayType === "text" || overlayType === "logo") {
       setActiveOverlayTarget(overlayType);
-    }
-  }
-
-  function startOverlayDrag(event) {
-    const target = /** @type {HTMLElement | null} */ (event.target instanceof HTMLElement ? event.target : null);
-
-    if (!target || target.closest("[data-overlay-action]")) {
       return;
     }
 
-    const overlayBody = target.closest(".overlay-item-body");
-    const overlayType = overlayBody instanceof HTMLElement ? overlayBody.dataset.overlayType : null;
+    state.showTextColorPalette = false;
+    renderPreview();
+  }
+
+  function startOverlayInteraction(event) {
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    if (!target || target.closest("[data-overlay-action]") || target.closest("[data-overlay-color]")) {
+      return;
+    }
+
+    const handle = target.closest("[data-overlay-handle]");
+    const overlayElement = target.closest(".overlay-item-body");
+    const overlayType = handle instanceof HTMLElement
+      ? handle.dataset.overlayType
+      : overlayElement instanceof HTMLElement
+        ? overlayElement.dataset.overlayType
+        : null;
 
     if (overlayType !== "text" && overlayType !== "logo") {
       return;
     }
 
     const rect = dom.operatorPreviewSurface.getBoundingClientRect();
-    const position = getOverlayPosition(overlayType, state);
     state.activeOverlayTarget = overlayType;
+    state.showTextColorPalette = false;
     state.draggingOverlayTarget = overlayType;
-    state.dragStartPointer = {
-      x: ((event.clientX - rect.left) / rect.width) * 100,
-      y: ((event.clientY - rect.top) / rect.height) * 100
-    };
-    state.dragStartPosition = { ...position };
+    state.overlayInteraction = handle instanceof HTMLElement ? "resize" : "move";
+    state.dragPointerId = event.pointerId;
+    state.dragStartPointer = { x: event.clientX, y: event.clientY };
+    state.dragSurfaceSize = { x: rect.width, y: rect.height };
+    state.dragStartPosition = { ...getOverlayPosition(overlayType, state) };
+    state.dragStartScale = state.logoScale;
+    state.dragStartTextSize = state.overlaySize;
+    event.preventDefault();
     renderPreview();
+    const interactionElement = getOverlayInteractionElement(dom, overlayType);
+    interactionElement?.setPointerCapture?.(event.pointerId);
   }
 
-  function dragOverlay(event) {
-    if (!state.draggingOverlayTarget || !state.dragStartPointer || !state.dragStartPosition) {
+  function updateOverlayFromPointer(event) {
+    if (
+      !state.draggingOverlayTarget ||
+      !state.dragStartPointer ||
+      !state.dragStartPosition ||
+      !state.overlayInteraction ||
+      state.dragPointerId !== event.pointerId ||
+      !state.dragSurfaceSize
+    ) {
       return;
     }
 
-    const rect = dom.operatorPreviewSurface.getBoundingClientRect();
-    const pointer = {
-      x: ((event.clientX - rect.left) / rect.width) * 100,
-      y: ((event.clientY - rect.top) / rect.height) * 100
-    };
+    const dxPercent = ((event.clientX - state.dragStartPointer.x) / state.dragSurfaceSize.x) * 100;
+    const dyPercent = ((event.clientY - state.dragStartPointer.y) / state.dragSurfaceSize.y) * 100;
 
-    setOverlayPosition(state.draggingOverlayTarget, state, {
-      x: clamp(state.dragStartPosition.x + (pointer.x - state.dragStartPointer.x), APP_THRESHOLDS.minOverlayX, APP_THRESHOLDS.maxOverlayX),
-      y: clamp(state.dragStartPosition.y + (pointer.y - state.dragStartPointer.y), APP_THRESHOLDS.minOverlayY, APP_THRESHOLDS.maxOverlayY)
-    });
+    if (state.overlayInteraction === "move") {
+      setOverlayPosition(state.draggingOverlayTarget, state, {
+        x: clamp(state.dragStartPosition.x + dxPercent, APP_THRESHOLDS.minOverlayX, APP_THRESHOLDS.maxOverlayX),
+        y: clamp(state.dragStartPosition.y + dyPercent, APP_THRESHOLDS.minOverlayY, APP_THRESHOLDS.maxOverlayY)
+      });
+    } else if (state.draggingOverlayTarget === "logo") {
+      state.logoScale = clamp(
+        state.dragStartScale + ((dxPercent + dyPercent) / 10),
+        APP_THRESHOLDS.minLogoScale,
+        APP_THRESHOLDS.maxLogoScale
+      );
+    } else {
+      state.overlaySize = clamp(
+        state.dragStartTextSize + ((dxPercent + dyPercent) * 2.4),
+        APP_THRESHOLDS.minTextSize,
+        APP_THRESHOLDS.maxTextSize
+      );
+    }
 
-    renderPreview();
+    event.preventDefault();
+    syncSelectedOverlayElement();
   }
 
-  function stopOverlayDrag() {
+  function stopOverlayInteraction(event) {
+    if (!state.draggingOverlayTarget && !state.overlayInteraction) {
+      return;
+    }
+
+    if (event && state.dragPointerId === event.pointerId) {
+      const interactionElement = state.draggingOverlayTarget
+        ? getOverlayInteractionElement(dom, state.draggingOverlayTarget)
+        : null;
+      interactionElement?.releasePointerCapture?.(event.pointerId);
+    }
+
     state.draggingOverlayTarget = null;
+    state.overlayInteraction = null;
+    state.dragPointerId = null;
     state.dragStartPointer = null;
+    state.dragSurfaceSize = null;
     state.dragStartPosition = null;
+    renderPreview();
   }
 
   return {
@@ -287,15 +355,15 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     syncOverlayControls,
     syncCountdownFromControl,
     stepCountdown,
-    syncDurationFromControl,
     setOperatorPanelOpen,
     registerOperatorAccessClick,
     renderFrameTray: renderFrameTrayView,
     triggerLogoUpload,
     syncLogoUploadFromControl,
+    pickSaveFolder,
     handleOverlayClick,
-    startOverlayDrag,
-    dragOverlay,
-    stopOverlayDrag
+    startOverlayInteraction,
+    updateOverlayFromPointer,
+    stopOverlayInteraction
   };
 }

@@ -5,28 +5,25 @@ import { APP_STRINGS } from "../constants/appConfig.js";
  * @typedef {import("../types/dom.js").DomRefs} DomRefs
  */
 
-/**
- * @param {DomRefs} dom
- * @param {AppState} state
- */
 export default function createCameraScreen(dom, state) {
   function syncModeUi() {
     document.body.dataset.mode = state.mode;
     const editorVisible = state.mode === "editor";
-    const hideShutter = state.mode !== "camera" || (state.captureInProgress && !state.shutterAnimatingOut);
+    const hideShutter = state.mode !== "camera" || (state.captureInProgress && !state.shutterAnimatingOut && !state.isRecording);
     const showResultActions = state.mode === "editor";
 
     dom.cameraStage.classList.toggle("hidden", editorVisible);
     dom.editorStage.classList.toggle("hidden", !editorVisible);
     dom.snapButton.classList.toggle("hidden", hideShutter);
     dom.snapButton.classList.toggle("shutter-exit", state.shutterAnimatingOut);
+    dom.snapButton.classList.toggle("is-recording", state.isRecording);
+    dom.snapButton.ariaLabel = state.isRecording ? "Stop recording" : "Start recording";
+    dom.snapButtonIcon.textContent = state.isRecording ? "stop" : "videocam";
+    dom.recordingTimer.classList.toggle("hidden", !state.isRecording);
     dom.resultRetakeButton.classList.toggle("hidden", !showResultActions);
     dom.anotherShotButton.classList.toggle("hidden", !showResultActions);
   }
 
-  /**
-   * @param {string} message
-   */
   function showError(message) {
     dom.errorOverlay.replaceChildren();
     const wrapper = document.createElement("div");

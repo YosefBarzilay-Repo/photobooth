@@ -25,14 +25,12 @@
             <div class="film-grain"></div>
             <video id="cameraPreview" autoplay muted playsinline></video>
             <div class="camera-controls">
-              <button class="shutter-button" id="snapButton" type="button">
+              <button class="shutter-button" id="snapButton" type="button" aria-label="Start recording">
                 <span class="shutter-core">
-                  <span class="material-symbols-outlined">videocam</span>
+                  <span class="material-symbols-outlined" id="snapButtonIcon">videocam</span>
                 </span>
               </button>
-            </div>
-            <div class="camera-progress">
-              <div class="camera-progress-fill" id="recordingProgress"></div>
+              <div class="recording-timer hidden" id="recordingTimer">00:00</div>
             </div>
             <div class="empty-camera" id="emptyCamera">
               <span class="material-symbols-outlined">photo_camera</span>
@@ -91,16 +89,6 @@
                 <span class="field-label">Text</span>
                 <input id="textInput" type="text" maxlength="60" placeholder="Type your caption">
               </label>
-              <div class="field-grid compact-grid">
-                <label class="field">
-                  <span class="field-label">Color</span>
-                  <input id="colorInput" type="color" value="#ff88b5">
-                </label>
-                <label class="field field-grow">
-                  <span class="field-label">Size</span>
-                  <input id="sizeInput" type="range" min="24" max="120" step="2" value="44">
-                </label>
-              </div>
               <label class="field field-inline">
                 <span class="field-label">Font</span>
                 <select id="fontSelect">
@@ -130,16 +118,6 @@
                   </button>
                 </div>
               </div>
-              <label class="field field-inline">
-                <span class="field-label">Recording Duration</span>
-                <select id="durationSelect">
-                  <option value="2">2 seconds</option>
-                  <option value="4">4 seconds</option>
-                  <option value="6" selected>6 seconds</option>
-                  <option value="8">8 seconds</option>
-                  <option value="10">10 seconds</option>
-                </select>
-              </label>
             </section>
 
             <section class="panel-section">
@@ -153,6 +131,19 @@
                 Upload Logo
               </button>
               <input id="logoInput" type="file" accept="image/*" class="hidden">
+            </section>
+
+            <section class="panel-section">
+              <div class="section-header">
+                <div>
+                  <p class="panel-title panel-title-small">Save Folder</p>
+                </div>
+              </div>
+              <button class="console-button secondary-button" id="saveFolderButton" type="button">
+                <span class="material-symbols-outlined">folder_open</span>
+                Choose Folder
+              </button>
+              <p class="save-folder-label" id="saveFolderLabel">Browser default downloads</p>
             </section>
 
             <section class="panel-section">

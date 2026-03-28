@@ -5,19 +5,176 @@ import createEditorScreen from "../screens/editorScreen.js";
 import createOperatorScreen from "../screens/operatorScreen.js";
 import wireEvents from "./events.js";
 import { APP_STRINGS, APP_THRESHOLDS } from "../constants/appConfig.js";
-import { sleep, clearIntervalTimer, clearTimer } from "../utils/timing.js";
+import { sleep, clearIntervalTimer } from "../utils/timing.js";
 import { startCameraStream, stopCameraStream } from "../services/cameraService.js";
-import { createMediaRecorder, createRecordingBlob } from "../services/recordingService.js";
-import { createObjectUrl, revokeObjectUrl, downloadRecording } from "../services/downloadService.js";
+import { createMediaRecorder, createRecordingBlob, getRecordingExtension } from "../services/recordingService.js";
+import { createObjectUrl, revokeObjectUrl, saveRecording, buildTimestampFilename } from "../services/downloadService.js";
 
-/**
- * @param {HTMLElement} element
- * @param {string} className
- */
 function restartAnimation(element, className) {
   element.classList.remove(className);
   void element.offsetWidth;
   element.classList.add(className);
+}
+
+function formatElapsedTime(startedAt) {
+  const totalSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
+function drawVideoCover(ctx, video, width, height) {
+  const videoWidth = video.videoWidth || width;
+  const videoHeight = video.videoHeight || height;
+  const targetAspect = width / height;
+  const sourceAspect = videoWidth / videoHeight;
+
+  let sourceWidth = videoWidth;
+  let sourceHeight = videoHeight;
+  let sourceX = 0;
+  let sourceY = 0;
+
+  if (sourceAspect > targetAspect) {
+    sourceWidth = videoHeight * targetAspect;
+    sourceX = (videoWidth - sourceWidth) / 2;
+  } else {
+    sourceHeight = videoWidth / targetAspect;
+    sourceY = (videoHeight - sourceHeight) / 2;
+  }
+
+  ctx.save();
+  ctx.translate(width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, width, height);
+  ctx.restore();
+}
+
+function drawOverlayText(ctx, state, width, height) {
+  if (!state.overlayText) {
+    return;
+  }
+
+  ctx.save();
+  ctx.translate((state.overlayTextPosition.x / 100) * width, (state.overlayTextPosition.y / 100) * height);
+  ctx.rotate((state.overlayTextRotation * Math.PI) / 180);
+  ctx.fillStyle = state.overlayColor;
+  ctx.font = `800 ${state.overlaySize}px "${state.overlayFont}", sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+  ctx.shadowBlur = 20;
+  ctx.fillText(state.overlayText, 0, 0);
+  ctx.restore();
+}
+
+function drawOverlayLogo(ctx, state, width, height, logoImage) {
+  if (!logoImage) {
+    return;
+  }
+
+  const logoWidth = 160 * state.logoScale;
+  const ratio = logoImage.naturalHeight / logoImage.naturalWidth;
+  const logoHeight = logoWidth * ratio;
+
+  ctx.save();
+  ctx.translate((state.logoPosition.x / 100) * width, (state.logoPosition.y / 100) * height);
+  ctx.rotate((state.logoRotation * Math.PI) / 180);
+  ctx.drawImage(logoImage, -logoWidth / 2, -logoHeight / 2, logoWidth, logoHeight);
+  ctx.restore();
+}
+
+function drawFrameOverlay(ctx, frameId, width, height) {
+  switch (frameId) {
+    case "classic":
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.94)";
+      ctx.lineWidth = 42;
+      ctx.strokeRect(0, 0, width, height);
+      return;
+    case "polaroid":
+      ctx.fillStyle = "#f7f1ea";
+      ctx.fillRect(0, 0, width, 28);
+      ctx.fillRect(0, 0, 28, height);
+      ctx.fillRect(width - 28, 0, 28, height);
+      ctx.fillRect(0, height - 92, width, 92);
+      return;
+    case "film": {
+      ctx.fillStyle = "rgba(10, 10, 14, 0.96)";
+      ctx.fillRect(0, 0, width, height);
+      const inset = 40;
+      ctx.clearRect(inset, inset, width - inset * 2, height - inset * 2);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
+      for (let y = 64; y < height - 64; y += 32) {
+        ctx.fillRect(12, y, 18, 16);
+        ctx.fillRect(width - 30, y, 18, 16);
+      }
+      return;
+    }
+    case "neon":
+      ctx.strokeStyle = "rgba(255, 136, 181, 0.82)";
+      ctx.lineWidth = 18;
+      ctx.shadowColor = "rgba(54, 218, 248, 0.6)";
+      ctx.shadowBlur = 18;
+      ctx.strokeRect(9, 9, width - 18, height - 18);
+      ctx.shadowBlur = 0;
+      return;
+    case "floral":
+      ctx.strokeStyle = "rgba(18, 8, 16, 0.72)";
+      ctx.lineWidth = 28;
+      ctx.strokeRect(0, 0, width, height);
+      [[30, 30], [width - 30, 30], [30, height - 30], [width - 30, height - 30]].forEach(([x, y]) => {
+        ctx.fillStyle = "#ff88b5";
+        ctx.beginPath();
+        ctx.arc(x, y, 18, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      return;
+    case "minimal":
+      ctx.strokeStyle = "rgba(5, 5, 7, 0.98)";
+      ctx.lineWidth = 44;
+      ctx.strokeRect(0, 0, width, height);
+      return;
+    case "none":
+    default:
+      return;
+  }
+}
+
+function createComposedRecorder(state, previewVideo) {
+  const canvas = document.createElement("canvas");
+  canvas.width = APP_THRESHOLDS.composedWidth;
+  canvas.height = APP_THRESHOLDS.composedHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error(APP_STRINGS.recordingFailed);
+  }
+
+  const stream = canvas.captureStream(APP_THRESHOLDS.composedFps);
+  let rafId = 0;
+  let logoImage = null;
+
+  if (state.logoDataUrl) {
+    logoImage = new Image();
+    logoImage.src = state.logoDataUrl;
+  }
+
+  const render = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawVideoCover(ctx, previewVideo, canvas.width, canvas.height);
+    drawOverlayLogo(ctx, state, canvas.width, canvas.height, logoImage);
+    drawOverlayText(ctx, state, canvas.width, canvas.height);
+    drawFrameOverlay(ctx, state.activeFrameId, canvas.width, canvas.height);
+    rafId = window.requestAnimationFrame(render);
+  };
+
+  render();
+
+  return {
+    stream,
+    stop() {
+      window.cancelAnimationFrame(rafId);
+      stream.getTracks().forEach((track) => track.stop());
+    }
+  };
 }
 
 async function requestFullscreenIfPossible() {
@@ -27,7 +184,6 @@ async function requestFullscreenIfPossible() {
 
   const root = document.documentElement;
   const requestFullscreen = root.requestFullscreen?.bind(root);
-
   if (!requestFullscreen) {
     return;
   }
@@ -45,23 +201,19 @@ export default function initApp() {
   const cameraScreen = createCameraScreen(dom, state);
   const editorScreen = createEditorScreen(dom, state);
   const operatorScreen = createOperatorScreen(dom, state, editorScreen);
+  let composedRecorder = null;
 
   function syncModeUi() {
     cameraScreen.syncModeUi();
   }
 
-  function stopRecordingTimers() {
+  function stopRecordingTimer() {
     clearIntervalTimer(state.recordIntervalId);
-    clearTimer(state.recordStopTimeoutId);
     state.recordIntervalId = null;
-    state.recordStopTimeoutId = null;
   }
 
-  function updateRecordingProgress() {
-    const elapsed = Date.now() - state.recordStartedAt;
-    const total = state.recordingDurationSeconds * 1000;
-    const progress = Math.max(0, Math.min(1, elapsed / total));
-    dom.recordingProgress.style.width = `${progress * 100}%`;
+  function updateRecordingTimer() {
+    dom.recordingTimer.textContent = formatElapsedTime(state.recordStartedAt);
   }
 
   function flash() {
@@ -109,7 +261,7 @@ export default function initApp() {
     }
   }
 
-  function handleRecordingStop() {
+  async function handleRecordingStop() {
     state.recordingBlob = createRecordingBlob(state.recordingChunks, state.recorder);
 
     if (state.recordingUrl) {
@@ -117,35 +269,33 @@ export default function initApp() {
     }
 
     state.recordingUrl = createObjectUrl(state.recordingBlob);
-    downloadRecording(state.recordingUrl);
+    const extension = getRecordingExtension(state.recordingBlob.type || state.recorder?.mimeType || "video/webm");
+    const filename = buildTimestampFilename(extension);
+    await saveRecording(state.recordingBlob, filename, state.saveDirectoryHandle);
+    stopRecordingTimer();
+    composedRecorder?.stop();
+    composedRecorder = null;
     state.captureInProgress = false;
+    state.isRecording = false;
     state.shutterAnimatingOut = false;
     dom.snapButton.disabled = false;
+    dom.recordingTimer.textContent = "00:00";
     editorScreen.showResult();
     syncModeUi();
   }
 
-  function stopRecording(finalize = true) {
-    stopRecordingTimers();
-
+  function stopRecording() {
     if (state.recorder?.state === "recording") {
-      if (!finalize) {
-        state.recorder.onstop = null;
-      }
-
       state.recorder.stop();
     }
-
-    dom.recordingProgress.style.width = finalize ? "100%" : "0%";
   }
 
-  async function captureVideo() {
+  async function startRecordingFlow() {
     if (!state.captureReady || state.captureInProgress || !state.stream) {
       return;
     }
 
     operatorScreen.syncCountdownFromControl();
-    operatorScreen.syncDurationFromControl();
     state.captureInProgress = true;
     state.shutterAnimatingOut = state.countdownSeconds > 0;
     dom.snapButton.disabled = true;
@@ -157,21 +307,32 @@ export default function initApp() {
       await sleep(APP_THRESHOLDS.postFlashDelayMs);
 
       state.recordingChunks = [];
-      state.recorder = createMediaRecorder(state.stream);
+      composedRecorder = createComposedRecorder(state, dom.cameraPreview);
+      state.recorder = createMediaRecorder(composedRecorder.stream);
       state.recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
           state.recordingChunks.push(event.data);
         }
       };
-      state.recorder.onstop = handleRecordingStop;
+      state.recorder.onstop = () => {
+        void handleRecordingStop();
+      };
       state.recorder.start(APP_THRESHOLDS.recorderChunkIntervalMs);
       state.recordStartedAt = Date.now();
-      dom.recordingProgress.style.width = "0%";
-      state.recordIntervalId = window.setInterval(updateRecordingProgress, APP_THRESHOLDS.recordingProgressIntervalMs);
-      state.recordStopTimeoutId = window.setTimeout(() => stopRecording(true), state.recordingDurationSeconds * 1000);
+      dom.recordingTimer.textContent = "00:00";
+      state.isRecording = true;
+      dom.snapButton.disabled = false;
+      stopRecordingTimer();
+      state.recordIntervalId = window.setInterval(updateRecordingTimer, APP_THRESHOLDS.recordingTimerIntervalMs);
+      updateRecordingTimer();
+      syncModeUi();
     } catch (error) {
       console.error(error);
+      stopRecordingTimer();
+      composedRecorder?.stop();
+      composedRecorder = null;
       state.captureInProgress = false;
+      state.isRecording = false;
       state.shutterAnimatingOut = false;
       dom.snapButton.disabled = false;
       syncModeUi();
@@ -179,9 +340,21 @@ export default function initApp() {
     }
   }
 
+  async function captureVideo() {
+    if (state.isRecording) {
+      stopRecording();
+      return;
+    }
+
+    await startRecordingFlow();
+  }
+
   async function handleResultReset() {
-    stopRecording(false);
+    stopRecordingTimer();
+    composedRecorder?.stop();
+    composedRecorder = null;
     state.captureInProgress = false;
+    state.isRecording = false;
     state.shutterAnimatingOut = false;
     state.recordingChunks = [];
     state.recordingBlob = null;
@@ -193,7 +366,7 @@ export default function initApp() {
 
     editorScreen.resetResultVideo();
     dom.snapButton.disabled = false;
-    dom.recordingProgress.style.width = "0%";
+    dom.recordingTimer.textContent = "00:00";
     await startCamera();
   }
 

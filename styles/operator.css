@@ -85,8 +85,9 @@
 
 .operator-preview-card {
   width: 100%;
-  height: min(100%, 70dvh);
-  max-height: calc(100dvh - 11rem);
+  aspect-ratio: 16 / 9;
+  height: auto;
+  max-height: min(calc(100dvh - 11rem), 100%);
   border-radius: 30px;
   box-shadow: 0 34px 80px rgba(0, 0, 0, 0.42);
 }
@@ -133,32 +134,6 @@
   appearance: none;
 }
 
-.field input[type="color"] {
-  min-height: 3.25rem;
-  padding: 0.35rem;
-}
-
-.field input[type="range"] {
-  padding-inline: 0.25rem;
-}
-
-.field-grid {
-  display: flex;
-  gap: 0.85rem;
-}
-
-.field-grid .field {
-  flex: 1;
-}
-
-.compact-grid {
-  align-items: end;
-}
-
-.field-grow {
-  flex: 1.6;
-}
-
 .stepper-control {
   display: grid;
   grid-template-columns: 3.25rem minmax(0, 1fr) 3.25rem;
@@ -187,4 +162,12 @@
 #countdownInput::-webkit-inner-spin-button {
   appearance: none;
   margin: 0;
+}
+
+.save-folder-label {
+  margin: 0.85rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  word-break: break-word;
 }

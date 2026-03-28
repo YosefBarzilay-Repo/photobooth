@@ -17,10 +17,6 @@
     margin-top: 0.6rem;
   }
 
-  .camera-controls {
-    top: 50%;
-  }
-
   .shutter-button {
     width: 110px;
     height: 110px;
@@ -39,6 +35,17 @@
   .overlay-logo-image {
     width: 110px;
     max-width: 40vw;
+  }
+
+  .overlay-toolbar-wrap {
+    bottom: calc(100% + 0.55rem);
+  }
+
+  .overlay-color-palette {
+    top: auto;
+    bottom: calc(100% + 0.55rem);
+    left: 50%;
+    transform: translateX(-50%);
   }
 
   .corner.top-left,
@@ -63,7 +70,7 @@
   }
 
   .stage-card {
-    width: min(100%, calc(100dvh - 11.5rem));
+    width: min(100%, calc((100dvh - 9rem) * 1.77));
   }
 
   .console {
@@ -73,10 +80,6 @@
 
   .stage-brand-row {
     margin-top: 0.45rem;
-  }
-
-  .camera-controls {
-    top: 50%;
   }
 
   .shutter-button {

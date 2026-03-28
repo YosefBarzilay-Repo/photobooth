@@ -8,10 +8,12 @@
  *   resultVideo: HTMLVideoElement,
  *   operatorAccessTrigger: HTMLElement,
  *   snapButton: HTMLButtonElement,
+ *   snapButtonIcon: HTMLElement,
  *   resultRetakeButton: HTMLButtonElement,
  *   anotherShotButton: HTMLButtonElement,
  *   flashOverlay: HTMLElement,
  *   countdownOverlay: HTMLElement,
+ *   recordingTimer: HTMLElement,
  *   errorOverlay: HTMLElement,
  *   emptyCamera: HTMLElement,
  *   operatorPanel: HTMLElement,
@@ -20,18 +22,16 @@
  *   countdownInput: HTMLInputElement,
  *   countdownMinusButton: HTMLButtonElement,
  *   countdownPlusButton: HTMLButtonElement,
- *   durationSelect: HTMLSelectElement,
  *   logoUploadButton: HTMLButtonElement,
  *   logoInput: HTMLInputElement,
+ *   saveFolderButton: HTMLButtonElement,
+ *   saveFolderLabel: HTMLElement,
  *   textInput: HTMLInputElement,
  *   fontSelect: HTMLSelectElement,
- *   colorInput: HTMLInputElement,
- *   sizeInput: HTMLInputElement,
  *   resultFrame: HTMLElement,
  *   resultText: HTMLElement,
  *   operatorFrame: HTMLElement,
- *   operatorText: HTMLElement,
- *   recordingProgress: HTMLElement
+ *   operatorText: HTMLElement
  * }} DomRefs
  */
 

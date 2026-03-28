@@ -1,23 +1,19 @@
 import { DOWNLOAD_CONFIG } from "../constants/appConfig.js";
 
-/**
- * @param {MediaStream} stream
- * @returns {MediaRecorder}
- */
-export function createMediaRecorder(stream) {
-  const mimeType = MediaRecorder.isTypeSupported(DOWNLOAD_CONFIG.preferredMimeType)
-    ? DOWNLOAD_CONFIG.preferredMimeType
-    : DOWNLOAD_CONFIG.fallbackMimeType;
+export function getSupportedRecordingMimeType() {
+  return DOWNLOAD_CONFIG.preferredMimeTypes.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) || "video/webm";
+}
 
+export function getRecordingExtension(mimeType) {
+  return mimeType.includes("mp4") ? DOWNLOAD_CONFIG.defaultFileExtension : DOWNLOAD_CONFIG.fallbackFileExtension;
+}
+
+export function createMediaRecorder(stream) {
+  const mimeType = getSupportedRecordingMimeType();
   return new MediaRecorder(stream, { mimeType });
 }
 
-/**
- * @param {Blob[]} chunks
- * @param {MediaRecorder | null} recorder
- * @returns {Blob}
- */
 export function createRecordingBlob(chunks, recorder) {
-  const mimeType = recorder?.mimeType || DOWNLOAD_CONFIG.fallbackMimeType;
+  const mimeType = recorder?.mimeType || getSupportedRecordingMimeType();
   return new Blob(chunks, { type: mimeType });
 }

@@ -2,11 +2,6 @@
  * @typedef {import("../types/dom.js").DomRefs} DomRefs
  */
 
-/**
- * @template {Element} T
- * @param {string} id
- * @returns {T}
- */
 function getRequiredElement(id) {
   const element = document.getElementById(id);
 
@@ -14,12 +9,9 @@ function getRequiredElement(id) {
     throw new Error(`Missing required DOM element: #${id}`);
   }
 
-  return /** @type {T} */ (element);
+  return element;
 }
 
-/**
- * @returns {DomRefs}
- */
 export default function createDomRefs() {
   return {
     cameraStage: getRequiredElement("cameraStage"),
@@ -30,10 +22,12 @@ export default function createDomRefs() {
     resultVideo: getRequiredElement("resultVideo"),
     operatorAccessTrigger: getRequiredElement("operatorAccessTrigger"),
     snapButton: getRequiredElement("snapButton"),
+    snapButtonIcon: getRequiredElement("snapButtonIcon"),
     resultRetakeButton: getRequiredElement("resultRetakeButton"),
     anotherShotButton: getRequiredElement("anotherShotButton"),
     flashOverlay: getRequiredElement("flashOverlay"),
     countdownOverlay: getRequiredElement("countdownOverlay"),
+    recordingTimer: getRequiredElement("recordingTimer"),
     errorOverlay: getRequiredElement("errorOverlay"),
     emptyCamera: getRequiredElement("emptyCamera"),
     operatorPanel: getRequiredElement("operatorPanel"),
@@ -42,17 +36,15 @@ export default function createDomRefs() {
     countdownInput: getRequiredElement("countdownInput"),
     countdownMinusButton: getRequiredElement("countdownMinusButton"),
     countdownPlusButton: getRequiredElement("countdownPlusButton"),
-    durationSelect: getRequiredElement("durationSelect"),
     logoUploadButton: getRequiredElement("logoUploadButton"),
     logoInput: getRequiredElement("logoInput"),
+    saveFolderButton: getRequiredElement("saveFolderButton"),
+    saveFolderLabel: getRequiredElement("saveFolderLabel"),
     textInput: getRequiredElement("textInput"),
     fontSelect: getRequiredElement("fontSelect"),
-    colorInput: getRequiredElement("colorInput"),
-    sizeInput: getRequiredElement("sizeInput"),
     resultFrame: getRequiredElement("resultFrame"),
     resultText: getRequiredElement("resultText"),
     operatorFrame: getRequiredElement("operatorFrame"),
-    operatorText: getRequiredElement("operatorText"),
-    recordingProgress: getRequiredElement("recordingProgress")
+    operatorText: getRequiredElement("operatorText")
   };
 }

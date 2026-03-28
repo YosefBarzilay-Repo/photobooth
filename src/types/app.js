@@ -15,9 +15,15 @@
  */
 
 /**
+ * @typedef {"move" | "resize" | null} OverlayInteraction
+ */
+
+/**
  * @typedef {{
  *   mode: AppMode,
  *   operatorPanelOpen: boolean,
+ *   saveDirectoryHandle: FileSystemDirectoryHandle | null,
+ *   saveDirectoryName: string,
  *   stream: MediaStream | null,
  *   recorder: MediaRecorder | null,
  *   recordingBlob: Blob | null,
@@ -25,17 +31,22 @@
  *   recordingChunks: Blob[],
  *   captureReady: boolean,
  *   captureInProgress: boolean,
+ *   isRecording: boolean,
  *   shutterAnimatingOut: boolean,
  *   countdownSeconds: number,
- *   recordingDurationSeconds: number,
  *   recordIntervalId: number | null,
- *   recordStopTimeoutId: number | null,
  *   recordStartedAt: number,
  *   activeFrameId: FrameId,
  *   activeOverlayTarget: OverlayTarget,
+ *   showTextColorPalette: boolean,
  *   draggingOverlayTarget: OverlayTarget,
+ *   overlayInteraction: OverlayInteraction,
+ *   dragPointerId: number | null,
  *   dragStartPointer: Vector2 | null,
+ *   dragSurfaceSize: Vector2 | null,
  *   dragStartPosition: Vector2 | null,
+ *   dragStartScale: number,
+ *   dragStartTextSize: number,
  *   overlayText: string,
  *   overlayFont: string,
  *   overlayColor: string,

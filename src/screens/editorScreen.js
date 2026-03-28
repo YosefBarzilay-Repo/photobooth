@@ -12,10 +12,10 @@ import { renderOverlayLayer } from "../components/overlayRenderer.js";
  */
 export default function createEditorScreen(dom, state) {
   function renderOverlayPreview() {
+    dom.cameraFrame.innerHTML = renderFrameMarkup(state.activeFrameId);
     dom.resultFrame.innerHTML = renderFrameMarkup(state.activeFrameId);
-    dom.operatorFrame.innerHTML = renderFrameMarkup(state.activeFrameId);
+    renderOverlayLayer(dom.cameraText, state, { interactive: state.operatorPanelOpen && state.mode === "camera" });
     renderOverlayLayer(dom.resultText, state);
-    renderOverlayLayer(dom.operatorText, state, { interactive: true });
   }
 
   function showResult() {

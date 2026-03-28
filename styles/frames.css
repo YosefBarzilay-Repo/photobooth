@@ -73,13 +73,13 @@
   letter-spacing: 0.12em;
 }
 
+.camera-overlay-frame,
 .result-overlay-frame,
-.operator-preview-frame,
 .result-overlay-text {
   pointer-events: none;
 }
 
-.operator-preview-text {
+.camera-overlay-text {
   pointer-events: auto;
 }
 

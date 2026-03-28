@@ -240,7 +240,7 @@ export default function initApp() {
   }
 
   function stopStream() {
-    stopCameraStream(state.stream, [dom.cameraPreview, dom.operatorPreviewVideo]);
+    stopCameraStream(state.stream, [dom.cameraPreview]);
     state.stream = null;
   }
 
@@ -251,7 +251,7 @@ export default function initApp() {
 
     try {
       stopStream();
-      state.stream = await startCameraStream([dom.cameraPreview, dom.operatorPreviewVideo]);
+      state.stream = await startCameraStream([dom.cameraPreview]);
       state.captureReady = true;
       dom.emptyCamera.classList.add("hidden");
     } catch (error) {

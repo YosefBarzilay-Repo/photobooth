@@ -1,13 +1,3 @@
-@media (max-width: 1080px) {
-  .operator-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .operator-page-shell {
-    overflow: auto;
-  }
-}
-
 @media (max-width: 720px) {
   .console {
     flex-wrap: wrap;
@@ -15,6 +5,17 @@
 
   .stage-brand-row {
     margin-top: 0.6rem;
+  }
+
+  .operator-dialog {
+    min-width: 0;
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px);
+    left: 12px !important;
+  }
+
+  .operator-dialog-body {
+    padding-inline: 1rem;
   }
 
   .shutter-button {
@@ -80,6 +81,10 @@
 
   .stage-brand-row {
     margin-top: 0.45rem;
+  }
+
+  .operator-dialog {
+    max-height: calc(100dvh - 20px);
   }
 
   .shutter-button {

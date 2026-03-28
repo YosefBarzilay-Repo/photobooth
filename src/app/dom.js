@@ -17,8 +17,6 @@ export default function createDomRefs() {
     cameraStage: getRequiredElement("cameraStage"),
     editorStage: getRequiredElement("editorStage"),
     cameraPreview: getRequiredElement("cameraPreview"),
-    operatorPreviewVideo: getRequiredElement("operatorPreviewVideo"),
-    operatorPreviewSurface: getRequiredElement("operatorPreviewSurface"),
     resultVideo: getRequiredElement("resultVideo"),
     operatorAccessTrigger: getRequiredElement("operatorAccessTrigger"),
     snapButton: getRequiredElement("snapButton"),
@@ -31,6 +29,9 @@ export default function createDomRefs() {
     errorOverlay: getRequiredElement("errorOverlay"),
     emptyCamera: getRequiredElement("emptyCamera"),
     operatorPanel: getRequiredElement("operatorPanel"),
+    operatorDialog: getRequiredElement("operatorDialog"),
+    operatorDialogHeader: getRequiredElement("operatorDialogHeader"),
+    operatorDialogResize: getRequiredElement("operatorDialogResize"),
     operatorCloseButton: getRequiredElement("operatorCloseButton"),
     frameTray: getRequiredElement("frameTray"),
     countdownInput: getRequiredElement("countdownInput"),
@@ -42,9 +43,9 @@ export default function createDomRefs() {
     saveFolderLabel: getRequiredElement("saveFolderLabel"),
     textInput: getRequiredElement("textInput"),
     fontSelect: getRequiredElement("fontSelect"),
+    cameraFrame: getRequiredElement("cameraFrame"),
+    cameraText: getRequiredElement("cameraText"),
     resultFrame: getRequiredElement("resultFrame"),
-    resultText: getRequiredElement("resultText"),
-    operatorFrame: getRequiredElement("operatorFrame"),
-    operatorText: getRequiredElement("operatorText")
+    resultText: getRequiredElement("resultText")
   };
 }

@@ -10,11 +10,16 @@ export default function wireEvents(dom, state, handlers) {
 
   dom.cameraStage.addEventListener("click", (event) => {
     const target = /** @type {HTMLElement} */ (event.target);
-    if (target.closest("#operatorAccessTrigger") || target.closest("button")) {
+    if (
+      target.closest("#operatorAccessTrigger") ||
+      target.closest("button") ||
+      target.closest(".overlay-tool-button") ||
+      target.closest(".overlay-color-swatch")
+    ) {
       return;
     }
 
-    if (state.mode === "camera" && !state.captureInProgress) {
+    if (state.mode === "camera" && !state.captureInProgress && !state.operatorPanelOpen) {
       void handlers.captureVideo();
     }
   });
@@ -58,9 +63,15 @@ export default function wireEvents(dom, state, handlers) {
     void handlers.operatorScreen.pickSaveFolder();
   });
 
-  dom.operatorText.addEventListener("click", handlers.operatorScreen.handleOverlayClick);
-  dom.operatorText.addEventListener("pointerdown", handlers.operatorScreen.startOverlayInteraction);
+  dom.cameraText.addEventListener("click", handlers.operatorScreen.handleOverlayClick);
+  dom.cameraText.addEventListener("pointerdown", handlers.operatorScreen.startOverlayInteraction);
+  dom.operatorDialogHeader.addEventListener("pointerdown", handlers.operatorScreen.startDialogInteraction);
+  dom.operatorDialogResize.addEventListener("pointerdown", handlers.operatorScreen.startDialogInteraction);
   window.addEventListener("pointermove", handlers.operatorScreen.updateOverlayFromPointer);
   window.addEventListener("pointerup", handlers.operatorScreen.stopOverlayInteraction);
   window.addEventListener("pointercancel", handlers.operatorScreen.stopOverlayInteraction);
+  window.addEventListener("pointermove", handlers.operatorScreen.updateDialogInteraction);
+  window.addEventListener("pointerup", handlers.operatorScreen.stopDialogInteraction);
+  window.addEventListener("pointercancel", handlers.operatorScreen.stopDialogInteraction);
+  window.addEventListener("resize", handlers.operatorScreen.handleWindowResize);
 }

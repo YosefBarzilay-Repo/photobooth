@@ -24,6 +24,8 @@
             </div>
             <div class="film-grain"></div>
             <video id="cameraPreview" autoplay muted playsinline></video>
+            <div class="camera-overlay-frame" id="cameraFrame"></div>
+            <div class="camera-overlay-text" id="cameraText"></div>
             <div class="camera-controls">
               <button class="shutter-button" id="snapButton" type="button" aria-label="Start recording">
                 <span class="shutter-core">
@@ -67,114 +69,97 @@
     </main>
 
     <section class="operator-page hidden" id="operatorPanel" aria-label="Operator settings">
-      <div class="operator-page-shell">
-        <header class="operator-page-header">
+      <div class="operator-dialog" id="operatorDialog">
+        <header class="operator-dialog-header" id="operatorDialogHeader">
           <div class="operator-heading">
-            <div class="brand">SNAPBOOTH</div>
+            <div class="brand operator-dialog-brand">Settings</div>
           </div>
           <button class="icon-button" id="operatorCloseButton" type="button" title="Close operator settings">
             <span class="material-symbols-outlined">close</span>
           </button>
         </header>
 
-        <div class="operator-layout">
-          <aside class="side-panel operator-controls-panel">
-            <section class="panel-section">
-              <div class="section-header">
-                <div>
-                  <p class="panel-title panel-title-small">Caption</p>
-                </div>
+        <div class="operator-dialog-body">
+          <section class="panel-section">
+            <div class="section-header">
+              <div>
+                <p class="panel-title panel-title-small">Caption</p>
               </div>
-              <label class="field">
-                <span class="field-label">Text</span>
-                <input id="textInput" type="text" maxlength="60" placeholder="Type your caption">
-              </label>
-              <label class="field field-inline">
-                <span class="field-label">Font</span>
-                <select id="fontSelect">
-                  <option value="Space Grotesk">Space Grotesk</option>
-                  <option value="Manrope">Manrope</option>
-                  <option value="Georgia">Georgia</option>
-                  <option value="Courier New">Courier New</option>
-                </select>
-              </label>
-            </section>
+            </div>
+            <label class="field">
+              <span class="field-label">Text</span>
+              <input id="textInput" type="text" maxlength="60" placeholder="Type your caption">
+            </label>
+            <label class="field field-inline">
+              <span class="field-label">Font</span>
+              <select id="fontSelect">
+                <option value="Space Grotesk">Space Grotesk</option>
+                <option value="Manrope">Manrope</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Courier New">Courier New</option>
+              </select>
+            </label>
+          </section>
 
-            <section class="panel-section">
-              <div class="section-header">
-                <div>
-                  <p class="panel-title panel-title-small">Recording</p>
-                </div>
+          <section class="panel-section">
+            <div class="section-header">
+              <div>
+                <p class="panel-title panel-title-small">Recording</p>
               </div>
-              <div class="field field-inline">
-                <span class="field-label">Countdown Seconds</span>
-                <div class="stepper-control">
-                  <button class="stepper-button" id="countdownMinusButton" type="button" aria-label="Decrease countdown">
-                    <span class="material-symbols-outlined">remove</span>
-                  </button>
-                  <input id="countdownInput" type="number" min="0" max="120" step="1" value="3" inputmode="numeric">
-                  <button class="stepper-button" id="countdownPlusButton" type="button" aria-label="Increase countdown">
-                    <span class="material-symbols-outlined">add</span>
-                  </button>
-                </div>
+            </div>
+            <div class="field field-inline">
+              <span class="field-label">Countdown Seconds</span>
+              <div class="stepper-control">
+                <button class="stepper-button" id="countdownMinusButton" type="button" aria-label="Decrease countdown">
+                  <span class="material-symbols-outlined">remove</span>
+                </button>
+                <input id="countdownInput" type="number" min="0" max="120" step="1" value="3" inputmode="numeric">
+                <button class="stepper-button" id="countdownPlusButton" type="button" aria-label="Increase countdown">
+                  <span class="material-symbols-outlined">add</span>
+                </button>
               </div>
-            </section>
-
-            <section class="panel-section">
-              <div class="section-header">
-                <div>
-                  <p class="panel-title panel-title-small">Branding</p>
-                </div>
-              </div>
-              <button class="console-button secondary-button" id="logoUploadButton" type="button">
-                <span class="material-symbols-outlined">image</span>
-                Upload Logo
-              </button>
-              <input id="logoInput" type="file" accept="image/*" class="hidden">
-            </section>
-
-            <section class="panel-section">
-              <div class="section-header">
-                <div>
-                  <p class="panel-title panel-title-small">Save Folder</p>
-                </div>
-              </div>
-              <button class="console-button secondary-button" id="saveFolderButton" type="button">
-                <span class="material-symbols-outlined">folder_open</span>
-                Choose Folder
-              </button>
-              <p class="save-folder-label" id="saveFolderLabel">Browser default downloads</p>
-            </section>
-
-            <section class="panel-section">
-              <div class="section-header">
-                <div>
-                  <h3 class="panel-title panel-title-small">Frame</h3>
-                </div>
-              </div>
-              <div class="frame-tray operator-frame-tray" id="frameTray"></div>
-            </section>
-          </aside>
-
-          <section class="operator-preview-panel">
-            <div class="stage-shell operator-stage-shell">
-              <div class="viewfinder-corners operator-viewfinder-corners">
-                <span class="corner top-left"></span>
-                <span class="corner top-right"></span>
-                <span class="corner bottom-left"></span>
-                <span class="corner bottom-right"></span>
-              </div>
-              <section class="stage-card operator-preview-card">
-                <div class="film-grain"></div>
-                <div class="operator-preview-surface" id="operatorPreviewSurface">
-                  <video id="operatorPreviewVideo" autoplay muted playsinline></video>
-                  <div class="operator-preview-frame" id="operatorFrame"></div>
-                  <div class="operator-preview-text" id="operatorText"></div>
-                </div>
-              </section>
             </div>
           </section>
+
+          <section class="panel-section">
+            <div class="section-header">
+              <div>
+                <p class="panel-title panel-title-small">Branding</p>
+              </div>
+            </div>
+            <button class="console-button secondary-button" id="logoUploadButton" type="button">
+              <span class="material-symbols-outlined">image</span>
+              Upload Logo
+            </button>
+            <input id="logoInput" type="file" accept="image/*" class="hidden">
+          </section>
+
+          <section class="panel-section">
+            <div class="section-header">
+              <div>
+                <p class="panel-title panel-title-small">Save Folder</p>
+              </div>
+            </div>
+            <button class="console-button secondary-button" id="saveFolderButton" type="button">
+              <span class="material-symbols-outlined">folder_open</span>
+              Choose Folder
+            </button>
+            <p class="save-folder-label" id="saveFolderLabel">Browser default downloads</p>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-header">
+              <div>
+                <h3 class="panel-title panel-title-small">Frame</h3>
+              </div>
+            </div>
+            <div class="frame-tray operator-frame-tray" id="frameTray"></div>
+          </section>
         </div>
+
+        <button class="operator-dialog-resize" id="operatorDialogResize" type="button" aria-label="Resize settings dialog">
+          <span class="material-symbols-outlined">open_in_full</span>
+        </button>
       </div>
     </section>
   </div>

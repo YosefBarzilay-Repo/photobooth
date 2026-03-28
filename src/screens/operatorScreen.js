@@ -18,16 +18,52 @@ function setOverlayPosition(target, state, position) {
 }
 
 function getOverlayInteractionElement(dom, target) {
-  return dom.operatorText.querySelector(`.overlay-item-${target}`);
+  return dom.cameraText.querySelector(`.overlay-item-${target}`);
+}
+
+function getViewportLimits() {
+  return {
+    minX: APP_THRESHOLDS.dialogEdgeMargin,
+    minY: APP_THRESHOLDS.dialogEdgeMargin,
+    maxX: Math.max(APP_THRESHOLDS.dialogEdgeMargin, window.innerWidth - APP_THRESHOLDS.dialogEdgeMargin),
+    maxY: Math.max(APP_THRESHOLDS.dialogEdgeMargin, window.innerHeight - APP_THRESHOLDS.dialogEdgeMargin)
+  };
 }
 
 export default function createOperatorScreen(dom, state, editorScreen) {
   let operatorAccessClickCount = 0;
   let operatorAccessClickTimer = null;
+  let dialogRect = {
+    x: APP_THRESHOLDS.dialogEdgeMargin,
+    y: APP_THRESHOLDS.dialogEdgeMargin,
+    width: APP_THRESHOLDS.dialogDefaultWidth,
+    height: APP_THRESHOLDS.dialogDefaultHeight
+  };
+  let dialogPointerId = null;
+  let dialogInteraction = null;
+  let dialogStartPointer = null;
+  let dialogStartRect = null;
+
+  function syncDialogRect() {
+    const limits = getViewportLimits();
+    const maxWidth = Math.max(APP_THRESHOLDS.dialogMinWidth, window.innerWidth - APP_THRESHOLDS.dialogEdgeMargin * 2);
+    const maxHeight = Math.max(APP_THRESHOLDS.dialogMinHeight, window.innerHeight - APP_THRESHOLDS.dialogEdgeMargin * 2);
+
+    dialogRect.width = clamp(dialogRect.width, APP_THRESHOLDS.dialogMinWidth, maxWidth);
+    dialogRect.height = clamp(dialogRect.height, APP_THRESHOLDS.dialogMinHeight, maxHeight);
+    dialogRect.x = clamp(dialogRect.x, limits.minX, Math.max(limits.minX, window.innerWidth - dialogRect.width - APP_THRESHOLDS.dialogEdgeMargin));
+    dialogRect.y = clamp(dialogRect.y, limits.minY, Math.max(limits.minY, window.innerHeight - dialogRect.height - APP_THRESHOLDS.dialogEdgeMargin));
+
+    dom.operatorDialog.style.left = `${dialogRect.x}px`;
+    dom.operatorDialog.style.top = `${dialogRect.y}px`;
+    dom.operatorDialog.style.width = `${dialogRect.width}px`;
+    dom.operatorDialog.style.height = `${dialogRect.height}px`;
+  }
 
   function renderPreview() {
     editorScreen.renderOverlayPreview();
     dom.saveFolderLabel.textContent = state.saveDirectoryName;
+    syncDialogRect();
   }
 
   function syncSelectedOverlayElement() {
@@ -101,6 +137,7 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     dom.textInput.value = state.overlayText;
     dom.fontSelect.value = state.overlayFont;
     syncCountdownFromControl();
+    syncDialogRect();
     renderPreview();
   }
 
@@ -258,7 +295,7 @@ export default function createOperatorScreen(dom, state, editorScreen) {
 
   function startOverlayInteraction(event) {
     const target = event.target instanceof HTMLElement ? event.target : null;
-    if (!target || target.closest("[data-overlay-action]") || target.closest("[data-overlay-color]")) {
+    if (!state.operatorPanelOpen || !target || target.closest("[data-overlay-action]") || target.closest("[data-overlay-color]")) {
       return;
     }
 
@@ -274,7 +311,7 @@ export default function createOperatorScreen(dom, state, editorScreen) {
       return;
     }
 
-    const rect = dom.operatorPreviewSurface.getBoundingClientRect();
+    const rect = dom.cameraStage.getBoundingClientRect();
     state.activeOverlayTarget = overlayType;
     state.showTextColorPalette = false;
     state.draggingOverlayTarget = overlayType;
@@ -350,6 +387,69 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     renderPreview();
   }
 
+  function startDialogInteraction(event) {
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    if (!target) {
+      return;
+    }
+
+    if (target.closest("button") && !target.closest("#operatorDialogResize")) {
+      return;
+    }
+
+    if (target.closest("#operatorDialogHeader")) {
+      dialogInteraction = "move";
+    } else if (target.closest("#operatorDialogResize")) {
+      dialogInteraction = "resize";
+    } else {
+      return;
+    }
+
+    dialogPointerId = event.pointerId;
+    dialogStartPointer = { x: event.clientX, y: event.clientY };
+    dialogStartRect = { ...dialogRect };
+    event.preventDefault();
+    dom.operatorDialog.setPointerCapture?.(event.pointerId);
+  }
+
+  function updateDialogInteraction(event) {
+    if (!dialogInteraction || dialogPointerId !== event.pointerId || !dialogStartPointer || !dialogStartRect) {
+      return;
+    }
+
+    const dx = event.clientX - dialogStartPointer.x;
+    const dy = event.clientY - dialogStartPointer.y;
+
+    if (dialogInteraction === "move") {
+      dialogRect.x = dialogStartRect.x + dx;
+      dialogRect.y = dialogStartRect.y + dy;
+    } else {
+      dialogRect.width = dialogStartRect.width + dx;
+      dialogRect.height = dialogStartRect.height + dy;
+    }
+
+    syncDialogRect();
+  }
+
+  function stopDialogInteraction(event) {
+    if (!dialogInteraction) {
+      return;
+    }
+
+    if (event && dialogPointerId === event.pointerId) {
+      dom.operatorDialog.releasePointerCapture?.(event.pointerId);
+    }
+
+    dialogInteraction = null;
+    dialogPointerId = null;
+    dialogStartPointer = null;
+    dialogStartRect = null;
+  }
+
+  function handleWindowResize() {
+    syncDialogRect();
+  }
+
   return {
     syncControlsFromState,
     syncOverlayControls,
@@ -364,6 +464,10 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     handleOverlayClick,
     startOverlayInteraction,
     updateOverlayFromPointer,
-    stopOverlayInteraction
+    stopOverlayInteraction,
+    startDialogInteraction,
+    updateDialogInteraction,
+    stopDialogInteraction,
+    handleWindowResize
   };
 }

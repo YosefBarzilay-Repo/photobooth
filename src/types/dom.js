@@ -3,8 +3,6 @@
  *   cameraStage: HTMLElement,
  *   editorStage: HTMLElement,
  *   cameraPreview: HTMLVideoElement,
- *   operatorPreviewVideo: HTMLVideoElement,
- *   operatorPreviewSurface: HTMLElement,
  *   resultVideo: HTMLVideoElement,
  *   operatorAccessTrigger: HTMLElement,
  *   snapButton: HTMLButtonElement,
@@ -17,6 +15,9 @@
  *   errorOverlay: HTMLElement,
  *   emptyCamera: HTMLElement,
  *   operatorPanel: HTMLElement,
+ *   operatorDialog: HTMLElement,
+ *   operatorDialogHeader: HTMLElement,
+ *   operatorDialogResize: HTMLButtonElement,
  *   operatorCloseButton: HTMLButtonElement,
  *   frameTray: HTMLElement,
  *   countdownInput: HTMLInputElement,
@@ -28,10 +29,10 @@
  *   saveFolderLabel: HTMLElement,
  *   textInput: HTMLInputElement,
  *   fontSelect: HTMLSelectElement,
+ *   cameraFrame: HTMLElement,
+ *   cameraText: HTMLElement,
  *   resultFrame: HTMLElement,
- *   resultText: HTMLElement,
- *   operatorFrame: HTMLElement,
- *   operatorText: HTMLElement
+ *   resultText: HTMLElement
  * }} DomRefs
  */
 

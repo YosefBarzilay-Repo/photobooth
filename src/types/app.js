@@ -1,5 +1,5 @@
 /**
- * @typedef {"camera" | "editor"} AppMode
+ * @typedef {"camera" | "editor" | "slideshow"} AppMode
  */
 
 /**
@@ -8,6 +8,10 @@
 
 /**
  * @typedef {{ x: number, y: number }} Vector2
+ */
+
+/**
+ * @typedef {{ url: string, blob: Blob, filename: string }} RecordingEntry
  */
 
 /**
@@ -28,6 +32,8 @@
  *   recorder: MediaRecorder | null,
  *   recordingBlob: Blob | null,
  *   recordingUrl: string,
+ *   recordingFilename: string,
+ *   recordings: RecordingEntry[],
  *   recordingChunks: Blob[],
  *   captureReady: boolean,
  *   captureInProgress: boolean,
@@ -35,6 +41,9 @@
  *   shutterAnimatingOut: boolean,
  *   countdownSeconds: number,
  *   countdownValue: number | null,
+ *   slideshowIdleSeconds: number,
+ *   idleTimeoutId: number | null,
+ *   slideshowIndex: number,
  *   recordIntervalId: number | null,
  *   recordStartedAt: number,
  *   activeFrameId: FrameId,

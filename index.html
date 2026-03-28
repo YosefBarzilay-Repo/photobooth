@@ -38,7 +38,7 @@
           <section class="stage-card mode-editor hidden" id="editorStage">
             <div class="film-grain"></div>
             <div class="result-stage" id="resultStage">
-              <video id="resultVideo" playsinline loop></video>
+              <video id="resultVideo" playsinline></video>
               <div class="result-overlay-frame" id="resultFrame"></div>
               <div class="result-overlay-text" id="resultText"></div>
             </div>
@@ -66,9 +66,17 @@
               <span class="material-symbols-outlined" id="resultPlayIcon">play_arrow</span>
               Play
             </button>
+            <button class="console-button hidden" id="resultSaveButton" type="button" aria-label="Save video">
+              <span class="material-symbols-outlined">download</span>
+              Save
+            </button>
             <button class="console-button hidden" id="resultNewButton" type="button" aria-label="Take new video">
               <span class="material-symbols-outlined">videocam</span>
               Take New
+            </button>
+            <button class="console-button hidden" id="resultSlideshowButton" type="button" aria-label="Start slideshow">
+              <span class="material-symbols-outlined">slideshow</span>
+              Slideshow
             </button>
           </div>
         </div>
@@ -122,6 +130,18 @@
                 </button>
                 <input id="countdownInput" type="number" min="0" max="120" step="1" value="3" inputmode="numeric">
                 <button class="stepper-button" id="countdownPlusButton" type="button" aria-label="Increase countdown">
+                  <span class="material-symbols-outlined">add</span>
+                </button>
+              </div>
+            </div>
+            <div class="field field-inline">
+              <span class="field-label">Slideshow After Idle Seconds</span>
+              <div class="stepper-control">
+                <button class="stepper-button" id="slideshowIdleMinusButton" type="button" aria-label="Decrease slideshow idle timer">
+                  <span class="material-symbols-outlined">remove</span>
+                </button>
+                <input id="slideshowIdleInput" type="number" min="0" max="600" step="1" value="0" inputmode="numeric">
+                <button class="stepper-button" id="slideshowIdlePlusButton" type="button" aria-label="Increase slideshow idle timer">
                   <span class="material-symbols-outlined">add</span>
                 </button>
               </div>

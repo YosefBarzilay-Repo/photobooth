@@ -9,10 +9,10 @@ export default function createCameraScreen(dom, state) {
   function syncModeUi() {
     document.body.dataset.mode = state.mode;
     const cameraMode = state.mode === "camera";
-    const editorVisible = state.mode === "editor";
+    const editorVisible = state.mode === "editor" || state.mode === "slideshow";
     const countdownActive = state.countdownValue !== null;
     const showResultActions = state.mode === "editor";
-    const hideConsole = state.operatorPanelOpen;
+    const hideConsole = state.operatorPanelOpen || state.mode === "slideshow";
 
     dom.cameraStage.classList.toggle("hidden", editorVisible);
     dom.editorStage.classList.toggle("hidden", !editorVisible);
@@ -41,7 +41,11 @@ export default function createCameraScreen(dom, state) {
 
     dom.recordingTimer.classList.add("hidden");
     dom.resultPlayButton.classList.toggle("hidden", !showResultActions);
+    dom.resultSaveButton.classList.toggle("hidden", !showResultActions);
+    dom.resultSaveButton.disabled = !state.recordingBlob;
     dom.resultNewButton.classList.toggle("hidden", !showResultActions);
+    dom.resultSlideshowButton.classList.toggle("hidden", !showResultActions);
+    dom.resultSlideshowButton.disabled = state.recordings.length === 0;
   }
 
   function showError(message) {

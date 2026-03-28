@@ -99,6 +99,10 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     return Math.max(0, Math.min(120, Math.round(value)));
   }
 
+  function clampSlideshowIdle(value) {
+    return clamp(Math.round(value), APP_THRESHOLDS.minSlideshowIdleSeconds, APP_THRESHOLDS.maxSlideshowIdleSeconds);
+  }
+
   function resetOperatorAccessClicks() {
     operatorAccessClickCount = 0;
     if (operatorAccessClickTimer !== null) {
@@ -113,9 +117,20 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     state.countdownSeconds = countdownValue;
   }
 
+  function syncSlideshowIdleFromControl() {
+    const idleValue = clampSlideshowIdle(Number(dom.slideshowIdleInput.value) || 0);
+    dom.slideshowIdleInput.value = String(idleValue);
+    state.slideshowIdleSeconds = idleValue;
+  }
+
   function stepCountdown(delta) {
     dom.countdownInput.value = String(clampCountdown((Number(dom.countdownInput.value) || 0) + delta));
     syncCountdownFromControl();
+  }
+
+  function stepSlideshowIdle(delta) {
+    dom.slideshowIdleInput.value = String(clampSlideshowIdle((Number(dom.slideshowIdleInput.value) || 0) + delta));
+    syncSlideshowIdleFromControl();
   }
 
   function syncOverlayControls() {
@@ -135,11 +150,13 @@ export default function createOperatorScreen(dom, state, editorScreen) {
 
   function syncControlsFromState() {
     dom.countdownInput.value = String(state.countdownSeconds);
+    dom.slideshowIdleInput.value = String(state.slideshowIdleSeconds);
     dom.textInput.value = state.overlayText;
     dom.fontSelect.value = state.overlayFont;
     dialogRect.width = APP_THRESHOLDS.dialogDefaultWidth;
     dialogRect.height = Math.max(APP_THRESHOLDS.dialogMinHeight, window.innerHeight - APP_THRESHOLDS.dialogEdgeMargin * 2);
     syncCountdownFromControl();
+    syncSlideshowIdleFromControl();
     syncDialogRect();
     renderPreview();
   }
@@ -458,7 +475,9 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     syncControlsFromState,
     syncOverlayControls,
     syncCountdownFromControl,
+    syncSlideshowIdleFromControl,
     stepCountdown,
+    stepSlideshowIdle,
     setOperatorPanelOpen,
     registerOperatorAccessClick,
     renderFrameTray: renderFrameTrayView,

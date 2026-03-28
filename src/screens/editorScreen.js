@@ -24,22 +24,37 @@ export default function createEditorScreen(dom, state) {
     dom.resultText.innerHTML = "";
   }
 
+  function loadResultSource(url) {
+    if (!url) {
+      return;
+    }
+
+    dom.resultVideo.pause();
+    dom.resultVideo.src = url;
+    dom.resultVideo.currentTime = 0;
+    dom.resultVideo.style.transform = "none";
+    dom.resultVideo.loop = false;
+    dom.resultVideo.load();
+    syncPlaybackButton();
+  }
+
   function showResult() {
     if (state.recordingUrl) {
-      dom.resultVideo.pause();
-      dom.resultVideo.src = state.recordingUrl;
-      dom.resultVideo.currentTime = 0;
-      dom.resultVideo.style.transform = "none";
-      dom.resultVideo.load();
-      syncPlaybackButton();
+      loadResultSource(state.recordingUrl);
     }
 
     state.mode = "editor";
     renderOverlayPreview();
   }
 
+  function showSlideshow(url) {
+    loadResultSource(url);
+    state.mode = "slideshow";
+    renderOverlayPreview();
+  }
+
   function togglePlayback() {
-    if (!state.recordingUrl) {
+    if (!state.recordingUrl || state.mode !== "editor") {
       return;
     }
 
@@ -71,10 +86,10 @@ export default function createEditorScreen(dom, state) {
   return {
     renderOverlayPreview,
     showResult,
+    showSlideshow,
     togglePlayback,
     resetResultVideo,
     handlePlaybackStateChange,
     syncPlaybackButton
   };
 }
-

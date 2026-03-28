@@ -14,6 +14,7 @@ export const APP_STRINGS = {
 export const APP_DEFAULTS = {
   mode: "camera",
   countdownSeconds: 3,
+  slideshowIdleSeconds: 0,
   activeFrameId: "none",
   activeOverlayTarget: null,
   showTextColorPalette: false,
@@ -46,6 +47,8 @@ export const APP_THRESHOLDS = {
   maxOverlayY: 94,
   minOverlayX: 6,
   maxOverlayX: 94,
+  minSlideshowIdleSeconds: 0,
+  maxSlideshowIdleSeconds: 600,
   dialogMinWidth: 360,
   dialogMinHeight: 420,
   dialogDefaultWidth: 420,
@@ -87,4 +90,3 @@ export const TEXT_COLOR_SWATCHES = [
   "#1b2533",
   "#000000"
 ];
-

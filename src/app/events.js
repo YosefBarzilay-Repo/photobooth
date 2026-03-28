@@ -12,22 +12,32 @@ export default function wireEvents(dom, state, handlers) {
     handlers.editorScreen.togglePlayback();
   });
 
+  dom.resultSaveButton.addEventListener("click", () => {
+    void handlers.saveCurrentRecording();
+  });
+
   dom.resultNewButton.addEventListener("click", () => {
     void handlers.handleResultReset();
   });
 
+  dom.resultSlideshowButton.addEventListener("click", () => {
+    void handlers.startSlideshow();
+  });
+
   dom.resultVideo.addEventListener("play", handlers.editorScreen.handlePlaybackStateChange);
   dom.resultVideo.addEventListener("pause", handlers.editorScreen.handlePlaybackStateChange);
-  dom.resultVideo.addEventListener("ended", handlers.editorScreen.handlePlaybackStateChange);
+  dom.resultVideo.addEventListener("ended", handlers.handleResultEnded);
 
   dom.operatorCloseButton.addEventListener("click", () => {
     handlers.operatorScreen.setOperatorPanelOpen(false);
+    handlers.handleSlideshowIdleSettingChange();
   });
 
   dom.operatorAccessTrigger.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
     handlers.operatorScreen.setOperatorPanelOpen(true);
+    handlers.handleSlideshowIdleSettingChange();
   });
 
   dom.countdownInput.addEventListener("input", handlers.operatorScreen.syncCountdownFromControl);
@@ -37,6 +47,17 @@ export default function wireEvents(dom, state, handlers) {
   });
   dom.countdownPlusButton.addEventListener("click", () => {
     handlers.operatorScreen.stepCountdown(1);
+  });
+
+  dom.slideshowIdleInput.addEventListener("input", handlers.operatorScreen.syncSlideshowIdleFromControl);
+  dom.slideshowIdleInput.addEventListener("change", handlers.handleSlideshowIdleSettingChange);
+  dom.slideshowIdleMinusButton.addEventListener("click", () => {
+    handlers.operatorScreen.stepSlideshowIdle(-1);
+    handlers.handleSlideshowIdleSettingChange();
+  });
+  dom.slideshowIdlePlusButton.addEventListener("click", () => {
+    handlers.operatorScreen.stepSlideshowIdle(1);
+    handlers.handleSlideshowIdleSettingChange();
   });
 
   [dom.textInput, dom.fontSelect].forEach((input) => {
@@ -63,3 +84,4 @@ export default function wireEvents(dom, state, handlers) {
   window.addEventListener("pointercancel", handlers.operatorScreen.stopDialogInteraction);
   window.addEventListener("resize", handlers.operatorScreen.handleWindowResize);
 }
+

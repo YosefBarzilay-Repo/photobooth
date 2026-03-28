@@ -8,7 +8,7 @@ import { APP_STRINGS, APP_THRESHOLDS } from "../constants/appConfig.js";
 import { sleep, clearIntervalTimer } from "../utils/timing.js";
 import { startCameraStream, stopCameraStream } from "../services/cameraService.js";
 import { createMediaRecorder, createRecordingBlob, getRecordingExtension } from "../services/recordingService.js";
-import { createObjectUrl, revokeObjectUrl, saveRecording, buildTimestampFilename } from "../services/downloadService.js";
+import { createObjectUrl, saveRecording, buildTimestampFilename } from "../services/downloadService.js";
 
 function restartAnimation(element, className) {
   element.classList.remove(className);
@@ -283,11 +283,82 @@ export default function initApp() {
     restartAnimation(dom.flashOverlay, "flash-active");
   }
 
+  function clearIdleSlideshowTimer() {
+    if (state.idleTimeoutId !== null) {
+      window.clearTimeout(state.idleTimeoutId);
+      state.idleTimeoutId = null;
+    }
+  }
+
   async function restoreFullscreenIfNeeded() {
     if (state.mode !== "camera") {
       return;
     }
     await requestFullscreenIfPossible();
+  }
+
+  function showRecordingAtIndex(index) {
+    if (state.recordings.length === 0) {
+      return;
+    }
+
+    const boundedIndex = ((index % state.recordings.length) + state.recordings.length) % state.recordings.length;
+    state.slideshowIndex = boundedIndex;
+    editorScreen.showSlideshow(state.recordings[boundedIndex].url);
+    syncModeUi();
+    dom.resultVideo.play().catch((error) => {
+      console.warn("Slideshow playback did not start.", error);
+    });
+  }
+
+  async function startSlideshow() {
+    if (state.recordings.length === 0 || state.isRecording || state.captureInProgress) {
+      return;
+    }
+
+    clearIdleSlideshowTimer();
+    showRecordingAtIndex(0);
+  }
+
+  function stopSlideshow() {
+    if (state.mode !== "slideshow") {
+      return;
+    }
+
+    dom.resultVideo.pause();
+    state.mode = "camera";
+    syncModeUi();
+  }
+
+  function resetIdleSlideshowTimer() {
+    clearIdleSlideshowTimer();
+
+    if (
+      state.slideshowIdleSeconds <= 0 ||
+      state.recordings.length === 0 ||
+      state.mode !== "camera" ||
+      state.operatorPanelOpen ||
+      state.isRecording ||
+      state.captureInProgress
+    ) {
+      return;
+    }
+
+    state.idleTimeoutId = window.setTimeout(() => {
+      void startSlideshow();
+    }, state.slideshowIdleSeconds * 1000);
+  }
+
+  function handleSlideshowIdleSettingChange() {
+    operatorScreen.syncSlideshowIdleFromControl();
+    resetIdleSlideshowTimer();
+  }
+
+  function handleUserActivity() {
+    if (state.mode === "slideshow") {
+      stopSlideshow();
+    }
+    resetIdleSlideshowTimer();
   }
 
   async function runCountdown() {
@@ -330,19 +401,29 @@ export default function initApp() {
       const message = error instanceof Error ? error.message : APP_STRINGS.cameraAccessDenied;
       cameraScreen.showError(message);
     }
+
+    resetIdleSlideshowTimer();
+  }
+
+  async function saveCurrentRecording() {
+    if (!state.recordingBlob || !state.recordingFilename) {
+      return;
+    }
+
+    await saveRecording(state.recordingBlob, state.recordingFilename, state.saveDirectoryHandle);
+    syncModeUi();
   }
 
   async function handleRecordingStop() {
     state.recordingBlob = createRecordingBlob(state.recordingChunks, state.recorder);
-
-    if (state.recordingUrl) {
-      revokeObjectUrl(state.recordingUrl);
-    }
-
     state.recordingUrl = createObjectUrl(state.recordingBlob);
     const extension = getRecordingExtension(state.recordingBlob.type || state.recorder?.mimeType || "video/webm");
-    const filename = buildTimestampFilename(extension);
-    await saveRecording(state.recordingBlob, filename, state.saveDirectoryHandle);
+    state.recordingFilename = buildTimestampFilename(extension);
+    state.recordings.push({
+      url: state.recordingUrl,
+      blob: state.recordingBlob,
+      filename: state.recordingFilename
+    });
     stopRecordingTimer();
     composedRecorder?.stop();
     composedRecorder = null;
@@ -364,6 +445,7 @@ export default function initApp() {
       return;
     }
 
+    clearIdleSlideshowTimer();
     operatorScreen.syncCountdownFromControl();
     state.captureInProgress = true;
     state.shutterAnimatingOut = state.countdownSeconds > 0;
@@ -404,6 +486,7 @@ export default function initApp() {
       dom.snapButton.disabled = false;
       syncModeUi();
       cameraScreen.showError(APP_STRINGS.recordingFailed);
+      resetIdleSlideshowTimer();
     }
   }
 
@@ -423,16 +506,24 @@ export default function initApp() {
     resetCaptureState();
     state.recordingChunks = [];
     state.recordingBlob = null;
-
-    if (state.recordingUrl) {
-      revokeObjectUrl(state.recordingUrl);
-      state.recordingUrl = "";
-    }
+    state.recordingUrl = "";
+    state.recordingFilename = "";
 
     editorScreen.resetResultVideo();
     dom.snapButton.disabled = false;
     dom.recordingTimer.textContent = "00:00";
-    await startCamera();
+    state.mode = "camera";
+    syncModeUi();
+    resetIdleSlideshowTimer();
+  }
+
+  function handleResultEnded() {
+    if (state.mode === "slideshow") {
+      showRecordingAtIndex(state.slideshowIndex + 1);
+      return;
+    }
+
+    editorScreen.handlePlaybackStateChange();
   }
 
   document.body.dataset.mode = state.mode;
@@ -455,13 +546,19 @@ export default function initApp() {
       void restoreFullscreenIfNeeded();
     }
   });
+  ["pointerdown", "keydown", "pointermove"].forEach((eventName) => {
+    document.addEventListener(eventName, handleUserActivity, { passive: true });
+  });
   wireEvents(dom, state, {
     captureVideo,
     handleResultReset,
+    handleResultEnded,
+    handleSlideshowIdleSettingChange,
+    saveCurrentRecording,
+    startSlideshow,
     operatorScreen,
     editorScreen
   });
   syncModeUi();
   void startCamera();
 }
-

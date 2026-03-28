@@ -48,8 +48,8 @@ export const APP_THRESHOLDS = {
   maxOverlayX: 94,
   dialogMinWidth: 360,
   dialogMinHeight: 420,
-  dialogDefaultWidth: 520,
-  dialogDefaultHeight: 700,
+  dialogDefaultWidth: 420,
+  dialogDefaultHeight: 960,
   dialogEdgeMargin: 24,
   composedWidth: 1280,
   composedHeight: 720,
@@ -87,3 +87,4 @@ export const TEXT_COLOR_SWATCHES = [
   "#1b2533",
   "#000000"
 ];
+

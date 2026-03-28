@@ -26,8 +26,16 @@ export default function createCameraScreen(dom, state) {
     dom.snapButton.classList.toggle("is-recording", state.isRecording);
     dom.snapButton.classList.toggle("is-countdown", countdownActive);
     dom.snapButton.ariaLabel = state.isRecording ? "Stop recording" : "Start recording";
-    dom.snapButtonIcon.textContent = countdownActive ? String(state.countdownValue) : state.isRecording ? "stop" : "videocam";
-    dom.recordingTimer.classList.toggle("hidden", !state.isRecording);
+
+    if (countdownActive) {
+      dom.snapButtonIcon.textContent = String(state.countdownValue);
+    } else if (state.isRecording) {
+      dom.snapButtonIcon.textContent = dom.recordingTimer.textContent || "00:00";
+    } else {
+      dom.snapButtonIcon.textContent = "videocam";
+    }
+
+    dom.recordingTimer.classList.add("hidden");
     dom.resultPlayButton.classList.toggle("hidden", !showResultActions);
     dom.resultNewButton.classList.toggle("hidden", !showResultActions);
   }

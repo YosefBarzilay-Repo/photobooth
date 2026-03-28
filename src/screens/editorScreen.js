@@ -19,9 +19,9 @@ export default function createEditorScreen(dom, state) {
 
   function renderOverlayPreview() {
     dom.cameraFrame.innerHTML = renderFrameMarkup(state.activeFrameId);
-    dom.resultFrame.innerHTML = renderFrameMarkup(state.activeFrameId);
+    dom.resultFrame.innerHTML = "";
     renderOverlayLayer(dom.cameraText, state, { interactive: state.operatorPanelOpen && state.mode === "camera" });
-    renderOverlayLayer(dom.resultText, state);
+    dom.resultText.innerHTML = "";
   }
 
   function showResult() {

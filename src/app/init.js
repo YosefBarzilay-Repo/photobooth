@@ -408,3 +408,4 @@ export default function initApp() {
   syncModeUi();
   void startCamera();
 }
+

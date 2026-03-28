@@ -81,25 +81,7 @@
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-.recording-timer {
-  margin-top: 0.45rem;
-  position: relative;
-  z-index: 8;
-  width: auto;
-  height: auto;
-  padding: 0.4rem 0.75rem;
-  border-radius: 999px;
-  background: rgba(7, 7, 9, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  line-height: 1;
-  color: #ffe4ee;
-}
-
+.recording-timer,
 .countdown-overlay {
   display: none;
 }
@@ -133,8 +115,8 @@
 
 .shutter-button {
   position: relative;
-  width: 4.4rem;
-  height: 4.4rem;
+  width: 4.9rem;
+  height: 4.9rem;
   border: 2px solid rgba(255, 136, 181, 0.24);
   border-radius: 50%;
   padding: 0.42rem;
@@ -160,7 +142,7 @@
 }
 
 .shutter-button.is-countdown .shutter-core {
-  background: linear-gradient(180deg, rgba(255, 136, 181, 0.5), rgba(255, 91, 154, 0.28));
+  background: linear-gradient(180deg, rgba(255, 136, 181, 0.58), rgba(255, 91, 154, 0.34));
 }
 
 .shutter-button::before {
@@ -197,12 +179,19 @@
 }
 
 .shutter-core .material-symbols-outlined {
-  font-size: 1.6rem;
+  font-size: 1.75rem;
 }
 
 .shutter-button.is-countdown .shutter-core .material-symbols-outlined {
-  font-size: 1.25rem;
+  font-size: 1.55rem;
   font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.shutter-button.is-recording .shutter-core .material-symbols-outlined {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
 @keyframes flash {

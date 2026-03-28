@@ -63,6 +63,7 @@ export default function createOperatorScreen(dom, state, editorScreen) {
   function renderPreview() {
     editorScreen.renderOverlayPreview();
     dom.saveFolderLabel.textContent = state.saveDirectoryName;
+    dom.console.classList.toggle("hidden", state.operatorPanelOpen);
     syncDialogRect();
   }
 
@@ -136,6 +137,8 @@ export default function createOperatorScreen(dom, state, editorScreen) {
     dom.countdownInput.value = String(state.countdownSeconds);
     dom.textInput.value = state.overlayText;
     dom.fontSelect.value = state.overlayFont;
+    dialogRect.width = APP_THRESHOLDS.dialogDefaultWidth;
+    dialogRect.height = Math.max(APP_THRESHOLDS.dialogMinHeight, window.innerHeight - APP_THRESHOLDS.dialogEdgeMargin * 2);
     syncCountdownFromControl();
     syncDialogRect();
     renderPreview();
@@ -144,6 +147,7 @@ export default function createOperatorScreen(dom, state, editorScreen) {
   function setOperatorPanelOpen(isOpen) {
     state.operatorPanelOpen = isOpen;
     dom.operatorPanel.classList.toggle("hidden", !isOpen);
+    dom.console.classList.toggle("hidden", isOpen);
     renderPreview();
   }
 

@@ -54,6 +54,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   let dialogStartPointer = null;
   let dialogStartRect = null;
   let monitorOptions = [{ value: "", label: "Current Monitor" }];
+  let audioOutputOptions = [{ value: "", label: "System Default Output" }];
 
   function notifySettingsChanged() {
     onSettingsChanged(state);
@@ -101,13 +102,11 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   function syncSectionUi() {
     const sections = {
       editor: dom.settingsSectionEditor,
-      countdown: dom.settingsSectionCountdown,
       inputs: dom.settingsSectionInputs,
       slideshow: dom.settingsSectionSlideshow
     };
     const tabs = {
       editor: dom.settingsTabEditor,
-      countdown: dom.settingsTabCountdown,
       inputs: dom.settingsTabInputs,
       slideshow: dom.settingsTabSlideshow
     };
@@ -222,6 +221,8 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     state.mainWindowMonitorId = dom.mainWindowMonitorSelect.value;
     state.slideshowFullscreen = dom.slideshowFullscreenSelect.value !== "false";
     state.slideshowMonitorId = dom.slideshowMonitorSelect.value;
+    state.slideshowAudioOutputId = dom.slideshowAudioOutputSelect.value;
+    state.slideshowSoundEnabled = dom.slideshowSoundEnabledSelect.value === "true";
     state.slideshowFadeEnabled = dom.slideshowFadeEnabledSelect.value === "true";
     state.slideshowFadeDurationMs = clampSlideshowFadeDuration(Number(dom.slideshowFadeDurationInput.value) || 0);
     dom.slideshowFadeDurationInput.value = String(state.slideshowFadeDurationMs);
@@ -251,11 +252,14 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     notifySettingsChanged();
   }
 
-  function populateMediaDeviceOptions({ videoOptions, audioOptions }) {
+  function populateMediaDeviceOptions({ videoOptions, audioOptions, audioOutputOptions: nextAudioOutputOptions = audioOutputOptions }) {
     replaceSelectOptions(dom.cameraInputSelect, videoOptions, state.videoInputId);
     replaceSelectOptions(dom.audioInputSelect, audioOptions, state.audioInputId);
+    audioOutputOptions = nextAudioOutputOptions;
+    replaceSelectOptions(dom.slideshowAudioOutputSelect, audioOutputOptions, state.slideshowAudioOutputId);
     state.videoInputId = dom.cameraInputSelect.value;
     state.audioInputId = dom.audioInputSelect.value;
+    state.slideshowAudioOutputId = dom.slideshowAudioOutputSelect.value;
   }
 
   async function loadMonitorOptions() {
@@ -295,6 +299,8 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     replaceSelectOptions(dom.mainWindowMonitorSelect, monitorOptions, state.mainWindowMonitorId);
     dom.slideshowFullscreenSelect.value = String(state.slideshowFullscreen);
     replaceSelectOptions(dom.slideshowMonitorSelect, monitorOptions, state.slideshowMonitorId);
+    replaceSelectOptions(dom.slideshowAudioOutputSelect, audioOutputOptions, state.slideshowAudioOutputId);
+    dom.slideshowSoundEnabledSelect.value = String(state.slideshowSoundEnabled);
     dom.slideshowFadeEnabledSelect.value = String(state.slideshowFadeEnabled);
     dom.slideshowFadeDurationInput.value = String(clampSlideshowFadeDuration(state.slideshowFadeDurationMs));
     dom.cameraInputSelect.value = state.videoInputId;
@@ -319,7 +325,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   }
 
   function switchSection(section) {
-    if (["editor", "countdown", "inputs", "slideshow"].includes(section)) {
+    if (["editor", "inputs", "slideshow"].includes(section)) {
       activeSection = section;
       syncSectionUi();
     }
@@ -379,6 +385,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
         state.saveDirectoryHandle = null;
         state.saveDirectoryPath = selectedDirectory;
         state.saveDirectoryName = selectedDirectory.split(/[\\/]/).filter(Boolean).pop() || APP_STRINGS.saveFolderDefault;
+        state.activeProjectPath = "";
         renderPreview();
         notifySettingsChanged();
         return "picked";
@@ -398,6 +405,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
       state.saveDirectoryHandle = directoryHandle;
       state.saveDirectoryPath = "";
       state.saveDirectoryName = directoryHandle.name || APP_STRINGS.saveFolderDefault;
+      state.activeProjectPath = "";
       renderPreview();
       notifySettingsChanged();
       return "picked";

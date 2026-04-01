@@ -32,8 +32,8 @@ function getEmptyStateElements() {
   };
 }
 
-function getPersistedSettingsSnapshot() {
-  const settings = loadPersistedSettings();
+function getPersistedSettingsSnapshot(projectPath = "") {
+  const settings = loadPersistedSettings(projectPath) || loadPersistedSettings();
   return settings && typeof settings === "object" ? settings : {};
 }
 
@@ -48,19 +48,42 @@ function getProjectDirectoryPath() {
 }
 
 function getFadeSettings() {
-  const settings = getPersistedSettingsSnapshot();
+  const settings = getPersistedSettingsSnapshot(getProjectDirectoryPath());
   return {
     enabled: settings.slideshowFadeEnabled !== false,
     durationMs: Number.isFinite(settings.slideshowFadeDurationMs) ? Math.max(0, settings.slideshowFadeDurationMs) : 600
   };
 }
 
+function getSlideshowSoundEnabled() {
+  const settings = getPersistedSettingsSnapshot(getProjectDirectoryPath());
+  return settings.slideshowSoundEnabled === true;
+}
+
 function getSlideshowWindowSettings() {
-  const settings = getPersistedSettingsSnapshot();
+  const settings = getPersistedSettingsSnapshot(getProjectDirectoryPath());
   return {
     fullscreen: settings.slideshowFullscreen !== false,
     monitorId: typeof settings.slideshowMonitorId === "string" ? settings.slideshowMonitorId.trim() : ""
   };
+}
+
+function getSlideshowAudioOutputId() {
+  const settings = getPersistedSettingsSnapshot(getProjectDirectoryPath());
+  return typeof settings.slideshowAudioOutputId === "string" ? settings.slideshowAudioOutputId.trim() : "";
+}
+
+async function applyAudioOutput(video) {
+  if (!(video instanceof HTMLMediaElement) || typeof video.setSinkId !== "function") {
+    return false;
+  }
+
+  try {
+    await video.setSinkId(getSlideshowAudioOutputId());
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function getEntriesSignature(entries) {
@@ -195,8 +218,9 @@ async function playSlideshowEntry(index, reason = "play") {
       video.src = source;
       video.currentTime = 0;
       video.loop = false;
-      video.muted = true;
-      video.defaultMuted = true;
+      await applyAudioOutput(video);
+      video.muted = !getSlideshowSoundEnabled();
+      video.defaultMuted = !getSlideshowSoundEnabled();
       video.autoplay = true;
       video.playsInline = true;
       video.preload = "auto";
@@ -252,6 +276,9 @@ async function playSlideshowEntry(index, reason = "play") {
 async function refreshSlideshowEntries(reason = "refresh") {
   await loadDesktopPersistedSettings();
   const projectDirectoryPath = getProjectDirectoryPath();
+  if (projectDirectoryPath) {
+    await loadDesktopPersistedSettings(projectDirectoryPath);
+  }
   if (!projectDirectoryPath) {
     slideshowEntries = [];
     slideshowIndex = 0;
@@ -303,7 +330,7 @@ async function bootstrapExternalSlideshow() {
   updateEmptyState(true, "Loading project videos...");
 
   try {
-    await loadDesktopPersistedSettings();
+    await loadDesktopPersistedSettings(getProjectDirectoryPath());
     await applyCurrentWindowDisplaySettings(getSlideshowWindowSettings());
     hasAppliedWindowSettings = true;
   } catch (error) {

@@ -165,6 +165,7 @@ export default function createGalleryScreen(dom, state, handlers) {
   let projects = [];
   let visibleCount = GALLERY_PAGE_SIZE;
   let isLoading = false;
+  let refreshToken = 0;
   const metadataCache = new Map();
   const metadataPromiseCache = new Map();
   let activeMetadataLoads = 0;
@@ -201,6 +202,9 @@ export default function createGalleryScreen(dom, state, handlers) {
     dom.galleryPanel.classList.toggle("hidden", !isOpen);
     if (isOpen) {
       syncDialogRect();
+    } else {
+      refreshToken += 1;
+      metadataQueue.length = 0;
     }
   }
 
@@ -213,7 +217,7 @@ export default function createGalleryScreen(dom, state, handlers) {
     dom.galleryOpenFolderLabel.textContent = isVideosView ? "Open Folder" : "Open Projects Folder";
     dom.galleryNewProjectButton.classList.toggle("hidden", isVideosView);
     dom.gallerySlideshowButton.classList.toggle("hidden", !isVideosView);
-    dom.gallerySlideshowButton.disabled = !isVideosView || !state.saveDirectoryPath;
+    dom.gallerySlideshowButton.disabled = !isVideosView || !state.activeProjectPath;
     dom.galleryFooterLabel.textContent = isVideosView
       ? `Current project: ${state.saveDirectoryName || APP_STRINGS.saveFolderDefault}`
       : `Current project: ${state.saveDirectoryName || APP_STRINGS.saveFolderDefault}`;
@@ -225,10 +229,10 @@ export default function createGalleryScreen(dom, state, handlers) {
       return;
     }
 
-    const hasActiveSlideshow = state.saveDirectoryPath
-      ? await handlers.hasActiveSlideshowForProject(state.saveDirectoryPath)
+    const hasActiveSlideshow = state.activeProjectPath
+      ? await handlers.hasActiveSlideshowForProject(state.activeProjectPath)
       : false;
-    dom.gallerySlideshowLabel.textContent = hasActiveSlideshow ? "Close Slideshow" : "Start Slideshow";
+    dom.gallerySlideshowLabel.textContent = hasActiveSlideshow ? "Stop Slideshow" : "Start Slideshow";
   }
 
   function renderLoadingState(message) {
@@ -382,31 +386,34 @@ export default function createGalleryScreen(dom, state, handlers) {
   }
 
   async function refreshGallery() {
+    const currentRefreshToken = ++refreshToken;
     isLoading = true;
     renderLoadingState(state.galleryView === "projects" ? "Loading project folders..." : "Loading saved videos...");
     await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
 
     if (state.galleryView === "projects") {
       try {
-        void console.time?.("gallery-projects-load");
-      projects = await handlers.loadProjects();
-      renderProjects();
-      await syncSlideshowButton();
-    } finally {
-        void console.timeEnd?.("gallery-projects-load");
+        projects = await handlers.loadProjects();
+        if (currentRefreshToken !== refreshToken) {
+          return;
+        }
+        renderProjects();
+        await syncSlideshowButton();
+      } finally {
         isLoading = false;
       }
       return;
     }
 
     try {
-      void console.time?.("gallery-videos-load");
       entries = sortEntriesByOldest(await handlers.loadEntries());
+      if (currentRefreshToken !== refreshToken) {
+        return;
+      }
       visibleCount = Math.min(entries.length, GALLERY_PAGE_SIZE);
       renderEntries();
       await syncSlideshowButton();
     } finally {
-      void console.timeEnd?.("gallery-videos-load");
       isLoading = false;
     }
   }
@@ -513,8 +520,9 @@ export default function createGalleryScreen(dom, state, handlers) {
     dialogRect.y = APP_THRESHOLDS.dialogEdgeMargin;
     state.galleryView = initialView === "projects" ? "projects" : "videos";
     syncViewUi();
-    await refreshGallery();
     setGalleryPanelOpen(true);
+    await syncSlideshowButton();
+    void refreshGallery();
   }
 
   async function handleListClick(event) {
@@ -576,8 +584,10 @@ export default function createGalleryScreen(dom, state, handlers) {
     }
 
     if (actionElement.dataset.action === "delete") {
-      await handlers.deleteEntry(entry);
-      await refreshGallery();
+      const deleted = await handlers.deleteEntry(entry);
+      if (deleted) {
+        await refreshGallery();
+      }
     }
   }
 
@@ -656,11 +666,16 @@ export default function createGalleryScreen(dom, state, handlers) {
 
   dom.gallerySlideshowButton.addEventListener("click", () => {
     void (async () => {
-      if (state.saveDirectoryPath && await handlers.hasActiveSlideshowForProject(state.saveDirectoryPath)) {
-        await handlers.closeProjectSlideshow(state.saveDirectoryPath);
+      let isPlaying = false;
+      if (state.activeProjectPath && await handlers.hasActiveSlideshowForProject(state.activeProjectPath)) {
+        await handlers.closeProjectSlideshow(state.activeProjectPath);
+        isPlaying = false;
       } else {
-        await handlers.startProjectSlideshow();
+        isPlaying = Boolean(await handlers.startProjectSlideshow());
       }
+
+      syncViewUi();
+      dom.gallerySlideshowLabel.textContent = isPlaying ? "Stop Slideshow" : "Start Slideshow";
       await syncSlideshowButton();
     })();
   });

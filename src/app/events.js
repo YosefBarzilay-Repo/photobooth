@@ -60,13 +60,8 @@ export default function wireEvents(dom, state, handlers) {
     handlers.operatorScreen.switchSection("editor");
   });
 
-  dom.settingsTabCountdown.addEventListener("click", () => {
-    void logger.audit("Settings recording countdown tab clicked.");
-    handlers.operatorScreen.switchSection("countdown");
-  });
-
   dom.settingsTabInputs.addEventListener("click", () => {
-    void logger.audit("Settings recording inputs tab clicked.");
+    void logger.audit("Settings recordings tab clicked.");
     handlers.operatorScreen.switchSection("inputs");
   });
   dom.settingsTabSlideshow.addEventListener("click", () => {
@@ -100,11 +95,6 @@ export default function wireEvents(dom, state, handlers) {
   dom.operatorCloseAppButton.addEventListener("click", () => {
     void logger.audit("Close app button clicked.");
     void handlers.closeApp();
-  });
-
-  dom.appDialogCloseButton.addEventListener("click", () => {
-    void logger.audit("App dialog close button clicked.");
-    handlers.hideAppDialog();
   });
 
   dom.countdownInput.addEventListener("input", () => {
@@ -164,7 +154,7 @@ export default function wireEvents(dom, state, handlers) {
     void handlers.closeAllSlideshows();
   });
 
-  [dom.textInput, dom.fontSelect, dom.orientationSelect, dom.slideshowModeSelect, dom.slideshowFullscreenSelect, dom.slideshowMonitorSelect, dom.slideshowFadeEnabledSelect, dom.mainWindowFullscreenSelect, dom.mainWindowMonitorSelect].forEach((input) => {
+  [dom.textInput, dom.fontSelect, dom.orientationSelect, dom.slideshowModeSelect, dom.slideshowFullscreenSelect, dom.slideshowMonitorSelect, dom.slideshowAudioOutputSelect, dom.slideshowSoundEnabledSelect, dom.slideshowFadeEnabledSelect, dom.mainWindowFullscreenSelect, dom.mainWindowMonitorSelect].forEach((input) => {
     input.addEventListener("input", () => {
       void logger.audit("Overlay input changed.", { id: input.id, value: input.value });
       handlers.operatorScreen.syncOverlayControls();

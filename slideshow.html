@@ -12,8 +12,8 @@
 <body class="slideshow-page">
   <div class="slideshow-shell slideshow-shell-external">
     <main class="slideshow-stage slideshow-stage-external">
-      <video class="slideshow-video hidden" id="slideshowVideo" playsinline muted autoplay></video>
-      <section class="library-empty" id="slideshowEmptyState">
+      <video id="slideshowVideo" class="slideshow-video hidden" playsinline muted autoplay></video>
+      <section id="slideshowEmptyState" class="library-empty">
         <div class="slideshow-loader" aria-hidden="true"></div>
         <h2>Loading Slideshow</h2>
         <p>This player loads the current project videos and plays them in a loop.</p>
@@ -24,10 +24,6 @@
       </div>
     </main>
   </div>
-
-  <script>
-    console.log("slideshow-html-bootstrap");
-  </script>
   <script type="module" src="src/slideshowWindow.js"></script>
 </body>
 </html>

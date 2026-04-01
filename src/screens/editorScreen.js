@@ -1,5 +1,6 @@
 import renderFrameMarkup from "../components/frameMarkup.js";
 import { renderOverlayLayer } from "../components/overlayRenderer.js";
+import { logger } from "../services/logger.js";
 
 /**
  * @typedef {import("../types/app.js").AppState} AppState
@@ -92,7 +93,9 @@ export default function createEditorScreen(dom, state) {
         dom.resultVideo.currentTime = 0;
       }
       dom.resultVideo.play().catch((error) => {
-        console.warn("Result video playback did not start.", error);
+        logger.warn("Result video playback did not start.", {
+          errorMessage: error instanceof Error ? error.message : String(error)
+        });
       });
     } else {
       dom.resultVideo.pause();

@@ -55,6 +55,12 @@ async function getDesktopRecordingUrl(path, filename) {
     return cachedUrl;
   }
 
+  const fileSourceUrl = convertDesktopFileSrc(cacheKey);
+  if (fileSourceUrl) {
+    desktopRecordingUrlCache.set(cacheKey, fileSourceUrl);
+    return fileSourceUrl;
+  }
+
   try {
     const bytes = await invokeDesktop("read_recording_file", { filePath: cacheKey });
     const blob = new Blob([Uint8Array.from(bytes)], { type: getVideoMimeType(filename) });
@@ -66,7 +72,7 @@ async function getDesktopRecordingUrl(path, filename) {
       filePath: cacheKey,
       filename
     });
-    return convertDesktopFileSrc(cacheKey);
+    return "";
   }
 }
 

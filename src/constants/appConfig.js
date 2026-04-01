@@ -38,6 +38,8 @@ export const APP_DEFAULTS = {
   logoRotation: 0,
   logoPosition: { x: 50, y: 20 },
   slideshowMode: "internal",
+  slideshowSoundEnabled: false,
+  slideshowAudioOutputId: "",
   slideshowFadeEnabled: true,
   slideshowFadeDurationMs: 600,
   mainWindowMonitorId: "",
@@ -51,6 +53,7 @@ export const APP_DEFAULTS = {
 export const APP_THRESHOLDS = {
   operatorAccessClickCount: 3,
   operatorAccessTimeoutMs: 900,
+  desktopApiTimeoutMs: 4000,
   videoReadyTimeoutMs: 5000,
   countdownLeadInMs: 220,
   postFlashDelayMs: 120,

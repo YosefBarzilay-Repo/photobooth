@@ -106,8 +106,7 @@
             <div class="brand operator-dialog-brand">Settings</div>
             <div class="gallery-tabs" role="tablist" aria-label="Settings views">
               <button class="gallery-tab is-active" id="settingsTabEditor" type="button" role="tab" aria-selected="true">Video Editor</button>
-              <button class="gallery-tab" id="settingsTabCountdown" type="button" role="tab" aria-selected="false">Recording Timing</button>
-              <button class="gallery-tab" id="settingsTabInputs" type="button" role="tab" aria-selected="false">Recording Inputs</button>
+              <button class="gallery-tab" id="settingsTabInputs" type="button" role="tab" aria-selected="false">Recordings</button>
               <button class="gallery-tab" id="settingsTabSlideshow" type="button" role="tab" aria-selected="false">Slideshow</button>
             </div>
           </div>
@@ -159,10 +158,10 @@
             <div class="frame-tray operator-frame-tray" id="frameTray"></div>
           </section>
 
-          <section class="panel-section hidden" id="settingsSectionCountdown">
+          <section class="panel-section hidden" id="settingsSectionInputs">
             <div class="section-header">
               <div>
-                <p class="panel-title panel-title-small">Recording Timing</p>
+                <p class="panel-title panel-title-small">Recordings</p>
               </div>
             </div>
             <div class="field field-inline">
@@ -187,14 +186,6 @@
                 <button class="stepper-button" id="recordingTimeoutPlusButton" type="button" aria-label="Increase recording timeout">
                   <span class="material-symbols-outlined">add</span>
                 </button>
-              </div>
-            </div>
-          </section>
-
-          <section class="panel-section hidden" id="settingsSectionInputs">
-            <div class="section-header">
-              <div>
-                <p class="panel-title panel-title-small">Recording Inputs</p>
               </div>
             </div>
             <label class="field field-inline">
@@ -256,19 +247,18 @@
               </select>
             </label>
             <label class="field field-inline">
+              <span class="field-label">Audio Output</span>
+              <select id="slideshowAudioOutputSelect">
+                <option value="">System Default Output</option>
+              </select>
+            </label>
+            <label class="field field-inline">
               <span class="field-label">Fade Transition</span>
               <select id="slideshowFadeEnabledSelect">
                 <option value="true">On</option>
                 <option value="false">Off</option>
               </select>
             </label>
-            <div class="field">
-              <p class="settings-note">Use external window mode when the slideshow should run on a different monitor than the main app.</p>
-            </div>
-            <button class="console-button secondary-button settings-spaced-action" id="closeSlideshowButton" type="button">
-              <span class="material-symbols-outlined">close</span>
-              Close All Slideshows
-            </button>
             <label class="field field-inline">
               <span class="field-label">Fade Time (ms)</span>
               <div class="stepper-control">
@@ -281,6 +271,20 @@
                 </button>
               </div>
             </label>
+            <label class="field field-inline">
+              <span class="field-label">Slideshow Sound</span>
+              <select id="slideshowSoundEnabledSelect">
+                <option value="false">Off</option>
+                <option value="true">On</option>
+              </select>
+            </label>
+            <div class="field">
+              <p class="settings-note">Use external window mode when the slideshow should run on a different monitor than the main app.</p>
+            </div>
+            <button class="console-button secondary-button settings-spaced-action" id="closeSlideshowButton" type="button">
+              <span class="material-symbols-outlined">close</span>
+              Close All Slideshows
+            </button>
           </section>
         </div>
 
@@ -349,7 +353,7 @@
     <section class="app-dialog-overlay hidden" id="projectDialogOverlay" aria-modal="true" role="dialog" aria-labelledby="projectDialogTitle">
       <div class="app-dialog-card project-dialog-card">
         <header class="app-dialog-header">
-          <h2 class="panel-title panel-title-small" id="projectDialogTitle">Open New Project?</h2>
+          <h2 class="panel-title panel-title-small" id="projectDialogTitle">Project</h2>
         </header>
         <p class="app-dialog-message project-dialog-message" id="projectDialogMessage">Create a new project folder for this event, or continue with the current setup.</p>
         <label class="field">
@@ -372,9 +376,6 @@
       <div class="app-dialog-card project-metadata-card">
         <header class="app-dialog-header">
           <h2 class="panel-title panel-title-small" id="projectMetadataTitle">Project Booking</h2>
-          <button class="icon-button" id="projectMetadataCloseButton" type="button" aria-label="Close project booking">
-            <span class="material-symbols-outlined">close</span>
-          </button>
         </header>
         <p class="app-dialog-message project-dialog-message" id="projectMetadataMessage">Save booking details for this project folder.</p>
         <div class="project-metadata-grid">
@@ -428,9 +429,6 @@
       <div class="app-dialog-card">
         <header class="app-dialog-header">
           <h2 class="panel-title panel-title-small" id="appDialogTitle">Message</h2>
-          <button class="icon-button" id="appDialogCloseButton" type="button" aria-label="Close message">
-            <span class="material-symbols-outlined">close</span>
-          </button>
         </header>
         <p class="app-dialog-message" id="appDialogMessage"></p>
         <div class="app-dialog-actions hidden" id="appDialogActions">
@@ -443,8 +441,8 @@
     <section class="slideshow-overlay hidden" id="slideshowOverlay" aria-label="Project slideshow">
       <div class="slideshow-shell slideshow-shell-in-app">
         <main class="slideshow-stage">
-          <video class="slideshow-video hidden" id="slideshowVideo" playsinline muted autoplay></video>
-          <section class="library-empty" id="slideshowEmptyState">
+          <video id="slideshowVideo" class="slideshow-video hidden" playsinline muted autoplay></video>
+          <section id="slideshowEmptyState" class="library-empty">
             <span class="material-symbols-outlined">slideshow</span>
             <div>
               <h2>Slideshow</h2>

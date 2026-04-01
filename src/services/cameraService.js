@@ -35,6 +35,27 @@ function buildAudioConstraints(audioInputId = "") {
   };
 }
 
+function mapCameraError(error) {
+  const errorName = error instanceof Error ? error.name : "";
+
+  switch (errorName) {
+    case "NotAllowedError":
+    case "PermissionDeniedError":
+    case "SecurityError":
+      return APP_STRINGS.cameraAccessDenied;
+    case "NotFoundError":
+    case "DevicesNotFoundError":
+    case "OverconstrainedError":
+      return APP_STRINGS.noMediaDevices;
+    case "NotReadableError":
+    case "TrackStartError":
+    case "AbortError":
+      return APP_STRINGS.previewLoadFailed;
+    default:
+      return APP_STRINGS.cameraAccessDenied;
+  }
+}
+
 async function requestStreamWithConstraints(videoInputId = "", audioInputId = "") {
   void logger.debug("Requesting media stream.", {
     videoInputId: videoInputId || "default",
@@ -46,6 +67,23 @@ async function requestStreamWithConstraints(videoInputId = "", audioInputId = ""
   });
 }
 
+/**
+ * Resolves a user-facing camera error message.
+ *
+ * @param {unknown} error
+ * @returns {string}
+ */
+export function getCameraErrorMessage(error) {
+  return mapCameraError(error);
+}
+
+/**
+ * Waits for the preview video element to become playable.
+ *
+ * @param {HTMLVideoElement} video
+ * @param {number} [timeoutMs=APP_THRESHOLDS.videoReadyTimeoutMs]
+ * @returns {Promise<void>}
+ */
 export function waitForVideoReady(video, timeoutMs = APP_THRESHOLDS.videoReadyTimeoutMs) {
   return new Promise((resolve, reject) => {
     if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
@@ -84,6 +122,13 @@ export function waitForVideoReady(video, timeoutMs = APP_THRESHOLDS.videoReadyTi
   });
 }
 
+/**
+ * Stops an active camera stream and detaches it from preview videos.
+ *
+ * @param {MediaStream | null | undefined} stream
+ * @param {HTMLVideoElement[]} videos
+ * @returns {void}
+ */
 export function stopCameraStream(stream, videos) {
   if (stream) {
     void logger.debug("Stopping active camera stream.", { trackCount: stream.getTracks().length });
@@ -97,6 +142,13 @@ export function stopCameraStream(stream, videos) {
   });
 }
 
+/**
+ * Starts the shared camera stream and attaches it to preview videos.
+ *
+ * @param {HTMLVideoElement[]} videos
+ * @param {{ videoInputId?: string, audioInputId?: string }} [options={}]
+ * @returns {Promise<MediaStream>}
+ */
 export async function startCameraStream(videos, options = {}) {
   if (!navigator.mediaDevices?.getUserMedia) {
     void logger.error("Camera start failed because getUserMedia is unavailable.");
@@ -118,15 +170,35 @@ export async function startCameraStream(videos, options = {}) {
         videoInputId: options.videoInputId || "default",
         audioInputId: options.audioInputId || "default"
       });
-      throw error;
+      throw new Error(mapCameraError(error));
     }
 
     void logger.warn("Initial media stream request failed. Retrying with default device selection.", {
       videoInputId: options.videoInputId || "default",
       audioInputId: options.audioInputId || "default"
     });
-    stream = await requestStreamWithConstraints("", options.audioInputId === DISABLED_AUDIO_INPUT_ID ? DISABLED_AUDIO_INPUT_ID : "");
+
+    try {
+      stream = await requestStreamWithConstraints(
+        "",
+        options.audioInputId === DISABLED_AUDIO_INPUT_ID ? DISABLED_AUDIO_INPUT_ID : ""
+      );
+    } catch (fallbackError) {
+      void logger.exception("Fallback media stream request failed.", fallbackError, {
+        videoInputId: options.videoInputId || "default",
+        audioInputId: options.audioInputId || "default"
+      });
+      throw new Error(mapCameraError(fallbackError));
+    }
   }
+
+  stream.getVideoTracks().forEach((track) => {
+    track.addEventListener("ended", () => {
+      void logger.warn("Camera video track ended unexpectedly.", {
+        label: track.label || ""
+      });
+    });
+  });
 
   videos.forEach((video) => {
     video.srcObject = stream;

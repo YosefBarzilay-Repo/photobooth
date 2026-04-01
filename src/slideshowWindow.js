@@ -1,28 +1,41 @@
 import { loadSavedRecordingsFromDirectory } from "./services/downloadService.js";
+import { setFullscreenState } from "./services/desktopService.js";
 import { logger } from "./services/logger.js";
+import { loadDesktopPersistedSettings, loadPersistedSettings } from "./services/settingsPersistence.js";
 
 const PLAYABLE_TIMEOUT_MS = 5000;
 const RETRY_DELAY_MS = 750;
 const MAX_ENTRY_FAILURES = 2;
+const SETTINGS_SYNC_INTERVAL_MS = 2000;
 let entries = [];
 let currentIndex = 0;
 let loadTimeoutId = null;
 let retryTimeoutId = null;
 let playGeneration = 0;
 let diagnosticsBound = false;
+let settingsSyncIntervalId = null;
+let lastSettingsSignature = "";
+let lastEntriesSignature = "";
 const entryFailureCounts = new Map();
 
 function getPersistedSaveDirectory() {
   try {
-    const raw = window.localStorage.getItem("photobooth.operatorSettings.v1");
-    if (!raw) {
-      return "";
-    }
-
-    const parsed = JSON.parse(raw);
-    return typeof parsed?.saveDirectoryPath === "string" ? parsed.saveDirectoryPath : "";
+    const settings = loadPersistedSettings();
+    return typeof settings?.saveDirectoryPath === "string" ? settings.saveDirectoryPath : "";
   } catch {
     return "";
+  }
+}
+
+function getSlideshowSettings() {
+  try {
+    const settings = loadPersistedSettings() || {};
+    return {
+      fadeEnabled: typeof settings?.slideshowFadeEnabled === "boolean" ? settings.slideshowFadeEnabled : true,
+      fadeDurationMs: Number.isFinite(settings?.slideshowFadeDurationMs) ? Math.max(0, settings.slideshowFadeDurationMs) : 600
+    };
+  } catch {
+    return { fadeEnabled: true, fadeDurationMs: 600 };
   }
 }
 
@@ -91,6 +104,21 @@ function clearTimers() {
   }
 }
 
+function getEntriesSignature(nextEntries = entries) {
+  return nextEntries
+    .map((entry) => `${entry.path || entry.filename || ""}:${entry.modifiedAt || 0}`)
+    .join("|");
+}
+
+function getSettingsSignature() {
+  const settings = loadPersistedSettings() || {};
+  return JSON.stringify({
+    saveDirectoryPath: settings.saveDirectoryPath || "",
+    slideshowFadeEnabled: Boolean(settings.slideshowFadeEnabled),
+    slideshowFadeDurationMs: Number.isFinite(settings.slideshowFadeDurationMs) ? Math.max(0, settings.slideshowFadeDurationMs) : 600
+  });
+}
+
 function clearVideoSource() {
   const video = getVideoElement();
   if (!video) {
@@ -144,8 +172,16 @@ function clampIndex() {
 }
 
 async function refreshEntries(reason = "refresh") {
-  entries = await loadEntries();
+  const currentEntryKey = getEntryKey(getCurrentEntry());
+  const nextEntries = await loadEntries();
+  const nextEntriesSignature = getEntriesSignature(nextEntries);
+  entries = nextEntries;
+  if (currentEntryKey) {
+    const matchingIndex = entries.findIndex((entry) => getEntryKey(entry) === currentEntryKey);
+    currentIndex = matchingIndex >= 0 ? matchingIndex : 0;
+  }
   clampIndex();
+  lastEntriesSignature = nextEntriesSignature;
   void logger.info("Slideshow refreshed entries.", {
     reason,
     count: entries.length,
@@ -343,12 +379,17 @@ async function playCurrentEntry(reason = "play") {
     failureCount: getEntryFailureCount(entry)
   });
 
-  filename.textContent = entry.filename;
-  counter.textContent = `${currentIndex + 1} / ${entries.length}`;
   updateEmptyState(true, `Loading ${entry.filename}...`);
 
   clearTimers();
   clearVideoSource();
+
+  const { fadeEnabled, fadeDurationMs } = getSlideshowSettings();
+  video.style.transitionDuration = `${fadeEnabled ? fadeDurationMs : 0}ms`;
+  if (fadeEnabled && fadeDurationMs > 0) {
+    video.classList.add("is-fading");
+    await new Promise((resolve) => window.setTimeout(resolve, fadeDurationMs));
+  }
 
   video.loop = false;
   video.muted = true;
@@ -361,6 +402,7 @@ async function playCurrentEntry(reason = "play") {
   video.src = entry.url;
   video.load();
   updateEmptyState(false);
+  video.classList.remove("is-fading");
 }
 
 async function advanceSlideshow(reason = "advance", { skipCurrent = false } = {}) {
@@ -422,6 +464,53 @@ async function loadSlideshow(reason = "initial-load") {
   }
 }
 
+async function syncSlideshowState() {
+  try {
+    await loadDesktopPersistedSettings();
+    const nextSettingsSignature = getSettingsSignature();
+    const currentEntryKey = getEntryKey(getCurrentEntry());
+    const nextEntries = await loadEntries();
+    const nextEntriesSignature = getEntriesSignature(nextEntries);
+
+    const settingsChanged = nextSettingsSignature !== lastSettingsSignature;
+    const entriesChanged = nextEntriesSignature !== lastEntriesSignature;
+    if (!settingsChanged && !entriesChanged) {
+      return;
+    }
+
+    lastSettingsSignature = nextSettingsSignature;
+    entries = nextEntries;
+    if (currentEntryKey) {
+      const matchingIndex = entries.findIndex((entry) => getEntryKey(entry) === currentEntryKey);
+      currentIndex = matchingIndex >= 0 ? matchingIndex : 0;
+    } else {
+      currentIndex = 0;
+    }
+    clampIndex();
+    lastEntriesSignature = nextEntriesSignature;
+
+    void logger.info("Slideshow external window detected shared-state changes.", {
+      settingsChanged,
+      entriesChanged,
+      count: entries.length,
+      currentIndex,
+      saveDirectoryPath: getPersistedSaveDirectory()
+    });
+
+    if (!entries.length) {
+      clearVideoSource();
+      updateEmptyState(true, "No videos are available in the gallery folder yet.");
+      return;
+    }
+
+    await playCurrentEntry(settingsChanged ? "settings-sync" : "entries-sync");
+  } catch (error) {
+    void logger.warn("Slideshow shared-state sync failed.", {
+      error: error instanceof Error ? error.message : String(error || "")
+    });
+  }
+}
+
 window.addEventListener("error", (event) => {
   void logger.exception("Unhandled slideshow window error.", event.error || event.message, {
     message: event.message || ""
@@ -434,11 +523,14 @@ window.addEventListener("error", (event) => {
 window.addEventListener("beforeunload", () => {
   clearTimers();
   clearVideoSource();
+  if (settingsSyncIntervalId !== null) {
+    window.clearInterval(settingsSyncIntervalId);
+    settingsSyncIntervalId = null;
+  }
 });
 
-document.getElementById("slideshowRefreshButton")?.addEventListener("click", () => {
-  void logger.audit("Slideshow refresh requested.");
-  void loadSlideshow("manual-refresh");
+document.getElementById("slideshowCloseButton")?.addEventListener("click", () => {
+  window.close();
 });
 
 document.getElementById("slideshowVideo")?.addEventListener("ended", () => {
@@ -449,7 +541,19 @@ document.getElementById("slideshowVideo")?.addEventListener("ended", () => {
   void advanceSlideshow("ended", { skipCurrent: true });
 });
 
-void logger.info("Slideshow window bootstrap started.", {
-  saveDirectoryPath: getPersistedSaveDirectory()
+document.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
 });
-void loadSlideshow();
+
+void (async () => {
+  await loadDesktopPersistedSettings();
+  lastSettingsSignature = getSettingsSignature();
+  void logger.info("Slideshow window bootstrap started.", {
+    saveDirectoryPath: getPersistedSaveDirectory()
+  });
+  void setFullscreenState(true);
+  await loadSlideshow();
+  settingsSyncIntervalId = window.setInterval(() => {
+    void syncSlideshowState();
+  }, SETTINGS_SYNC_INTERVAL_MS);
+})();

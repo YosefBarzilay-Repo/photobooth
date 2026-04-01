@@ -93,6 +93,14 @@ export async function getDefaultRecordingsDirectory() {
   return invokeDesktop("get_default_recordings_directory");
 }
 
+export async function getDesktopAppDataDirectory() {
+  if (!isDesktopApp()) {
+    return "";
+  }
+
+  return invokeDesktop("get_app_data_directory");
+}
+
 export async function createDesktopProjectDirectory(projectName, parentDirectory = "") {
   if (!isDesktopApp()) {
     throw new Error("Desktop APIs are not available.");

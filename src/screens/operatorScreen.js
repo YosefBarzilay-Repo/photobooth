@@ -101,12 +101,14 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     const sections = {
       editor: dom.settingsSectionEditor,
       countdown: dom.settingsSectionCountdown,
-      inputs: dom.settingsSectionInputs
+      inputs: dom.settingsSectionInputs,
+      slideshow: dom.settingsSectionSlideshow
     };
     const tabs = {
       editor: dom.settingsTabEditor,
       countdown: dom.settingsTabCountdown,
-      inputs: dom.settingsTabInputs
+      inputs: dom.settingsTabInputs,
+      slideshow: dom.settingsTabSlideshow
     };
 
     Object.entries(sections).forEach(([section, element]) => {
@@ -158,6 +160,10 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     return Math.max(0, Math.min(120, Math.round(value)));
   }
 
+  function clampSlideshowFadeDuration(value) {
+    return Math.max(0, Math.min(5000, Math.round(value / 50) * 50));
+  }
+
   function syncOffField(input, value) {
     input.value = value > 0 ? String(value) : "";
     input.placeholder = "Off";
@@ -196,8 +202,24 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     syncRecordingTimeoutFromControl();
   }
 
+  function syncSlideshowFadeDurationFromControl() {
+    const fadeDurationValue = clampSlideshowFadeDuration(Number(dom.slideshowFadeDurationInput.value) || 0);
+    state.slideshowFadeDurationMs = fadeDurationValue;
+    dom.slideshowFadeDurationInput.value = String(fadeDurationValue);
+    notifySettingsChanged();
+  }
+
+  function stepSlideshowFadeDuration(delta) {
+    dom.slideshowFadeDurationInput.value = String(clampSlideshowFadeDuration(state.slideshowFadeDurationMs + (delta * 50)));
+    syncSlideshowFadeDurationFromControl();
+  }
+
   function syncOverlayControls() {
     state.captureOrientation = dom.orientationSelect.value === "portrait" ? "portrait" : "landscape";
+    state.slideshowMode = dom.slideshowModeSelect.value === "external" ? "external" : "internal";
+    state.slideshowFadeEnabled = dom.slideshowFadeEnabledSelect.value === "true";
+    state.slideshowFadeDurationMs = clampSlideshowFadeDuration(Number(dom.slideshowFadeDurationInput.value) || 0);
+    dom.slideshowFadeDurationInput.value = String(state.slideshowFadeDurationMs);
     const activeOverlay = getActiveOverlayOrSync();
 
     if (activeOverlay?.type === "text") {
@@ -238,6 +260,9 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     dom.textInput.value = activeOverlay?.type === "text" ? activeOverlay.text : "";
     dom.fontSelect.value = activeOverlay?.type === "text" ? activeOverlay.font : state.overlayFont;
     dom.orientationSelect.value = state.captureOrientation;
+    dom.slideshowModeSelect.value = state.slideshowMode;
+    dom.slideshowFadeEnabledSelect.value = String(state.slideshowFadeEnabled);
+    dom.slideshowFadeDurationInput.value = String(clampSlideshowFadeDuration(state.slideshowFadeDurationMs));
     dom.cameraInputSelect.value = state.videoInputId;
     dom.audioInputSelect.value = state.audioInputId || DISABLED_AUDIO_INPUT_ID;
     dialogRect.width = APP_THRESHOLDS.dialogDefaultWidth;
@@ -260,7 +285,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   }
 
   function switchSection(section) {
-    if (["editor", "countdown", "inputs"].includes(section)) {
+    if (["editor", "countdown", "inputs", "slideshow"].includes(section)) {
       activeSection = section;
       syncSectionUi();
     }
@@ -571,6 +596,8 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     populateMediaDeviceOptions,
     stepCountdown,
     stepRecordingTimeout,
+    syncSlideshowFadeDurationFromControl,
+    stepSlideshowFadeDuration,
     setOperatorPanelOpen,
     switchSection,
     registerOperatorAccessClick,

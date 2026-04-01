@@ -111,6 +111,7 @@
               <button class="gallery-tab is-active" id="settingsTabEditor" type="button" role="tab" aria-selected="true">Video Editor</button>
               <button class="gallery-tab" id="settingsTabCountdown" type="button" role="tab" aria-selected="false">Recording Timing</button>
               <button class="gallery-tab" id="settingsTabInputs" type="button" role="tab" aria-selected="false">Recording Inputs</button>
+              <button class="gallery-tab" id="settingsTabSlideshow" type="button" role="tab" aria-selected="false">Slideshow</button>
             </div>
           </div>
           <button class="icon-button" id="operatorCloseButton" type="button" title="Close operator settings">
@@ -216,6 +217,40 @@
               <span class="material-symbols-outlined">folder_open</span>
               Choose Folder
             </button>
+          </section>
+
+          <section class="panel-section hidden" id="settingsSectionSlideshow">
+            <div class="section-header">
+              <div>
+                <p class="panel-title panel-title-small">Slideshow</p>
+              </div>
+            </div>
+            <label class="field field-inline">
+              <span class="field-label">Open Mode</span>
+              <select id="slideshowModeSelect">
+                <option value="internal">Internal Fullscreen</option>
+                <option value="external">External Window</option>
+              </select>
+            </label>
+            <label class="field field-inline">
+              <span class="field-label">Fade Transition</span>
+              <select id="slideshowFadeEnabledSelect">
+                <option value="true">On</option>
+                <option value="false">Off</option>
+              </select>
+            </label>
+            <label class="field field-inline">
+              <span class="field-label">Fade Time (ms)</span>
+              <div class="stepper-control">
+                <button class="stepper-button" id="slideshowFadeDurationMinusButton" type="button" aria-label="Decrease fade time">
+                  <span class="material-symbols-outlined">remove</span>
+                </button>
+                <input id="slideshowFadeDurationInput" type="number" min="0" max="5000" step="50" value="600" inputmode="numeric">
+                <button class="stepper-button" id="slideshowFadeDurationPlusButton" type="button" aria-label="Increase fade time">
+                  <span class="material-symbols-outlined">add</span>
+                </button>
+              </div>
+            </label>
           </section>
         </div>
 
@@ -390,7 +425,6 @@
             <span id="slideshowFilename"></span>
             <span id="slideshowCounter"></span>
           </div>
-          <div class="slideshow-exit-hint" id="slideshowExitHint">Move the mouse to exit</div>
         </main>
       </div>
     </section>

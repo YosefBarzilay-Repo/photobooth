@@ -98,8 +98,14 @@ export function buildTimestampFilename(extension) {
 }
 
 export async function saveRecording(blob, filename, saveDirectory = null) {
+  const normalizedFilename = String(filename || "").trim();
+  const blobMimeType = String(blob?.type || "").toLowerCase();
+  if (!normalizedFilename.toLowerCase().endsWith(".mp4") || (blobMimeType && !blobMimeType.startsWith("video/mp4"))) {
+    throw new Error(`Photobooth blocked saving a non-MP4 recording (${normalizedFilename || "missing filename"}, ${blobMimeType || "unknown type"}).`);
+  }
+
   void logger.audit("Saving recording requested.", {
-    filename,
+    filename: normalizedFilename,
     isDesktopApp: isDesktopApp(),
     saveDirectory: typeof saveDirectory === "string" ? saveDirectory : saveDirectory?.name || ""
   });
@@ -110,42 +116,42 @@ export async function saveRecording(blob, filename, saveDirectory = null) {
     if (saveDirectory) {
       const savedPath = await invokeDesktop("save_recording_to_directory", {
         directoryPath: saveDirectory,
-        fileName: filename,
+        fileName: normalizedFilename,
         bytes
       });
-      void logger.info("Recording saved to selected directory.", { filename, savedPath });
+      void logger.info("Recording saved to selected directory.", { filename: normalizedFilename, savedPath });
       return savedPath;
     }
 
     const savedPath = await invokeDesktop("save_recording_to_default_directory", {
-      fileName: filename,
+      fileName: normalizedFilename,
       bytes
     });
-    void logger.info("Recording saved to default directory.", { filename, savedPath });
+    void logger.info("Recording saved to default directory.", { filename: normalizedFilename, savedPath });
     return savedPath;
   }
 
   if (saveDirectory && "getFileHandle" in saveDirectory) {
     try {
-      const fileHandle = await saveDirectory.getFileHandle(filename, { create: true });
+      const fileHandle = await saveDirectory.getFileHandle(normalizedFilename, { create: true });
       const writable = await fileHandle.createWritable();
       await writable.write(blob);
       await writable.close();
-      void logger.info("Recording saved with browser directory handle.", { filename, directoryName: saveDirectory.name || "" });
-      return filename;
+      void logger.info("Recording saved with browser directory handle.", { filename: normalizedFilename, directoryName: saveDirectory.name || "" });
+      return normalizedFilename;
     } catch (error) {
-      void logger.exception("Browser directory save failed. Falling back to browser download.", error, { filename });
+      void logger.exception("Browser directory save failed. Falling back to browser download.", error, { filename: normalizedFilename });
     }
   }
 
   const url = createObjectUrl(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = filename;
+  link.download = normalizedFilename;
   link.click();
   window.setTimeout(() => revokeObjectUrl(url), 1000);
-  void logger.warn("Recording saved through browser download fallback.", { filename });
-  return filename;
+  void logger.warn("Recording saved through browser download fallback.", { filename: normalizedFilename });
+  return normalizedFilename;
 }
 
 export async function deleteSavedRecording(entry, saveDirectory = null) {

@@ -1,6 +1,6 @@
 import { loadSavedRecordingsFromDirectory } from "./services/downloadService.js";
 import { getDefaultRecordingsDirectory, isDesktopApp, openDesktopDirectory } from "./services/desktopService.js";
-import { loadPersistedSettings } from "./services/settingsPersistence.js";
+import { loadDesktopPersistedSettings, loadPersistedSettings } from "./services/settingsPersistence.js";
 import { logger } from "./services/logger.js";
 
 function getSaveDirectory() {
@@ -78,4 +78,11 @@ document.getElementById("galleryOpenFolderButton")?.addEventListener("click", ()
   });
 });
 
-void loadGallery();
+document.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+});
+
+void (async () => {
+  await loadDesktopPersistedSettings();
+  await loadGallery();
+})();

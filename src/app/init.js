@@ -26,12 +26,14 @@ import {
   getFullscreenState,
   isDesktopApp,
   listDesktopProjects,
+  openDesktopSlideshowWindow,
   openDesktopDirectory,
   renameDesktopProjectDirectory,
   setFullscreenState
 } from "../services/desktopService.js";
 import {
   applyPersistedSettings,
+  loadDesktopPersistedSettings,
   loadPersistedSettings,
   loadProjectMetadata,
   persistSettings,
@@ -70,6 +72,12 @@ function formatErrorMessage(error, fallbackMessage) {
   return fallbackMessage;
 }
 
+function buildDefaultProjectName() {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${pad(now.getDate())}${pad(now.getMonth() + 1)}${String(now.getFullYear()).slice(-2)}${pad(now.getHours())}${pad(now.getMinutes())}`;
+}
+
 function getParentDirectory(directoryPath) {
   const normalized = String(directoryPath || "").trim().replace(/[\\/]+$/, "");
   if (!normalized) {
@@ -99,10 +107,13 @@ function validateProjectName(projectName) {
   return "";
 }
 
-function drawVideoFrame(ctx, video, width, height) {
+function drawVideoFrame(ctx, video, width, height, captureOrientation = "landscape") {
   const videoWidth = video.videoWidth || width;
   const videoHeight = video.videoHeight || height;
-  const scale = Math.min(width / videoWidth, height / videoHeight);
+  const useCover = captureOrientation === "portrait";
+  const scale = useCover
+    ? Math.max(width / videoWidth, height / videoHeight)
+    : Math.min(width / videoWidth, height / videoHeight);
   const targetWidth = videoWidth * scale;
   const targetHeight = videoHeight * scale;
   const targetX = (width - targetWidth) / 2;
@@ -212,9 +223,9 @@ function drawFrameOverlay(ctx, frameId, width, height) {
   }
 }
 
-function getCompositionSize(stageElement) {
+function getCompositionSize(stageElement, captureOrientation = "landscape") {
   const rect = stageElement.getBoundingClientRect();
-  const isPortrait = stageElement.classList.contains("stage-card-portrait");
+  const isPortrait = captureOrientation === "portrait";
   return {
     stageWidth: Math.max(1, rect.width || (isPortrait ? APP_THRESHOLDS.composedPortraitWidth : APP_THRESHOLDS.composedLandscapeWidth)),
     stageHeight: Math.max(1, rect.height || (isPortrait ? APP_THRESHOLDS.composedPortraitHeight : APP_THRESHOLDS.composedLandscapeHeight)),
@@ -261,7 +272,7 @@ function getOverlayMetrics(dom, state, compositionSize) {
 }
 
 function createComposedRecorder(state, previewVideo, dom) {
-  const compositionSize = getCompositionSize(dom.cameraStage);
+  const compositionSize = getCompositionSize(dom.cameraStage, state.captureOrientation);
   const canvas = document.createElement("canvas");
   canvas.width = compositionSize.width;
   canvas.height = compositionSize.height;
@@ -294,7 +305,7 @@ function createComposedRecorder(state, previewVideo, dom) {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawVideoFrame(ctx, previewVideo, canvas.width, canvas.height);
+    drawVideoFrame(ctx, previewVideo, canvas.width, canvas.height, state.captureOrientation);
     getOverlays(state).forEach((overlay) => {
       if (overlay.type === "logo" && overlay.dataUrl) {
         if (!logoImages.has(overlay.id)) {
@@ -414,6 +425,25 @@ export default function initApp() {
   let slideshowIndex = -1;
   let slideshowStartedAt = 0;
 
+  function getSlideshowFadeDurationMs() {
+    return state.slideshowFadeEnabled ? Math.max(0, state.slideshowFadeDurationMs || 0) : 0;
+  }
+
+  async function transitionSlideshowVideo(loadVideo) {
+    const fadeDurationMs = getSlideshowFadeDurationMs();
+    dom.slideshowVideo.style.transitionDuration = `${fadeDurationMs}ms`;
+    if (fadeDurationMs > 0) {
+      dom.slideshowVideo.classList.add("is-fading");
+      await sleep(fadeDurationMs);
+    }
+
+    await loadVideo();
+
+    if (fadeDurationMs > 0) {
+      dom.slideshowVideo.classList.remove("is-fading");
+    }
+  }
+
   function syncModeUi() {
     cameraScreen.syncModeUi();
   }
@@ -472,7 +502,8 @@ export default function initApp() {
     dom.projectCreateButton.textContent = "Create Project";
     dom.projectDialogError.textContent = "";
     dom.projectDialogError.classList.add("hidden");
-    dom.projectNameInput.value = "";
+    dom.projectNameInput.value = buildDefaultProjectName();
+    dom.projectNameInput.dataset.autoclear = "true";
     dom.projectContinueButton.classList.remove("hidden");
     const recentList = document.getElementById("projectRecentList");
     if (recentList) {
@@ -792,16 +823,15 @@ export default function initApp() {
     const entry = slideshowEntries[slideshowIndex];
     await ensureRecordingEntryUrl(entry);
 
-    dom.slideshowFilename.textContent = entry.filename;
-    dom.slideshowCounter.textContent = `${slideshowIndex + 1} / ${slideshowEntries.length}`;
     updateSlideshowEmptyState(false);
-    dom.slideshowVideo.pause();
-    dom.slideshowVideo.src = entry.url;
-    dom.slideshowVideo.currentTime = 0;
-    dom.slideshowVideo.load();
-
     try {
-      await dom.slideshowVideo.play();
+      await transitionSlideshowVideo(async () => {
+        dom.slideshowVideo.pause();
+        dom.slideshowVideo.src = entry.url;
+        dom.slideshowVideo.currentTime = 0;
+        dom.slideshowVideo.load();
+        await dom.slideshowVideo.play();
+      });
     } catch (error) {
       void logger.warn("Slideshow playback failed. Advancing to next video.", {
         filename: entry.filename,
@@ -828,6 +858,11 @@ export default function initApp() {
     }
 
     try {
+      if (state.slideshowMode === "external" && state.isDesktopApp) {
+        await openDesktopSlideshowWindow();
+        return;
+      }
+
       stopStream();
       closeGalleryPanel();
       dom.resultVideo.pause();
@@ -1071,6 +1106,14 @@ export default function initApp() {
   function scheduleRecordingTimeout() {
     clearTimer(state.recordingTimeoutId);
     state.recordingTimeoutId = null;
+
+    if (state.recordingTimeoutSeconds <= 0) {
+      return;
+    }
+
+    state.recordingTimeoutId = window.setTimeout(() => {
+      stopRecording();
+    }, state.recordingTimeoutSeconds * 1000);
   }
 
   function stopStream() {
@@ -1175,25 +1218,37 @@ export default function initApp() {
   }
 
   async function handleRecordingStop() {
-    state.recordingBlob = createRecordingBlob(state.recordingChunks, state.recorder);
-    state.recordingUrl = createObjectUrl(state.recordingBlob);
-    state.recordingFilename = buildTimestampFilename(getRecordingExtension(state.recordingBlob.type || state.recorder?.mimeType || "video/webm"));
-    state.recordingPath = "";
-    state.recordings.push({
-      url: state.recordingUrl,
-      blob: state.recordingBlob,
-      filename: state.recordingFilename,
-      saved: false
-    });
-    stopRecordingTimer();
-    composedRecorder?.stop();
-    composedRecorder = null;
-    resetCaptureState();
-    dom.snapButton.disabled = false;
-    dom.recordingTimer.textContent = "00:00";
-    stopStream();
-    editorScreen.showResult();
-    syncModeUi();
+    try {
+      state.recordingBlob = createRecordingBlob(state.recordingChunks, state.recorder);
+      state.recordingUrl = createObjectUrl(state.recordingBlob);
+      state.recordingFilename = buildTimestampFilename(getRecordingExtension(state.recordingBlob.type || state.recorder?.mimeType || "video/mp4"));
+      state.recordingPath = "";
+      state.recordings.push({
+        url: state.recordingUrl,
+        blob: state.recordingBlob,
+        filename: state.recordingFilename,
+        saved: false
+      });
+      stopStream();
+      editorScreen.showResult();
+    } catch (error) {
+      void logger.exception("Recording stop failed.", error, {
+        recorderMimeType: state.recorder?.mimeType || "",
+        chunkCount: state.recordingChunks.length
+      });
+      discardCurrentRecording();
+      state.mode = "camera";
+      showErrorDialog("Recording error", error, "Photobooth blocked the recording because it was not exported as MP4.");
+      void startCamera();
+    } finally {
+      stopRecordingTimer();
+      composedRecorder?.stop();
+      composedRecorder = null;
+      resetCaptureState();
+      dom.snapButton.disabled = false;
+      dom.recordingTimer.textContent = "00:00";
+      syncModeUi();
+    }
   }
 
   function stopRecording() {
@@ -1407,6 +1462,18 @@ export default function initApp() {
     void logger.info("Bootstrap sequence started.");
 
     try {
+      const desktopSettings = await loadDesktopPersistedSettings();
+      if (desktopSettings) {
+        applyPersistedSettings(state, { ...APP_DEFAULTS, saveFolderDefault: APP_STRINGS.saveFolderDefault }, desktopSettings);
+        syncActiveOverlayState(state);
+        operatorScreen.syncControlsFromState();
+        operatorScreen.renderFrameTray();
+        editorScreen.syncOrientationUi();
+        editorScreen.renderOverlayPreview();
+        editorScreen.syncEmptyState();
+        syncModeUi();
+      }
+
       await Promise.all([
         loadAppVersion(),
         refreshMediaDeviceOptions(),
@@ -1437,6 +1504,12 @@ export default function initApp() {
   });
   dom.projectCreateButton.addEventListener("click", () => {
     void handleCreateProject();
+  });
+  dom.projectNameInput.addEventListener("focus", () => {
+    if (dom.projectNameInput.dataset.autoclear === "true") {
+      dom.projectNameInput.value = "";
+      dom.projectNameInput.dataset.autoclear = "false";
+    }
   });
   document.getElementById("projectRecentList")?.addEventListener("click", (event) => {
     const target = event.target instanceof HTMLElement ? event.target.closest("[data-recent-index]") : null;
@@ -1524,6 +1597,9 @@ export default function initApp() {
   });
 
   document.body.dataset.mode = state.mode;
+  document.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+  });
   operatorScreen.syncControlsFromState();
   operatorScreen.renderFrameTray();
   editorScreen.syncOrientationUi();

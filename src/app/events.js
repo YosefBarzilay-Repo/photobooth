@@ -69,6 +69,10 @@ export default function wireEvents(dom, state, handlers) {
     void logger.audit("Settings recording inputs tab clicked.");
     handlers.operatorScreen.switchSection("inputs");
   });
+  dom.settingsTabSlideshow.addEventListener("click", () => {
+    void logger.audit("Settings slideshow tab clicked.");
+    handlers.operatorScreen.switchSection("slideshow");
+  });
 
   dom.resultSaveButton.addEventListener("click", () => {
     void logger.audit("Result save button clicked.", { filename: state.recordingFilename });
@@ -139,8 +143,24 @@ export default function wireEvents(dom, state, handlers) {
     void logger.audit("Recording timeout increment button clicked.");
     handlers.operatorScreen.stepRecordingTimeout(1);
   });
+  dom.slideshowFadeDurationInput.addEventListener("input", () => {
+    void logger.audit("Slideshow fade duration input changed.", { value: dom.slideshowFadeDurationInput.value });
+    handlers.operatorScreen.syncSlideshowFadeDurationFromControl();
+  });
+  dom.slideshowFadeDurationInput.addEventListener("change", () => {
+    void logger.audit("Slideshow fade duration input committed.", { value: dom.slideshowFadeDurationInput.value });
+    handlers.operatorScreen.syncSlideshowFadeDurationFromControl();
+  });
+  dom.slideshowFadeDurationMinusButton.addEventListener("click", () => {
+    void logger.audit("Slideshow fade duration decrement button clicked.");
+    handlers.operatorScreen.stepSlideshowFadeDuration(-1);
+  });
+  dom.slideshowFadeDurationPlusButton.addEventListener("click", () => {
+    void logger.audit("Slideshow fade duration increment button clicked.");
+    handlers.operatorScreen.stepSlideshowFadeDuration(1);
+  });
 
-  [dom.textInput, dom.fontSelect, dom.orientationSelect].forEach((input) => {
+  [dom.textInput, dom.fontSelect, dom.orientationSelect, dom.slideshowModeSelect, dom.slideshowFadeEnabledSelect].forEach((input) => {
     input.addEventListener("input", () => {
       void logger.audit("Overlay input changed.", { id: input.id, value: input.value });
       handlers.operatorScreen.syncOverlayControls();

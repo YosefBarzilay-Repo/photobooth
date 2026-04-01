@@ -11,19 +11,11 @@
   <link rel="stylesheet" href="styles/library.css">
 </head>
 <body class="slideshow-page">
-  <div class="slideshow-shell">
-    <header class="slideshow-header">
-      <div>
-        <p class="library-eyebrow">Photobooth</p>
-        <h1 class="library-title">Slideshow</h1>
-      </div>
-      <button class="library-action" id="slideshowRefreshButton" type="button">
-        <span class="material-symbols-outlined">refresh</span>
-        Refresh
-      </button>
-    </header>
-
-    <main class="slideshow-stage">
+  <div class="slideshow-shell slideshow-shell-external">
+    <button class="slideshow-close-button" id="slideshowCloseButton" type="button" aria-label="Close slideshow">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+    <main class="slideshow-stage slideshow-stage-external">
       <video class="slideshow-video hidden" id="slideshowVideo" playsinline muted autoplay></video>
       <section class="library-empty" id="slideshowEmptyState">
         <span class="material-symbols-outlined">slideshow</span>

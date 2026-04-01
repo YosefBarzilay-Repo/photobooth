@@ -51,9 +51,11 @@ export default function createDomRefs() {
     settingsTabEditor: getRequiredElement("settingsTabEditor"),
     settingsTabCountdown: getRequiredElement("settingsTabCountdown"),
     settingsTabInputs: getRequiredElement("settingsTabInputs"),
+    settingsTabSlideshow: getRequiredElement("settingsTabSlideshow"),
     settingsSectionEditor: getRequiredElement("settingsSectionEditor"),
     settingsSectionCountdown: getRequiredElement("settingsSectionCountdown"),
     settingsSectionInputs: getRequiredElement("settingsSectionInputs"),
+    settingsSectionSlideshow: getRequiredElement("settingsSectionSlideshow"),
     appVersionLabel: getRequiredElement("appVersionLabel"),
     galleryPanel: getRequiredElement("galleryPanel"),
     galleryDialog: getRequiredElement("galleryDialog"),
@@ -118,6 +120,11 @@ export default function createDomRefs() {
     textInput: getRequiredElement("textInput"),
     fontSelect: getRequiredElement("fontSelect"),
     orientationSelect: getRequiredElement("orientationSelect"),
+    slideshowModeSelect: getRequiredElement("slideshowModeSelect"),
+    slideshowFadeEnabledSelect: getRequiredElement("slideshowFadeEnabledSelect"),
+    slideshowFadeDurationMinusButton: getRequiredElement("slideshowFadeDurationMinusButton"),
+    slideshowFadeDurationInput: getRequiredElement("slideshowFadeDurationInput"),
+    slideshowFadeDurationPlusButton: getRequiredElement("slideshowFadeDurationPlusButton"),
     cameraFrame: getRequiredElement("cameraFrame"),
     cameraText: getRequiredElement("cameraText"),
     resultFrame: getRequiredElement("resultFrame"),
@@ -128,8 +135,7 @@ export default function createDomRefs() {
     slideshowEmptyText: getRequiredElement("slideshowEmptyText"),
     slideshowMeta: getRequiredElement("slideshowMeta"),
     slideshowFilename: getRequiredElement("slideshowFilename"),
-    slideshowCounter: getRequiredElement("slideshowCounter"),
-    slideshowExitHint: getRequiredElement("slideshowExitHint")
+    slideshowCounter: getRequiredElement("slideshowCounter")
   };
 }
 

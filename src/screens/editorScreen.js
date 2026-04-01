@@ -16,7 +16,7 @@ export default function createEditorScreen(dom, state) {
       && dom.resultVideo.videoHeight > 0
       && dom.resultVideo.videoHeight > dom.resultVideo.videoWidth;
 
-    dom.editorStage.classList.toggle("stage-card-portrait", isPortraitVideo || state.captureOrientation === "portrait");
+    dom.editorStage.classList.toggle("stage-card-portrait", isPortraitVideo);
   }
 
   function syncOrientationUi() {

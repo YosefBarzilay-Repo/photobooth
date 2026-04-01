@@ -73,6 +73,9 @@ export default function createAppStore() {
     logoScale: APP_DEFAULTS.logoScale,
     logoRotation: APP_DEFAULTS.logoRotation,
     logoPosition: { ...APP_DEFAULTS.logoPosition },
+    slideshowMode: APP_DEFAULTS.slideshowMode,
+    slideshowFadeEnabled: APP_DEFAULTS.slideshowFadeEnabled,
+    slideshowFadeDurationMs: APP_DEFAULTS.slideshowFadeDurationMs,
     videoInputId: APP_DEFAULTS.videoInputId,
     audioInputId: APP_DEFAULTS.audioInputId
   };

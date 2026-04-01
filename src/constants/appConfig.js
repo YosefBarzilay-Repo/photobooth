@@ -37,6 +37,9 @@ export const APP_DEFAULTS = {
   logoScale: 1,
   logoRotation: 0,
   logoPosition: { x: 50, y: 20 },
+  slideshowMode: "internal",
+  slideshowFadeEnabled: true,
+  slideshowFadeDurationMs: 600,
   videoInputId: "",
   audioInputId: ""
 };

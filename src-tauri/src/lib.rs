@@ -55,24 +55,22 @@ fn get_default_recordings_directory_path() -> Result<PathBuf, String> {
     .map_err(|error| error.to_string())
 }
 
-fn get_app_log_path() -> Result<PathBuf, String> {
+fn get_app_data_directory_path() -> Result<PathBuf, String> {
   if let Some(local_app_data) = env::var_os("LOCALAPPDATA") {
-    return Ok(PathBuf::from(local_app_data).join("Photobooth").join("Logs").join("photobooth.log"));
+    return Ok(PathBuf::from(local_app_data).join("Photobooth").join("Data").join("Database"));
   }
 
   env::current_dir()
-    .map(|path| path.join("Photobooth").join("Logs").join("photobooth.log"))
+    .map(|path| path.join("Photobooth").join("Data").join("Database"))
     .map_err(|error| error.to_string())
 }
 
-fn get_project_registry_path() -> Result<PathBuf, String> {
-  if let Some(local_app_data) = env::var_os("LOCALAPPDATA") {
-    return Ok(PathBuf::from(local_app_data).join("Photobooth").join("Data").join("projects.json"));
-  }
+fn get_app_log_path() -> Result<PathBuf, String> {
+  get_app_data_directory_path().map(|path| path.join("Logs").join("photobooth.log"))
+}
 
-  env::current_dir()
-    .map(|path| path.join("Photobooth").join("Data").join("projects.json"))
-    .map_err(|error| error.to_string())
+fn get_project_registry_path() -> Result<PathBuf, String> {
+  get_app_data_directory_path().map(|path| path.join("projects.json"))
 }
 
 fn sanitize_log_text(value: &str) -> String {
@@ -347,6 +345,11 @@ fn get_default_recordings_directory() -> Result<String, String> {
 }
 
 #[tauri::command]
+fn get_app_data_directory() -> Result<String, String> {
+  get_app_data_directory_path().map(|path| path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
 fn create_project_directory(project_name: String, parent_directory: String) -> Result<String, String> {
   let normalized_name = normalize_project_name(&project_name);
   if normalized_name.is_empty() {
@@ -570,6 +573,7 @@ pub fn run() {
       save_recording_to_directory,
       save_recording_to_default_directory,
       get_default_recordings_directory,
+      get_app_data_directory,
       create_project_directory,
       list_saved_projects,
       rename_project_directory,

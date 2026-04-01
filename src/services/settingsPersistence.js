@@ -2,14 +2,46 @@
  * @typedef {import("../types/app.js").AppState} AppState
  */
 
-import { invokeDesktop, isDesktopApp } from "./desktopService.js";
+import { getDesktopAppDataDirectory, invokeDesktop, isDesktopApp } from "./desktopService.js";
 import { logger } from "./logger.js";
 import { createLogoOverlay, createTextOverlay, syncActiveOverlayState } from "../utils/overlayState.js";
 
 const STORAGE_KEY = "photobooth.appData.v2";
 const LEGACY_STORAGE_KEY = "photobooth.operatorSettings.v1";
-const PROJECT_METADATA_FILENAME = "booking.json";
+const PROJECT_METADATA_FILENAME = "project.json";
+const LEGACY_PROJECT_METADATA_FILENAMES = ["booking.json"];
+const APP_DATA_FILENAME = "app-data.json";
 const APP_DATA_VERSION = 2;
+let desktopAppDataDirectoryPromise = null;
+
+function normalizePathSegment(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, "_")
+    .replace(/\s+/g, " ")
+    .replace(/[. ]+$/g, "")
+    .slice(0, 120);
+}
+
+async function getDesktopAppDataDirectoryPath() {
+  if (!isDesktopApp()) {
+    return "";
+  }
+
+  if (!desktopAppDataDirectoryPromise) {
+    desktopAppDataDirectoryPromise = getDesktopAppDataDirectory().catch((error) => {
+      desktopAppDataDirectoryPromise = null;
+      throw error;
+    });
+  }
+
+  return desktopAppDataDirectoryPromise;
+}
+
+async function getDesktopAppDataFilePath() {
+  const directoryPath = await getDesktopAppDataDirectoryPath();
+  return directoryPath ? `${directoryPath}\\${APP_DATA_FILENAME}` : "";
+}
 
 function isObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -44,6 +76,41 @@ export function loadPersistedSettings() {
     return isObject(settings) ? settings : null;
   } catch (error) {
     void logger.exception("Failed to load persisted operator settings.", error);
+    return null;
+  }
+}
+
+export async function loadDesktopPersistedSettings() {
+  if (!isDesktopApp()) {
+    return null;
+  }
+
+  try {
+    const filePath = await getDesktopAppDataFilePath();
+    if (!filePath) {
+      return null;
+    }
+
+    const raw = await invokeDesktop("read_text_file", { filePath });
+    if (!raw.trim()) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    const settings = isObject(parsed?.settings) ? parsed.settings : parsed;
+    if (!isObject(settings)) {
+      return null;
+    }
+
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      version: APP_DATA_VERSION,
+      settings
+    }));
+    return settings;
+  } catch (error) {
+    void logger.warn("Desktop persisted settings load failed.", {
+      error: error instanceof Error ? error.message : String(error || "")
+    });
     return null;
   }
 }
@@ -102,6 +169,13 @@ export function applyPersistedSettings(state, defaults, savedSettings) {
   state.logoScale = Number.isFinite(savedSettings.logoScale) ? savedSettings.logoScale : defaults.logoScale;
   state.logoRotation = Number.isFinite(savedSettings.logoRotation) ? savedSettings.logoRotation : defaults.logoRotation;
   state.logoPosition = cloneVector(savedSettings.logoPosition, defaults.logoPosition);
+  state.slideshowMode = savedSettings.slideshowMode === "external" ? "external" : defaults.slideshowMode;
+  state.slideshowFadeEnabled = typeof savedSettings.slideshowFadeEnabled === "boolean"
+    ? savedSettings.slideshowFadeEnabled
+    : defaults.slideshowFadeEnabled;
+  state.slideshowFadeDurationMs = Number.isFinite(savedSettings.slideshowFadeDurationMs)
+    ? Math.max(0, savedSettings.slideshowFadeDurationMs)
+    : defaults.slideshowFadeDurationMs;
   state.saveDirectoryPath = typeof savedSettings.saveDirectoryPath === "string" ? savedSettings.saveDirectoryPath : "";
   state.saveDirectoryName = typeof savedSettings.saveDirectoryName === "string" && savedSettings.saveDirectoryName.trim()
     ? savedSettings.saveDirectoryName
@@ -153,6 +227,9 @@ export function persistSettings(state) {
       logoScale: state.logoScale,
       logoRotation: state.logoRotation,
       logoPosition: state.logoPosition,
+      slideshowMode: state.slideshowMode,
+      slideshowFadeEnabled: state.slideshowFadeEnabled,
+      slideshowFadeDurationMs: state.slideshowFadeDurationMs,
       saveDirectoryPath: state.saveDirectoryPath,
       saveDirectoryName: state.saveDirectoryName,
       videoInputId: state.videoInputId,
@@ -162,6 +239,24 @@ export function persistSettings(state) {
 
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+    if (isDesktopApp()) {
+      void getDesktopAppDataFilePath()
+        .then((filePath) => {
+          if (!filePath) {
+            return;
+          }
+
+          return invokeDesktop("write_text_file", {
+            filePath,
+            text: JSON.stringify(snapshot, null, 2)
+          });
+        })
+        .catch((error) => {
+          void logger.warn("Desktop persisted settings save failed.", {
+            error: error instanceof Error ? error.message : String(error || "")
+          });
+        });
+    }
     void logger.debug("Persisted operator settings.", {
       saveDirectoryPath: snapshot.settings.saveDirectoryPath,
       saveDirectoryName: snapshot.settings.saveDirectoryName
@@ -193,6 +288,21 @@ function getProjectMetadataPath(projectPath) {
   return `${normalizedProjectPath}\\${PROJECT_METADATA_FILENAME}`;
 }
 
+async function getLegacyDesktopProjectMetadataPath(projectPath) {
+  const normalizedProjectPath = String(projectPath || "").trim().replace(/[\\/]+$/, "");
+  if (!normalizedProjectPath) {
+    return "";
+  }
+
+  const directoryPath = await getDesktopAppDataDirectoryPath();
+  if (!directoryPath) {
+    return "";
+  }
+
+  const projectDirectoryName = normalizePathSegment(normalizedProjectPath);
+  return `${directoryPath}\\Projects\\${projectDirectoryName}\\booking.json`;
+}
+
 function getProjectMetadataStorageKey(projectPath) {
   return `photobooth.projectMetadata.${String(projectPath || "").trim().toLowerCase()}`;
 }
@@ -205,12 +315,24 @@ export async function loadProjectMetadata(projectPath) {
 
   try {
     if (isDesktopApp()) {
-      const raw = await invokeDesktop("read_text_file", { filePath: metadataPath });
-      if (!raw.trim()) {
-        return normalizeProjectMetadata();
-      }
+      const metadataPaths = [
+        metadataPath,
+        ...LEGACY_PROJECT_METADATA_FILENAMES.map((filename) => `${String(projectPath || "").trim().replace(/[\\/]+$/, "")}\\${filename}`),
+        await getLegacyDesktopProjectMetadataPath(projectPath)
+      ].filter(Boolean);
+      for (const filePath of metadataPaths) {
+        const raw = await invokeDesktop("read_text_file", { filePath });
+        if (!raw.trim()) {
+          continue;
+        }
 
-      return normalizeProjectMetadata(JSON.parse(raw));
+        const metadata = normalizeProjectMetadata(JSON.parse(raw));
+        if (filePath !== metadataPath) {
+          await saveProjectMetadata(projectPath, metadata);
+        }
+        return metadata;
+      }
+      return normalizeProjectMetadata();
     }
 
     const raw = window.localStorage.getItem(getProjectMetadataStorageKey(projectPath));

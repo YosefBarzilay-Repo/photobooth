@@ -74,6 +74,8 @@ function loadMetadata(url) {
       }
 
       try {
+        const sourceWidth = video.videoWidth;
+        const sourceHeight = video.videoHeight;
         const canvas = document.createElement("canvas");
         canvas.width = 320;
         canvas.height = 180;
@@ -83,7 +85,14 @@ function loadMetadata(url) {
           return;
         }
 
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const scale = Math.min(canvas.width / sourceWidth, canvas.height / sourceHeight);
+        const drawWidth = sourceWidth * scale;
+        const drawHeight = sourceHeight * scale;
+        const drawX = (canvas.width - drawWidth) / 2;
+        const drawY = (canvas.height - drawHeight) / 2;
+        ctx.fillStyle = "#050507";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, 0, 0, sourceWidth, sourceHeight, drawX, drawY, drawWidth, drawHeight);
         finish({ thumbnail: canvas.toDataURL("image/jpeg", 0.84), duration });
       } catch {
         finish({ thumbnail: "", duration });

@@ -37,9 +37,11 @@
  *   settingsTabEditor: HTMLButtonElement,
  *   settingsTabCountdown: HTMLButtonElement,
  *   settingsTabInputs: HTMLButtonElement,
+ *   settingsTabSlideshow: HTMLButtonElement,
  *   settingsSectionEditor: HTMLElement,
  *   settingsSectionCountdown: HTMLElement,
  *   settingsSectionInputs: HTMLElement,
+ *   settingsSectionSlideshow: HTMLElement,
  *   appVersionLabel: HTMLElement,
  *   galleryPanel: HTMLElement,
  *   galleryDialog: HTMLElement,
@@ -104,6 +106,11 @@
  *   textInput: HTMLInputElement,
  *   fontSelect: HTMLSelectElement,
  *   orientationSelect: HTMLSelectElement,
+ *   slideshowModeSelect: HTMLSelectElement,
+ *   slideshowFadeEnabledSelect: HTMLSelectElement,
+ *   slideshowFadeDurationMinusButton: HTMLButtonElement,
+ *   slideshowFadeDurationInput: HTMLInputElement,
+ *   slideshowFadeDurationPlusButton: HTMLButtonElement,
  *   cameraFrame: HTMLElement,
  *   cameraText: HTMLElement,
  *   resultFrame: HTMLElement,
@@ -114,8 +121,7 @@
  *   slideshowEmptyText: HTMLElement,
  *   slideshowMeta: HTMLElement,
  *   slideshowFilename: HTMLElement,
- *   slideshowCounter: HTMLElement,
- *   slideshowExitHint: HTMLElement
+ *   slideshowCounter: HTMLElement
  * }} DomRefs
  */
 

@@ -11,10 +11,23 @@ import { renderOverlayLayer } from "../components/overlayRenderer.js";
  * @param {AppState} state
  */
 export default function createEditorScreen(dom, state) {
+  function syncResultVideoOrientation() {
+    const isPortraitVideo = dom.resultVideo.videoWidth > 0
+      && dom.resultVideo.videoHeight > 0
+      && dom.resultVideo.videoHeight > dom.resultVideo.videoWidth;
+
+    dom.editorStage.classList.toggle("stage-card-portrait", isPortraitVideo || state.captureOrientation === "portrait");
+  }
+
   function syncOrientationUi() {
     const portrait = state.captureOrientation === "portrait";
     dom.cameraStage.classList.toggle("stage-card-portrait", portrait);
-    dom.editorStage.classList.toggle("stage-card-portrait", portrait);
+    if (!state.recordingUrl) {
+      dom.editorStage.classList.toggle("stage-card-portrait", portrait);
+      return;
+    }
+
+    syncResultVideoOrientation();
   }
 
   function syncEmptyState() {
@@ -48,6 +61,9 @@ export default function createEditorScreen(dom, state) {
     dom.resultVideo.currentTime = 0;
     dom.resultVideo.style.transform = "none";
     dom.resultVideo.loop = false;
+    dom.resultVideo.onloadedmetadata = () => {
+      syncResultVideoOrientation();
+    };
     dom.resultVideo.load();
     syncEmptyState();
     syncPlaybackButton();
@@ -88,6 +104,7 @@ export default function createEditorScreen(dom, state) {
   function resetResultVideo() {
     dom.resultVideo.pause();
     dom.resultVideo.removeAttribute("src");
+    dom.resultVideo.onloadedmetadata = null;
     dom.resultVideo.load();
     syncEmptyState();
     syncPlaybackButton();

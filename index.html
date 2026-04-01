@@ -129,6 +129,10 @@
               <span class="field-label">Text</span>
               <input id="textInput" type="text" maxlength="60" placeholder="Type your caption" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
             </label>
+            <button class="console-button secondary-button settings-spaced-action" id="addTextOverlayButton" type="button">
+              <span class="material-symbols-outlined">text_fields</span>
+              Add Text
+            </button>
             <label class="field field-inline">
               <span class="field-label">Font</span>
               <select id="fontSelect">
@@ -147,7 +151,7 @@
             </label>
             <button class="console-button secondary-button" id="logoUploadButton" type="button">
               <span class="material-symbols-outlined">image</span>
-              Upload Logo
+              Add Logo
             </button>
             <input id="logoInput" type="file" accept="image/*" class="hidden">
             <div class="field">
@@ -254,6 +258,10 @@
         <div class="operator-dialog-footer gallery-dialog-footer">
           <p class="operator-version-label" id="galleryFooterLabel">Open a saved video to load it into preview.</p>
           <div class="gallery-footer-actions">
+            <button class="secondary-button gallery-footer-action hidden" id="galleryNewProjectButton" type="button">
+              <span class="material-symbols-outlined">create_new_folder</span>
+              <span>New Project</span>
+            </button>
             <button class="secondary-button gallery-footer-action hidden" id="gallerySlideshowButton" type="button">
               <span class="material-symbols-outlined">slideshow</span>
               <span>Start Slideshow</span>
@@ -283,6 +291,10 @@
           <span class="field-label">Project Name</span>
           <input id="projectNameInput" type="text" maxlength="80" placeholder="Event name" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
         </label>
+        <div class="project-recent-section">
+          <span class="field-label">Recent Projects</span>
+          <div class="project-recent-list hidden" id="projectRecentList"></div>
+        </div>
         <p class="dialog-error hidden" id="projectDialogError"></p>
         <div class="app-dialog-actions">
           <button class="secondary-button" id="projectContinueButton" type="button">Continue Current</button>
@@ -301,27 +313,40 @@
         </header>
         <p class="app-dialog-message project-dialog-message" id="projectMetadataMessage">Save booking details for this project folder.</p>
         <div class="project-metadata-grid">
-          <label class="field">
-            <span class="field-label">Order</span>
-            <input id="projectOrderInput" type="text" maxlength="80" placeholder="Order number" autocomplete="off">
+          <label class="field project-meta-order">
+            <span class="field-label">Order ID</span>
+            <input id="projectOrderInput" type="text" maxlength="80" placeholder="Order number" autocomplete="off" readonly>
           </label>
-          <label class="field">
+          <label class="field project-meta-name">
             <span class="field-label">Name</span>
             <input id="projectClientNameInput" type="text" maxlength="120" placeholder="Client name" autocomplete="off">
           </label>
-          <label class="field">
+          <label class="field project-meta-date">
+            <span class="field-label">Project Date</span>
+            <input id="projectDateInput" type="date" maxlength="40" placeholder="Project date" autocomplete="off">
+          </label>
+          <label class="field project-meta-status">
+            <span class="field-label">Status</span>
+            <select id="projectStatusInput">
+              <option value="New">New</option>
+              <option value="Open">Open</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Done">Done</option>
+            </select>
+          </label>
+          <label class="field project-meta-phone">
             <span class="field-label">Phone</span>
             <input id="projectPhoneInput" type="text" maxlength="40" placeholder="Phone number" autocomplete="off">
           </label>
-          <label class="field">
+          <label class="field project-meta-email">
             <span class="field-label">Email</span>
             <input id="projectEmailInput" type="email" maxlength="120" placeholder="Email address" autocomplete="off">
           </label>
-          <label class="field">
+          <label class="field field-span-full project-meta-address">
             <span class="field-label">Address</span>
             <input id="projectAddressInput" type="text" maxlength="200" placeholder="Address" autocomplete="off">
           </label>
-          <label class="field field-span-full">
+          <label class="field field-span-full project-meta-notes">
             <span class="field-label">Notes</span>
             <textarea id="projectNotesInput" rows="4" maxlength="1200" placeholder="Notes"></textarea>
           </label>

@@ -43,6 +43,7 @@ import {
   enumerateInputDevices
 } from "../services/mediaDeviceService.js";
 import { logger } from "../services/logger.js";
+import { createTextOverlay, createLogoOverlay, getActiveOverlay, getOverlays, syncActiveOverlayState } from "../utils/overlayState.js";
 
 function restartAnimation(element, className) {
   element.classList.remove(className);
@@ -98,57 +99,49 @@ function validateProjectName(projectName) {
   return "";
 }
 
-function drawVideoCover(ctx, video, width, height) {
+function drawVideoFrame(ctx, video, width, height) {
   const videoWidth = video.videoWidth || width;
   const videoHeight = video.videoHeight || height;
-  const targetAspect = width / height;
-  const sourceAspect = videoWidth / videoHeight;
-
-  let sourceWidth = videoWidth;
-  let sourceHeight = videoHeight;
-  let sourceX = 0;
-  let sourceY = 0;
-
-  if (sourceAspect > targetAspect) {
-    sourceWidth = videoHeight * targetAspect;
-    sourceX = (videoWidth - sourceWidth) / 2;
-  } else {
-    sourceHeight = videoWidth / targetAspect;
-    sourceY = (videoHeight - sourceHeight) / 2;
-  }
+  const scale = Math.min(width / videoWidth, height / videoHeight);
+  const targetWidth = videoWidth * scale;
+  const targetHeight = videoHeight * scale;
+  const targetX = (width - targetWidth) / 2;
+  const targetY = (height - targetHeight) / 2;
 
   ctx.save();
+  ctx.fillStyle = "#050507";
+  ctx.fillRect(0, 0, width, height);
   ctx.translate(width, 0);
   ctx.scale(-1, 1);
-  ctx.drawImage(video, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, width, height);
+  ctx.drawImage(video, 0, 0, videoWidth, videoHeight, width - targetX - targetWidth, targetY, targetWidth, targetHeight);
   ctx.restore();
 }
 
-function drawOverlayText(ctx, state, width, height, metrics = null) {
-  if (!state.overlayText || !metrics) {
+function drawOverlayText(ctx, overlay, width, height, metrics = null) {
+  if (!overlay?.text || !metrics) {
     return;
   }
 
   ctx.save();
-  ctx.translate((state.overlayTextPosition.x / 100) * width, (state.overlayTextPosition.y / 100) * height);
-  ctx.rotate((state.overlayTextRotation * Math.PI) / 180);
-  ctx.fillStyle = state.overlayColor;
-  ctx.font = `800 ${metrics.fontSize}px "${state.overlayFont}", sans-serif`;
+  ctx.translate((overlay.position.x / 100) * width, (overlay.position.y / 100) * height);
+  ctx.rotate((overlay.rotation * Math.PI) / 180);
+  ctx.fillStyle = overlay.color;
+  ctx.font = `800 ${metrics.fontSize}px "${overlay.font}", sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
   ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
   ctx.shadowBlur = 20;
-  const textMetrics = ctx.measureText(state.overlayText);
+  const textMetrics = ctx.measureText(overlay.text);
   const ascent = textMetrics.actualBoundingBoxAscent || metrics.fontSize * 0.8;
   const descent = textMetrics.actualBoundingBoxDescent || metrics.fontSize * 0.2;
   const baselineOffset = (ascent - descent) / 2;
-  ctx.fillText(state.overlayText, 0, baselineOffset);
+  ctx.fillText(overlay.text, 0, baselineOffset);
   ctx.restore();
 }
 
-function drawOverlayLogo(ctx, state, width, height, logoImage, metrics = null) {
+function drawOverlayLogo(ctx, overlay, width, height, logoImage, metrics = null) {
   if (!logoImage || !metrics) {
     return;
   }
@@ -157,8 +150,8 @@ function drawOverlayLogo(ctx, state, width, height, logoImage, metrics = null) {
   const logoHeight = metrics.height;
 
   ctx.save();
-  ctx.translate((state.logoPosition.x / 100) * width, (state.logoPosition.y / 100) * height);
-  ctx.rotate((state.logoRotation * Math.PI) / 180);
+  ctx.translate((overlay.position.x / 100) * width, (overlay.position.y / 100) * height);
+  ctx.rotate((overlay.rotation * Math.PI) / 180);
   ctx.drawImage(logoImage, -logoWidth / 2, -logoHeight / 2, logoWidth, logoHeight);
   ctx.restore();
 }
@@ -233,26 +226,36 @@ function getCompositionSize(stageElement) {
 function getOverlayMetrics(dom, state, compositionSize) {
   const scaleX = compositionSize.width / compositionSize.stageWidth;
   const scaleY = compositionSize.height / compositionSize.stageHeight;
-  const metrics = {
-    text: null,
-    logo: null
-  };
+  const metrics = new Map();
 
-  const textElement = dom.cameraText.querySelector(".overlay-caption");
-  if (textElement instanceof HTMLElement && state.overlayText) {
-    const fontSize = Number.parseFloat(window.getComputedStyle(textElement).fontSize) || state.overlaySize;
-    metrics.text = {
-      fontSize: Math.max(1, fontSize * scaleY)
-    };
-  }
+  dom.cameraText.querySelectorAll(".overlay-item").forEach((overlayElement) => {
+    if (!(overlayElement instanceof HTMLElement)) {
+      return;
+    }
 
-  const logoElement = dom.cameraText.querySelector(".overlay-logo-image");
-  if (logoElement instanceof HTMLImageElement && state.logoDataUrl) {
-    metrics.logo = {
-      width: Math.max(1, logoElement.offsetWidth * state.logoScale * scaleX),
-      height: Math.max(1, logoElement.offsetHeight * state.logoScale * scaleY)
-    };
-  }
+    const overlayId = overlayElement.dataset.overlayId || "";
+    const overlay = getOverlays(state).find((entry) => entry.id === overlayId);
+    if (!overlay) {
+      return;
+    }
+
+    if (overlay.type === "text") {
+      const textElement = overlayElement.querySelector(".overlay-caption");
+      if (textElement instanceof HTMLElement) {
+        const fontSize = Number.parseFloat(window.getComputedStyle(textElement).fontSize) || overlay.size;
+        metrics.set(overlay.id, { fontSize: Math.max(1, fontSize * scaleY) });
+      }
+      return;
+    }
+
+    const logoElement = overlayElement.querySelector(".overlay-logo-image");
+    if (logoElement instanceof HTMLImageElement) {
+      metrics.set(overlay.id, {
+        width: Math.max(1, logoElement.offsetWidth * overlay.scale * scaleX),
+        height: Math.max(1, logoElement.offsetHeight * overlay.scale * scaleY)
+      });
+    }
+  });
 
   return metrics;
 }
@@ -278,31 +281,84 @@ function createComposedRecorder(state, previewVideo, dom) {
   });
 
   let rafId = 0;
-  let logoImage = null;
-
-  if (state.logoDataUrl) {
-    logoImage = new Image();
-    logoImage.src = state.logoDataUrl;
-  }
+  let videoFrameCallbackId = 0;
+  let stopped = false;
+  const logoImages = new Map();
 
   const render = () => {
+    if (stopped) {
+      return;
+    }
+
     const overlayMetrics = getOverlayMetrics(dom, state, compositionSize);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawVideoCover(ctx, previewVideo, canvas.width, canvas.height);
-    drawOverlayLogo(ctx, state, canvas.width, canvas.height, logoImage, overlayMetrics.logo);
-    drawOverlayText(ctx, state, canvas.width, canvas.height, overlayMetrics.text);
+    drawVideoFrame(ctx, previewVideo, canvas.width, canvas.height);
+    getOverlays(state).forEach((overlay) => {
+      if (overlay.type === "logo" && overlay.dataUrl) {
+        if (!logoImages.has(overlay.id)) {
+          const image = new Image();
+          image.src = overlay.dataUrl;
+          logoImages.set(overlay.id, image);
+        }
+        drawOverlayLogo(ctx, overlay, canvas.width, canvas.height, logoImages.get(overlay.id), overlayMetrics.get(overlay.id) || null);
+        return;
+      }
+
+      if (overlay.type === "text" && overlay.text) {
+        drawOverlayText(ctx, overlay, canvas.width, canvas.height, overlayMetrics.get(overlay.id) || null);
+      }
+    });
     drawFrameOverlay(ctx, state.activeFrameId, canvas.width, canvas.height);
-    rafId = window.requestAnimationFrame(render);
+  };
+
+  const scheduleRender = () => {
+    if (stopped) {
+      return;
+    }
+
+    if (typeof previewVideo.requestVideoFrameCallback === "function") {
+      videoFrameCallbackId = previewVideo.requestVideoFrameCallback(() => {
+        render();
+        scheduleRender();
+      });
+      return;
+    }
+
+    rafId = window.requestAnimationFrame(() => {
+      render();
+      scheduleRender();
+    });
   };
 
   render();
+  scheduleRender();
 
   return {
     stream,
     stop() {
+      stopped = true;
       window.cancelAnimationFrame(rafId);
+      previewVideo.cancelVideoFrameCallback?.(videoFrameCallbackId);
+      stream.getTracks().forEach((track) => track.stop());
+    }
+  };
+}
+
+function createDirectRecorder(previewVideo) {
+  const sourceStream = previewVideo.srcObject instanceof MediaStream ? previewVideo.srcObject : null;
+  if (!sourceStream) {
+    throw new Error(APP_STRINGS.recordingFailed);
+  }
+
+  const stream = new MediaStream();
+  sourceStream.getVideoTracks().forEach((track) => stream.addTrack(track.clone()));
+  sourceStream.getAudioTracks().forEach((track) => stream.addTrack(track.clone()));
+
+  return {
+    stream,
+    stop() {
       stream.getTracks().forEach((track) => track.stop());
     }
   };
@@ -336,6 +392,7 @@ export default function initApp() {
   const state = createAppStore();
   state.isDesktopApp = isDesktopApp();
   applyPersistedSettings(state, { ...APP_DEFAULTS, saveFolderDefault: APP_STRINGS.saveFolderDefault }, loadPersistedSettings());
+  syncActiveOverlayState(state);
   void logger.info("Photobooth app initialization started.", {
     isDesktopApp: state.isDesktopApp,
     saveDirectoryPath: state.saveDirectoryPath,
@@ -351,6 +408,7 @@ export default function initApp() {
   let dialogIsConfirmation = false;
   let projectDialogMode = "create";
   let projectDialogProject = null;
+  let recentProjects = [];
   let projectMetadataProject = null;
   let slideshowEntries = [];
   let slideshowIndex = -1;
@@ -404,9 +462,10 @@ export default function initApp() {
     });
   }
 
-  function showProjectDialog() {
+  async function showProjectDialog() {
     projectDialogMode = "create";
     projectDialogProject = null;
+    recentProjects = state.isDesktopApp ? (await listDesktopProjects()).slice(0, 5) : [];
     dom.projectDialogTitle.textContent = "Open New Project?";
     dom.projectDialogMessage.textContent = "Create a new project folder for this event, or continue with the current setup.";
     dom.projectContinueButton.textContent = "Continue Current";
@@ -415,6 +474,19 @@ export default function initApp() {
     dom.projectDialogError.classList.add("hidden");
     dom.projectNameInput.value = "";
     dom.projectContinueButton.classList.remove("hidden");
+    const recentList = document.getElementById("projectRecentList");
+    if (recentList) {
+      recentList.replaceChildren();
+      recentProjects.forEach((project, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "secondary-button project-recent-button";
+        button.dataset.recentIndex = String(index);
+        button.textContent = project.name;
+        recentList.appendChild(button);
+      });
+      recentList.classList.toggle("hidden", recentProjects.length === 0);
+    }
     dom.projectDialogOverlay.classList.remove("hidden");
     window.setTimeout(() => dom.projectNameInput.focus(), 0);
   }
@@ -462,13 +534,28 @@ export default function initApp() {
   async function showProjectMetadataDialog(project) {
     projectMetadataProject = project;
     dom.projectMetadataTitle.textContent = `${project.name} Booking`;
-    dom.projectMetadataMessage.textContent = "Save client details for this project folder.";
+    dom.projectMetadataMessage.textContent = "Project booking details.";
     dom.projectMetadataError.textContent = "";
     dom.projectMetadataError.classList.add("hidden");
 
-    const metadata = await loadProjectMetadata(project.path);
+    let metadata = await loadProjectMetadata(project.path);
+    if (state.isDesktopApp && (!metadata.orderId || !metadata.projectDate || !metadata.projectStatus)) {
+      const projects = await listDesktopProjects();
+      const projectIndex = projects.findIndex((entry) => entry.path?.toLowerCase() === project.path?.toLowerCase());
+      metadata = {
+        ...metadata,
+        orderId: metadata.orderId || String(Math.max(0, projectIndex) + 1).padStart(4, "0"),
+        clientName: metadata.clientName || project.name,
+        projectDate: metadata.projectDate || new Date(project.createdAt || Date.now()).toISOString().slice(0, 10),
+        projectStatus: metadata.projectStatus || "New"
+      };
+      await saveProjectMetadata(project.path, metadata);
+    }
+
     dom.projectOrderInput.value = metadata.orderId;
     dom.projectClientNameInput.value = metadata.clientName;
+    dom.projectDateInput.value = metadata.projectDate;
+    dom.projectStatusInput.value = metadata.projectStatus;
     dom.projectPhoneInput.value = metadata.phone;
     dom.projectEmailInput.value = metadata.email;
     dom.projectAddressInput.value = metadata.address;
@@ -594,9 +681,24 @@ export default function initApp() {
     persistSettings(state);
   }
   async function openProject(project) {
+    const canProceed = await confirmDiscardIfNeeded("switching projects");
+    if (!canProceed) {
+      return;
+    }
+
     setActiveProject(project.path, project.name);
     hideAppDialog();
     syncModeUi();
+  }
+
+  async function openRecentProjectByIndex(index) {
+    const project = recentProjects[index];
+    if (!project) {
+      return;
+    }
+
+    await openProject(project);
+    hideProjectDialog();
   }
   async function openProjectFolder(project) {
     try {
@@ -752,6 +854,11 @@ export default function initApp() {
       return entry;
     },
     async openEntry(entry) {
+      const canProceed = await confirmDiscardIfNeeded("opening another video");
+      if (!canProceed) {
+        return;
+      }
+
       await ensureRecordingEntryUrl(entry);
       galleryScreen.setGalleryPanelOpen(false);
       hideAppDialog();
@@ -769,7 +876,8 @@ export default function initApp() {
     renameProject,
     deleteProject,
     openProjectMetadata,
-    startProjectSlideshow
+    startProjectSlideshow,
+    openNewProjectDialog: showProjectDialog
   });
 
   async function loadAppVersion() {
@@ -871,6 +979,8 @@ export default function initApp() {
     state.recordingTimeoutSeconds = APP_DEFAULTS.recordingTimeoutSeconds;
     state.captureOrientation = APP_DEFAULTS.captureOrientation;
     state.activeFrameId = APP_DEFAULTS.activeFrameId;
+    state.overlays = [];
+    state.activeOverlayId = null;
     state.activeOverlayTarget = APP_DEFAULTS.activeOverlayTarget;
     state.showTextColorPalette = APP_DEFAULTS.showTextColorPalette;
     state.overlayText = APP_DEFAULTS.overlayText;
@@ -884,6 +994,7 @@ export default function initApp() {
     state.logoRotation = APP_DEFAULTS.logoRotation;
     state.logoPosition = { ...APP_DEFAULTS.logoPosition };
     state.draggingOverlayTarget = null;
+    state.draggingOverlayId = null;
     state.overlayInteraction = null;
     state.dragPointerId = null;
     state.dragStartPointer = null;
@@ -960,14 +1071,6 @@ export default function initApp() {
   function scheduleRecordingTimeout() {
     clearTimer(state.recordingTimeoutId);
     state.recordingTimeoutId = null;
-
-    if (state.recordingTimeoutSeconds <= 0) {
-      return;
-    }
-
-    state.recordingTimeoutId = window.setTimeout(() => {
-      stopRecording();
-    }, state.recordingTimeoutSeconds * 1000);
   }
 
   function stopStream() {
@@ -1116,8 +1219,7 @@ export default function initApp() {
         recordingTimeoutSeconds: state.recordingTimeoutSeconds,
         captureOrientation: state.captureOrientation,
         frameId: state.activeFrameId,
-        hasOverlayText: Boolean(state.overlayText),
-        hasLogo: Boolean(state.logoDataUrl)
+        overlayCount: getOverlays(state).length
     });
     state.captureInProgress = true;
     state.shutterAnimatingOut = state.countdownSeconds > 0;
@@ -1131,8 +1233,11 @@ export default function initApp() {
       await sleep(APP_THRESHOLDS.postFlashDelayMs);
 
       state.recordingChunks = [];
-      composedRecorder = createComposedRecorder(state, dom.cameraPreview, dom);
-      state.recorder = createMediaRecorder(composedRecorder.stream);
+      const needsComposition = state.captureOrientation === "portrait"
+        || state.activeFrameId !== "none"
+        || getOverlays(state).length > 0;
+      composedRecorder = needsComposition ? createComposedRecorder(state, dom.cameraPreview, dom) : createDirectRecorder(dom.cameraPreview);
+      state.recorder = createMediaRecorder(composedRecorder.stream, { preferStableCanvas: needsComposition });
       state.recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
           state.recordingChunks.push(event.data);
@@ -1229,6 +1334,13 @@ export default function initApp() {
     }
 
     try {
+      if (projectDialogMode === "create") {
+        const canProceed = await confirmDiscardIfNeeded("replacing the current project");
+        if (!canProceed) {
+          return;
+        }
+      }
+
       if (projectDialogMode === "rename" && projectDialogProject) {
         const previousProjectPath = projectDialogProject.path;
         void logger.audit("Project rename requested.", {
@@ -1250,10 +1362,21 @@ export default function initApp() {
 
       void logger.audit("Project creation requested.", { projectName });
       if (state.isDesktopApp) {
+        const existingProjects = await listDesktopProjects();
         const baseDirectory = await getDefaultRecordingsDirectory();
         const projectDirectory = await createDesktopProjectDirectory(projectName, baseDirectory);
         state.saveDirectoryPath = projectDirectory;
         state.saveDirectoryName = projectDirectory.split(/[\\/]/).filter(Boolean).pop() || projectName;
+        await saveProjectMetadata(projectDirectory, {
+          orderId: String(existingProjects.length + 1).padStart(4, "0"),
+          clientName: projectName,
+          projectDate: new Date().toISOString().slice(0, 10),
+          projectStatus: "New",
+          phone: "",
+          email: "",
+          address: "",
+          notes: ""
+        });
       } else {
         state.saveDirectoryName = projectName;
       }
@@ -1295,7 +1418,7 @@ export default function initApp() {
     } finally {
       await sleep(600);
       dom.launchOverlay.classList.add("hidden");
-      showProjectDialog();
+      await showProjectDialog();
       void logger.info("Bootstrap sequence completed.");
     }
   }
@@ -1314,6 +1437,17 @@ export default function initApp() {
   });
   dom.projectCreateButton.addEventListener("click", () => {
     void handleCreateProject();
+  });
+  document.getElementById("projectRecentList")?.addEventListener("click", (event) => {
+    const target = event.target instanceof HTMLElement ? event.target.closest("[data-recent-index]") : null;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const index = Number.parseInt(target.dataset.recentIndex || "", 10);
+    if (Number.isFinite(index)) {
+      void openRecentProjectByIndex(index);
+    }
   });
   dom.projectNameInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -1338,6 +1472,8 @@ export default function initApp() {
       await saveProjectMetadata(projectMetadataProject.path, {
         orderId: dom.projectOrderInput.value,
         clientName: dom.projectClientNameInput.value,
+        projectDate: dom.projectDateInput.value,
+        projectStatus: dom.projectStatusInput.value,
         phone: dom.projectPhoneInput.value,
         email: dom.projectEmailInput.value,
         address: dom.projectAddressInput.value,

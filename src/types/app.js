@@ -28,6 +28,21 @@
 
 /**
  * @typedef {{
+ *   id: string,
+ *   type: "text" | "logo",
+ *   text?: string,
+ *   font?: string,
+ *   color?: string,
+ *   size?: number,
+ *   dataUrl?: string,
+ *   scale?: number,
+ *   position: Vector2,
+ *   rotation: number
+ * }} OverlayEntry
+ */
+
+/**
+ * @typedef {{
  *   mode: AppMode,
  *   operatorPanelOpen: boolean,
  *   galleryPanelOpen: boolean,
@@ -58,10 +73,13 @@
  *   recordingTimeoutId: number | null,
  *   recordStartedAt: number,
  *   captureOrientation: "landscape" | "portrait",
+ *   overlays: OverlayEntry[],
+ *   activeOverlayId: string | null,
  *   activeFrameId: FrameId,
  *   activeOverlayTarget: OverlayTarget,
  *   showTextColorPalette: boolean,
  *   draggingOverlayTarget: OverlayTarget,
+ *   draggingOverlayId: string | null,
  *   overlayInteraction: OverlayInteraction,
  *   dragPointerId: number | null,
  *   dragStartPointer: Vector2 | null,

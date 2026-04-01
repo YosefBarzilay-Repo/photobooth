@@ -50,7 +50,7 @@
 .operator-dialog-body {
   flex: 1;
   min-height: 0;
-  padding: 0.25rem 1rem 1rem 1.25rem;
+  padding: 0.25rem 1.5rem 1rem 1.25rem;
   overflow: auto;
   display: flex;
   flex-direction: column;
@@ -211,6 +211,11 @@
   color: transparent;
   transform: translateY(-50%);
   cursor: ew-resize;
+  z-index: 2;
+}
+
+#operatorDialogResize {
+  right: -10px;
 }
 
 .operator-dialog-resize::before {
@@ -401,12 +406,63 @@
 .project-metadata-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "order name"
+    "date status"
+    "phone email"
+    "address address"
+    "notes notes";
   gap: 0 1rem;
+  align-items: start;
   margin-top: 1rem;
+}
+
+.project-metadata-grid .field {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  margin-top: 0;
+  min-width: 0;
+}
+
+.project-metadata-grid .field-label {
+  min-height: 1rem;
 }
 
 .field-span-full {
   grid-column: 1 / -1;
+}
+
+.project-meta-order {
+  grid-area: order;
+}
+
+.project-meta-name {
+  grid-area: name;
+}
+
+.project-meta-phone {
+  grid-area: phone;
+}
+
+.project-meta-date {
+  grid-area: date;
+}
+
+.project-meta-status {
+  grid-area: status;
+}
+
+.project-meta-email {
+  grid-area: email;
+}
+
+.project-meta-address {
+  grid-area: address;
+}
+
+.project-meta-notes {
+  grid-area: notes;
 }
 
 .project-metadata-grid textarea {
@@ -420,6 +476,13 @@
   border: 1px solid var(--line);
 }
 
+.project-metadata-grid input[readonly],
+.project-metadata-grid textarea[readonly],
+.project-metadata-grid select {
+  background: rgba(17, 17, 20, 0.9);
+  color: rgba(245, 244, 248, 0.88);
+}
+
 .slideshow-overlay {
   position: fixed;
   inset: 0;
@@ -431,7 +494,7 @@
 
 .slideshow-shell-in-app {
   min-height: 100vh;
-  padding: 1.5rem;
+  padding: 0;
 }
 
 .library-empty {
@@ -464,21 +527,26 @@
 
 .slideshow-stage {
   position: relative;
-  min-height: calc(100vh - 3rem);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 28px;
+  min-height: 100vh;
+  height: 100vh;
+  border: 0;
+  border-radius: 0;
   overflow: hidden;
   background: #000;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  box-shadow: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
 }
 
 .slideshow-video {
   width: 100%;
   height: 100%;
-  min-height: calc(100vh - 3rem);
+  min-height: 0;
   display: block;
   object-fit: contain;
   background: #000;
+  border-radius: 0;
 }
 
 .slideshow-meta {
@@ -499,18 +567,7 @@
 }
 
 .slideshow-exit-hint {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  padding: 0.8rem 1rem;
-  border-radius: 999px;
-  background: rgba(5, 5, 7, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(245, 244, 248, 0.82);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-size: 0.72rem;
-  font-weight: 800;
+  display: none;
 }
 
 body[data-mode="slideshow"] .app-shell {
@@ -520,6 +577,15 @@ body[data-mode="slideshow"] .app-shell {
 @media (max-width: 720px) {
   .project-metadata-grid {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "order"
+      "name"
+      "date"
+      "status"
+      "phone"
+      "email"
+      "address"
+      "notes";
   }
 
   .gallery-dialog-footer,

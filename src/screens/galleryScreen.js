@@ -202,8 +202,9 @@ export default function createGalleryScreen(dom, state, handlers) {
     dom.galleryTabProjects.classList.toggle("is-active", !isVideosView);
     dom.galleryTabProjects.setAttribute("aria-selected", String(!isVideosView));
     dom.galleryOpenFolderLabel.textContent = isVideosView ? "Open Folder" : "Open Projects Folder";
-    dom.gallerySlideshowButton.classList.toggle("hidden", isVideosView);
-    dom.gallerySlideshowButton.disabled = isVideosView || !state.saveDirectoryPath;
+    dom.galleryNewProjectButton.classList.toggle("hidden", isVideosView);
+    dom.gallerySlideshowButton.classList.toggle("hidden", !isVideosView);
+    dom.gallerySlideshowButton.disabled = !isVideosView || !state.saveDirectoryPath;
     dom.galleryFooterLabel.textContent = isVideosView
       ? `Current project: ${state.saveDirectoryName || APP_STRINGS.saveFolderDefault}`
       : `Current project: ${state.saveDirectoryName || APP_STRINGS.saveFolderDefault}`;
@@ -631,6 +632,9 @@ export default function createGalleryScreen(dom, state, handlers) {
 
   dom.gallerySlideshowButton.addEventListener("click", () => {
     void handlers.startProjectSlideshow();
+  });
+  dom.galleryNewProjectButton.addEventListener("click", () => {
+    void handlers.openNewProjectDialog();
   });
 
 

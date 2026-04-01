@@ -119,6 +119,10 @@ export default function wireEvents(dom, state, handlers) {
     void logger.audit("Countdown increment button clicked.");
     handlers.operatorScreen.stepCountdown(1);
   });
+  dom.addTextOverlayButton.addEventListener("click", () => {
+    void logger.audit("Add text overlay button clicked.");
+    handlers.operatorScreen.addTextOverlay();
+  });
   dom.recordingTimeoutInput.addEventListener("input", () => {
     void logger.audit("Recording timeout input changed.", { value: dom.recordingTimeoutInput.value });
     handlers.operatorScreen.syncRecordingTimeoutFromControl();

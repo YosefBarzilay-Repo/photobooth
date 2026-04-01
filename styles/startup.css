@@ -52,6 +52,27 @@
   line-height: 1.5;
 }
 
+.project-recent-section {
+  margin-top: 1rem;
+}
+
+.project-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.5rem;
+  max-height: 15rem;
+  overflow: auto;
+}
+
+.project-recent-button {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 0.95rem 1.1rem;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
 @keyframes photobooth-launch-fade {
   0%,
   100% {

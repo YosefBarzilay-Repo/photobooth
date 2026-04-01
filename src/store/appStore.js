@@ -1,4 +1,5 @@
-﻿import { APP_DEFAULTS, APP_STRINGS } from "../constants/appConfig.js";
+import { APP_DEFAULTS, APP_STRINGS } from "../constants/appConfig.js";
+import { createTextOverlay } from "../utils/overlayState.js";
 
 /**
  * @typedef {import("../types/app.js").AppState} AppState
@@ -39,10 +40,22 @@ export default function createAppStore() {
     recordingTimeoutId: null,
     recordStartedAt: 0,
     captureOrientation: APP_DEFAULTS.captureOrientation,
+    overlays: APP_DEFAULTS.overlayText
+      ? [createTextOverlay({
+        text: APP_DEFAULTS.overlayText,
+        font: APP_DEFAULTS.overlayFont,
+        color: APP_DEFAULTS.overlayColor,
+        size: APP_DEFAULTS.overlaySize,
+        position: { ...APP_DEFAULTS.overlayTextPosition },
+        rotation: APP_DEFAULTS.overlayTextRotation
+      })]
+      : [],
+    activeOverlayId: null,
     activeFrameId: APP_DEFAULTS.activeFrameId,
     activeOverlayTarget: APP_DEFAULTS.activeOverlayTarget,
     showTextColorPalette: APP_DEFAULTS.showTextColorPalette,
     draggingOverlayTarget: null,
+    draggingOverlayId: null,
     overlayInteraction: null,
     dragPointerId: null,
     dragStartPointer: null,

@@ -4,6 +4,7 @@
 
 import { invokeDesktop, isDesktopApp } from "./desktopService.js";
 import { logger } from "./logger.js";
+import { createLogoOverlay, createTextOverlay, syncActiveOverlayState } from "../utils/overlayState.js";
 
 const STORAGE_KEY = "photobooth.appData.v2";
 const LEGACY_STORAGE_KEY = "photobooth.operatorSettings.v1";
@@ -58,6 +59,39 @@ export function applyPersistedSettings(state, defaults, savedSettings) {
     : defaults.recordingTimeoutSeconds;
   state.captureOrientation = savedSettings.captureOrientation === "portrait" ? "portrait" : defaults.captureOrientation;
   state.activeFrameId = typeof savedSettings.activeFrameId === "string" ? savedSettings.activeFrameId : defaults.activeFrameId;
+  state.overlays = Array.isArray(savedSettings.overlays)
+    ? savedSettings.overlays
+      .map((overlay) => {
+        if (!isObject(overlay)) {
+          return null;
+        }
+
+        if (overlay.type === "logo") {
+          return createLogoOverlay({
+            id: overlay.id,
+            dataUrl: overlay.dataUrl,
+            scale: overlay.scale,
+            position: overlay.position,
+            rotation: overlay.rotation
+          });
+        }
+
+        if (overlay.type === "text") {
+          return createTextOverlay({
+            id: overlay.id,
+            text: overlay.text,
+            font: overlay.font,
+            color: overlay.color,
+            size: overlay.size,
+            position: overlay.position,
+            rotation: overlay.rotation
+          });
+        }
+
+        return null;
+      })
+      .filter(Boolean)
+    : [];
   state.overlayText = typeof savedSettings.overlayText === "string" ? savedSettings.overlayText : defaults.overlayText;
   state.overlayFont = typeof savedSettings.overlayFont === "string" ? savedSettings.overlayFont : defaults.overlayFont;
   state.overlayColor = typeof savedSettings.overlayColor === "string" ? savedSettings.overlayColor : defaults.overlayColor;
@@ -75,13 +109,29 @@ export function applyPersistedSettings(state, defaults, savedSettings) {
   state.videoInputId = typeof savedSettings.videoInputId === "string" ? savedSettings.videoInputId : defaults.videoInputId;
   state.audioInputId = typeof savedSettings.audioInputId === "string" ? savedSettings.audioInputId : defaults.audioInputId;
 
-  if (state.overlayText) {
-    state.activeOverlayTarget = "text";
-  } else if (state.logoDataUrl) {
-    state.activeOverlayTarget = "logo";
-  } else {
-    state.activeOverlayTarget = defaults.activeOverlayTarget;
+  if (state.overlays.length === 0) {
+    if (state.logoDataUrl) {
+      state.overlays.push(createLogoOverlay({
+        dataUrl: state.logoDataUrl,
+        scale: state.logoScale,
+        position: state.logoPosition,
+        rotation: state.logoRotation
+      }));
+    }
+
+    if (state.overlayText) {
+      state.overlays.push(createTextOverlay({
+        text: state.overlayText,
+        font: state.overlayFont,
+        color: state.overlayColor,
+        size: state.overlaySize,
+        position: state.overlayTextPosition,
+        rotation: state.overlayTextRotation
+      }));
+    }
   }
+
+  syncActiveOverlayState(state);
 }
 
 export function persistSettings(state) {
@@ -92,6 +142,7 @@ export function persistSettings(state) {
       recordingTimeoutSeconds: state.recordingTimeoutSeconds,
       captureOrientation: state.captureOrientation,
       activeFrameId: state.activeFrameId,
+      overlays: state.overlays,
       overlayText: state.overlayText,
       overlayFont: state.overlayFont,
       overlayColor: state.overlayColor,
@@ -124,6 +175,8 @@ function normalizeProjectMetadata(payload = {}) {
   return {
     orderId: typeof payload.orderId === "string" ? payload.orderId.trim() : "",
     clientName: typeof payload.clientName === "string" ? payload.clientName.trim() : "",
+    projectDate: typeof payload.projectDate === "string" ? payload.projectDate.trim() : "",
+    projectStatus: typeof payload.projectStatus === "string" ? payload.projectStatus.trim() : "New",
     phone: typeof payload.phone === "string" ? payload.phone.trim() : "",
     email: typeof payload.email === "string" ? payload.email.trim() : "",
     address: typeof payload.address === "string" ? payload.address.trim() : "",

@@ -406,6 +406,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-areas:
+    "folder folder"
     "order name"
     "date status"
     "phone email"
@@ -430,6 +431,10 @@
 
 .field-span-full {
   grid-column: 1 / -1;
+}
+
+.project-meta-folder {
+  grid-area: folder;
 }
 
 .project-meta-order {
@@ -570,6 +575,7 @@ body[data-mode="slideshow"] .app-shell {
   .project-metadata-grid {
     grid-template-columns: 1fr;
     grid-template-areas:
+      "folder"
       "order"
       "name"
       "date"

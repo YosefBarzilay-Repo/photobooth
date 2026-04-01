@@ -34,11 +34,8 @@ function buildToolbar(overlay, showColorPalette) {
         <button type="button" class="overlay-tool-button" data-overlay-action="delete" data-overlay-type="${type}" data-overlay-id="${overlay.id}" aria-label="Delete">
           <span class="material-symbols-outlined">close</span>
         </button>${colorButton}
-        <button type="button" class="overlay-tool-button" data-overlay-action="rotate-left" data-overlay-type="${type}" data-overlay-id="${overlay.id}" aria-label="Rotate left">
-          <span class="material-symbols-outlined">rotate_left</span>
-        </button>
-        <button type="button" class="overlay-tool-button" data-overlay-action="rotate-right" data-overlay-type="${type}" data-overlay-id="${overlay.id}" aria-label="Rotate right">
-          <span class="material-symbols-outlined">rotate_right</span>
+        <button type="button" class="overlay-tool-button" data-overlay-handle="rotate" data-overlay-type="${type}" data-overlay-id="${overlay.id}" aria-label="Tilt">
+          <span class="material-symbols-outlined">rotate_90_degrees_ccw</span>
         </button>
       </div>
       ${colorPalette}

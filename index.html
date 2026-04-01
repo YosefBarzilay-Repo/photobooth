@@ -214,10 +214,6 @@
                 <option value="">Current Monitor</option>
               </select>
             </label>
-            <button class="console-button secondary-button settings-spaced-action" id="saveFolderButton" type="button">
-              <span class="material-symbols-outlined">folder_open</span>
-              Choose Folder
-            </button>
           </section>
 
           <section class="panel-section hidden" id="settingsSectionSlideshow">
@@ -368,17 +364,21 @@
     <section class="app-dialog-overlay hidden" id="projectMetadataOverlay" aria-modal="true" role="dialog" aria-labelledby="projectMetadataTitle">
       <div class="app-dialog-card project-metadata-card">
         <header class="app-dialog-header">
-          <h2 class="panel-title panel-title-small" id="projectMetadataTitle">Project Booking</h2>
+          <h2 class="panel-title panel-title-small" id="projectMetadataTitle">Booking Details</h2>
         </header>
-        <p class="app-dialog-message project-dialog-message" id="projectMetadataMessage">Save booking details for this project folder.</p>
+        <p class="app-dialog-message project-dialog-message hidden" id="projectMetadataMessage"></p>
         <div class="project-metadata-grid">
+          <label class="field project-meta-folder">
+            <span class="field-label">Project Folder</span>
+            <input id="projectFolderNameInput" type="text" maxlength="120" placeholder="Project folder name" autocomplete="off">
+          </label>
           <label class="field project-meta-order">
             <span class="field-label">Order ID</span>
             <input id="projectOrderInput" type="text" maxlength="80" placeholder="Order number" autocomplete="off" readonly>
           </label>
           <label class="field project-meta-name">
-            <span class="field-label">Name</span>
-            <input id="projectClientNameInput" type="text" maxlength="120" placeholder="Client name" autocomplete="off">
+            <span class="field-label">Booking Name</span>
+            <input id="projectClientNameInput" type="text" maxlength="120" placeholder="Booking name" autocomplete="off">
           </label>
           <label class="field project-meta-date">
             <span class="field-label">Project Date</span>
@@ -414,6 +414,7 @@
         <div class="app-dialog-actions">
           <button class="secondary-button" id="projectMetadataCancelButton" type="button">Cancel</button>
           <button class="primary-button" id="projectMetadataSaveButton" type="button">Save Booking</button>
+          <button class="danger-button" id="projectMetadataDeleteButton" type="button">Delete Project</button>
         </div>
       </div>
     </section>

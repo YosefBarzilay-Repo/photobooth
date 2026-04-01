@@ -497,26 +497,12 @@ export default function createGalleryScreen(dom, state, handlers) {
       openFolderButton.dataset.index = String(index);
       openFolderButton.innerHTML = '<span class="material-symbols-outlined">folder_open</span><span>Open Folder</span>';
 
-      const renameButton = document.createElement("button");
-      renameButton.type = "button";
-      renameButton.className = "gallery-delete-button";
-      renameButton.dataset.action = "rename-project";
-      renameButton.dataset.index = String(index);
-      renameButton.innerHTML = '<span class="material-symbols-outlined">edit</span><span>Rename</span>';
-
       const metadataButton = document.createElement("button");
       metadataButton.type = "button";
       metadataButton.className = "gallery-delete-button";
       metadataButton.dataset.action = "project-booking";
       metadataButton.dataset.index = String(index);
-      metadataButton.innerHTML = '<span class="material-symbols-outlined">badge</span><span>Booking</span>';
-
-      const deleteButton = document.createElement("button");
-      deleteButton.type = "button";
-      deleteButton.className = "gallery-delete-button";
-      deleteButton.dataset.action = "delete-project";
-      deleteButton.dataset.index = String(index);
-      deleteButton.innerHTML = '<span class="material-symbols-outlined">delete</span><span>Delete</span>';
+      metadataButton.innerHTML = '<span class="material-symbols-outlined">badge</span><span>Booking Details</span>';
 
       if (state.saveDirectoryPath && project.path.toLowerCase() === state.saveDirectoryPath.toLowerCase()) {
         chooseButton.disabled = true;
@@ -524,7 +510,7 @@ export default function createGalleryScreen(dom, state, handlers) {
       }
 
       heading.append(name, size);
-      actions.append(chooseButton, openFolderButton, renameButton, metadataButton, deleteButton);
+      actions.append(chooseButton, openFolderButton, metadataButton);
       details.append(heading, meta, path, actions);
       card.append(thumb, details);
       dom.galleryList.appendChild(card);
@@ -578,20 +564,9 @@ export default function createGalleryScreen(dom, state, handlers) {
         return;
       }
 
-      if (actionElement.dataset.action === "rename-project") {
-        await handlers.renameProject(project);
-        await refreshGallery();
-        return;
-      }
-
       if (actionElement.dataset.action === "project-booking") {
         await handlers.openProjectMetadata(project);
         return;
-      }
-
-      if (actionElement.dataset.action === "delete-project") {
-        await handlers.deleteProject(project);
-        await refreshGallery();
       }
 
       return;

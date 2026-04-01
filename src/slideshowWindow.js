@@ -32,8 +32,8 @@ function getEmptyStateElements() {
   };
 }
 
-function getPersistedSettingsSnapshot(projectPath = "") {
-  const settings = loadPersistedSettings(projectPath) || loadPersistedSettings();
+function getPersistedSettingsSnapshot() {
+  const settings = loadPersistedSettings();
   return settings && typeof settings === "object" ? settings : {};
 }
 
@@ -48,7 +48,7 @@ function getProjectDirectoryPath() {
 }
 
 function getFadeSettings() {
-  const settings = getPersistedSettingsSnapshot(getProjectDirectoryPath());
+  const settings = getPersistedSettingsSnapshot();
   return {
     enabled: settings.slideshowFadeEnabled !== false,
     durationMs: Number.isFinite(settings.slideshowFadeDurationMs) ? Math.max(0, settings.slideshowFadeDurationMs) : 600
@@ -56,12 +56,12 @@ function getFadeSettings() {
 }
 
 function getSlideshowSoundEnabled() {
-  const settings = getPersistedSettingsSnapshot(getProjectDirectoryPath());
+  const settings = getPersistedSettingsSnapshot();
   return settings.slideshowSoundEnabled === true;
 }
 
 function getSlideshowWindowSettings() {
-  const settings = getPersistedSettingsSnapshot(getProjectDirectoryPath());
+  const settings = getPersistedSettingsSnapshot();
   return {
     fullscreen: settings.slideshowFullscreen !== false,
     monitorId: typeof settings.slideshowMonitorId === "string" ? settings.slideshowMonitorId.trim() : ""
@@ -69,7 +69,7 @@ function getSlideshowWindowSettings() {
 }
 
 function getSlideshowAudioOutputId() {
-  const settings = getPersistedSettingsSnapshot(getProjectDirectoryPath());
+  const settings = getPersistedSettingsSnapshot();
   return typeof settings.slideshowAudioOutputId === "string" ? settings.slideshowAudioOutputId.trim() : "";
 }
 
@@ -276,9 +276,6 @@ async function playSlideshowEntry(index, reason = "play") {
 async function refreshSlideshowEntries(reason = "refresh") {
   await loadDesktopPersistedSettings();
   const projectDirectoryPath = getProjectDirectoryPath();
-  if (projectDirectoryPath) {
-    await loadDesktopPersistedSettings(projectDirectoryPath);
-  }
   if (!projectDirectoryPath) {
     slideshowEntries = [];
     slideshowIndex = 0;
@@ -330,7 +327,7 @@ async function bootstrapExternalSlideshow() {
   updateEmptyState(true, "Loading project videos...");
 
   try {
-    await loadDesktopPersistedSettings(getProjectDirectoryPath());
+    await loadDesktopPersistedSettings();
     await applyCurrentWindowDisplaySettings(getSlideshowWindowSettings());
     hasAppliedWindowSettings = true;
   } catch (error) {

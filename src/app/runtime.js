@@ -20,7 +20,6 @@ import {
   deleteDesktopProjectDirectory,
   getDefaultRecordingsDirectory,
   getDesktopAppVersion,
-  getFullscreenState,
   isDesktopApp,
   listActiveDesktopSlideshows,
   listDesktopProjects,
@@ -438,7 +437,7 @@ export default function createAppRuntime({
   let activeSlideshowsCacheTimestamp = 0;
   let activeSlideshowsPromise = null;
   let pendingSlideshowProjectPath = "";
-  const ACTIVE_SLIDESHOW_CACHE_MS = 1200;
+  const ACTIVE_SLIDESHOW_CACHE_MS = 30000;
 
   function normalizeProjectPath(projectPath) {
     return String(projectPath || "").trim().toLowerCase();
@@ -448,6 +447,29 @@ export default function createAppRuntime({
     activeSlideshowsCache = [];
     activeSlideshowsCacheTimestamp = 0;
     activeSlideshowsPromise = null;
+  }
+
+  function markProjectSlideshowActive(projectPath) {
+    const normalizedProjectPath = normalizeProjectPath(projectPath);
+    if (!normalizedProjectPath) {
+      return;
+    }
+
+    activeSlideshowsCache = [
+      ...activeSlideshowsCache.filter((entry) => normalizeProjectPath(entry.projectPath) !== normalizedProjectPath),
+      { pid: 0, projectPath }
+    ];
+    activeSlideshowsCacheTimestamp = Date.now();
+  }
+
+  function removeProjectSlideshowFromCache(projectPath) {
+    const normalizedProjectPath = normalizeProjectPath(projectPath);
+    if (!normalizedProjectPath) {
+      return;
+    }
+
+    activeSlideshowsCache = activeSlideshowsCache.filter((entry) => normalizeProjectPath(entry.projectPath) !== normalizedProjectPath);
+    activeSlideshowsCacheTimestamp = Date.now();
   }
 
   async function getActiveSlideshows(forceRefresh = false) {
@@ -636,6 +658,8 @@ export default function createAppRuntime({
 
   function hideProjectMetadataDialog() {
     dom.projectMetadataOverlay.classList.add("hidden");
+    dom.projectMetadataMessage.textContent = "";
+    dom.projectMetadataMessage.classList.add("hidden");
     dom.projectMetadataError.textContent = "";
     dom.projectMetadataError.classList.add("hidden");
     projectMetadataProject = null;
@@ -648,8 +672,9 @@ export default function createAppRuntime({
 
   async function showProjectMetadataDialog(project) {
     projectMetadataProject = project;
-    dom.projectMetadataTitle.textContent = `${project.name} Booking`;
-    dom.projectMetadataMessage.textContent = "Project booking details.";
+    dom.projectMetadataTitle.textContent = `${project.name} Booking Details`;
+    dom.projectMetadataMessage.textContent = "";
+    dom.projectMetadataMessage.classList.add("hidden");
     dom.projectMetadataError.textContent = "";
     dom.projectMetadataError.classList.add("hidden");
 
@@ -667,6 +692,7 @@ export default function createAppRuntime({
       await saveProjectMetadata(project.path, metadata);
     }
 
+    dom.projectFolderNameInput.value = project.name;
     dom.projectOrderInput.value = metadata.orderId;
     dom.projectClientNameInput.value = metadata.clientName;
     dom.projectDateInput.value = metadata.projectDate;
@@ -806,13 +832,12 @@ export default function createAppRuntime({
       return;
     }
 
-    const projectSettings = await loadDesktopPersistedSettings(normalizedProjectPath)
-      || await loadDesktopPersistedSettings()
+    const projectSettings = await loadDesktopPersistedSettings()
       || loadPersistedSettings();
 
     applyPersistedSettings(state, { ...APP_DEFAULTS, saveFolderDefault: APP_STRINGS.saveFolderDefault }, projectSettings);
     state.saveDirectoryPath = normalizedProjectPath;
-    state.saveDirectoryName = projectSettings?.saveDirectoryName || state.saveDirectoryName;
+    state.saveDirectoryName = state.saveDirectoryName || projectSettings?.saveDirectoryName || APP_STRINGS.saveFolderDefault;
     state.activeProjectPath = normalizedProjectPath;
     operatorScreen.syncControlsFromState();
     operatorScreen.renderFrameTray();
@@ -850,12 +875,7 @@ export default function createAppRuntime({
       showErrorDialog("Folder unavailable", error, APP_STRINGS.openFolderUnavailable);
     }
   }
-  async function renameProject(project) {
-    if (!state.isDesktopApp) {
-      return;
-    }
-    showRenameProjectDialog(project);
-  }
+
   async function deleteProject(project) {
     if (!state.isDesktopApp) {
       return;
@@ -907,11 +927,11 @@ export default function createAppRuntime({
     }
 
     if (state.isDesktopApp) {
+      removeProjectSlideshowFromCache(normalizedProjectPath);
       await closeExternalDesktopSlideshows(normalizedProjectPath);
       if (normalizeProjectPath(pendingSlideshowProjectPath) === normalizeProjectPath(normalizedProjectPath)) {
         pendingSlideshowProjectPath = "";
       }
-      invalidateActiveSlideshowsCache();
     }
 
     if (state.galleryPanelOpen) {
@@ -923,7 +943,9 @@ export default function createAppRuntime({
     if (state.isDesktopApp) {
       await closeExternalDesktopSlideshows();
       pendingSlideshowProjectPath = "";
-      invalidateActiveSlideshowsCache();
+      activeSlideshowsCache = [];
+      activeSlideshowsCacheTimestamp = Date.now();
+      activeSlideshowsPromise = null;
     }
 
     if (state.galleryPanelOpen) {
@@ -961,8 +983,8 @@ export default function createAppRuntime({
       }
       persistSettings(state);
       await openDesktopSlideshowWindow(state.activeProjectPath);
+      markProjectSlideshowActive(state.activeProjectPath);
       pendingSlideshowProjectPath = "";
-      await getActiveSlideshows(true);
       if (state.galleryPanelOpen) {
         await galleryScreen.syncSlideshowButton();
       }
@@ -1026,7 +1048,6 @@ export default function createAppRuntime({
     },
     openProject,
     openProjectFolder,
-    renameProject,
     deleteProject,
     openProjectMetadata,
     hasActiveSlideshowForProject,
@@ -1071,11 +1092,10 @@ export default function createAppRuntime({
 
   async function applyMainWindowDisplaySettings() {
     if (state.isDesktopApp) {
-      await applyCurrentWindowDisplaySettings({
+      state.isFullscreen = await applyCurrentWindowDisplaySettings({
         monitorId: state.mainWindowMonitorId,
         fullscreen: state.mainWindowFullscreen
       });
-      state.isFullscreen = await getFullscreenState();
       syncModeUi();
       return;
     }
@@ -1159,6 +1179,9 @@ export default function createAppRuntime({
     state.slideshowSoundEnabled = APP_DEFAULTS.slideshowSoundEnabled;
     state.draggingOverlayTarget = null;
     state.draggingOverlayId = null;
+    state.dragStartRotation = 0;
+    state.dragStartPointerAngle = null;
+    state.dragRotationCenter = null;
     state.overlayInteraction = null;
     state.dragPointerId = null;
     state.dragStartPointer = null;
@@ -1484,24 +1507,6 @@ export default function createAppRuntime({
     editorScreen.handlePlaybackStateChange();
   }
 
-  async function pickSaveFolder() {
-    void logger.audit("Main app choose folder action started.");
-    const result = await operatorScreen.pickSaveFolder();
-    if (result === "cancelled") {
-      void logger.info("Main app choose folder action cancelled.");
-      syncModeUi();
-      return;
-    }
-
-    if (result === "unsupported") {
-      showAppDialog("Folder access unavailable", APP_STRINGS.folderUnsupported);
-      syncModeUi();
-      return;
-    }
-    hideAppDialog();
-    syncModeUi();
-  }
-
   async function handleMediaInputChange() {
     operatorScreen.syncMediaInputSelections();
     if (state.mode === "camera") {
@@ -1679,7 +1684,10 @@ export default function createAppRuntime({
     }
 
     try {
-      await saveProjectMetadata(projectMetadataProject.path, {
+      const nextProjectName = dom.projectFolderNameInput.value.trim();
+      const previousProjectPath = projectMetadataProject.path;
+      const previousProjectName = projectMetadataProject.name;
+      const metadata = {
         orderId: dom.projectOrderInput.value,
         clientName: dom.projectClientNameInput.value,
         projectDate: dom.projectDateInput.value,
@@ -1688,10 +1696,58 @@ export default function createAppRuntime({
         email: dom.projectEmailInput.value,
         address: dom.projectAddressInput.value,
         notes: dom.projectNotesInput.value
-      });
+      };
+      const validationError = validateProjectName(nextProjectName);
+      if (validationError) {
+        setProjectMetadataError(validationError);
+        return;
+      }
+
+      let nextProjectPath = projectMetadataProject.path;
+      if (state.isDesktopApp && nextProjectName !== previousProjectName) {
+        nextProjectPath = await renameDesktopProjectDirectory(previousProjectPath, nextProjectName);
+        projectMetadataProject = {
+          ...projectMetadataProject,
+          path: nextProjectPath,
+          name: nextProjectName
+        };
+        if (state.saveDirectoryPath === previousProjectPath || state.activeProjectPath === previousProjectPath) {
+          setActiveProject(nextProjectPath, nextProjectName);
+        }
+      } else if (nextProjectName !== previousProjectName) {
+        projectMetadataProject = {
+          ...projectMetadataProject,
+          name: nextProjectName
+        };
+        if (state.saveDirectoryName === previousProjectName) {
+          state.saveDirectoryName = nextProjectName;
+          persistSettings(state);
+        }
+      }
+
+      await saveProjectMetadata(nextProjectPath, metadata);
       hideProjectMetadataDialog();
+      if (state.galleryPanelOpen && state.galleryView === "projects") {
+        await galleryScreen.refreshGallery();
+      }
     } catch (error) {
       setProjectMetadataError(formatErrorMessage(error, "Photobooth could not save the booking details."));
+    }
+  });
+  dom.projectMetadataDeleteButton.addEventListener("click", async () => {
+    if (!projectMetadataProject) {
+      return;
+    }
+
+    try {
+      const projectToDelete = projectMetadataProject;
+      hideProjectMetadataDialog();
+      await deleteProject(projectToDelete);
+      if (state.galleryPanelOpen && state.galleryView === "projects") {
+        await galleryScreen.refreshGallery();
+      }
+    } catch (error) {
+      showErrorDialog("Delete failed", error, "Photobooth could not delete the selected project.");
     }
   });
   navigator.mediaDevices?.addEventListener?.("devicechange", () => {
@@ -1777,7 +1833,6 @@ export default function createAppRuntime({
     openGalleryPanel,
     openPreviewView,
     openSettingsView,
-    pickSaveFolder,
     saveCurrentRecording,
     openSlideshowWindow: toggleCurrentProjectSlideshow,
     closeApp,

@@ -301,6 +301,27 @@ fn write_project_registry(projects: &[SavedProject]) -> Result<(), String> {
   fs::write(registry_path, payload).map_err(|error| error.to_string())
 }
 
+fn collect_running_process_ids(image_name: &str) -> Option<std::collections::HashSet<u32>> {
+  let output = Command::new("tasklist")
+    .args(["/FO", "CSV", "/NH", "/FI", &format!("IMAGENAME eq {image_name}")])
+    .output()
+    .ok()?;
+  let stdout = String::from_utf8(output.stdout).ok()?;
+  let mut running_ids = std::collections::HashSet::new();
+
+  for line in stdout.lines().map(str::trim).filter(|line| !line.is_empty() && !line.starts_with("INFO:")) {
+    let trimmed = line.trim_matches('"');
+    let columns = trimmed.split("\",\"").collect::<Vec<_>>();
+    if let Some(pid_column) = columns.get(1) {
+      if let Ok(pid) = pid_column.trim().parse::<u32>() {
+        running_ids.insert(pid);
+      }
+    }
+  }
+
+  Some(running_ids)
+}
+
 fn read_active_slideshows() -> Result<Vec<ActiveSlideshow>, String> {
   let path = get_active_slideshows_path()?;
   if !path.exists() {
@@ -313,15 +334,13 @@ fn read_active_slideshows() -> Result<Vec<ActiveSlideshow>, String> {
   }
 
   let entries = serde_json::from_str::<Vec<ActiveSlideshow>>(&text).map_err(|error| error.to_string())?;
+  let running_ids = collect_running_process_ids("photobooth.exe");
   let active_entries = entries
     .into_iter()
     .filter(|entry| {
-      Command::new("tasklist")
-        .args(["/FI", &format!("PID eq {}", entry.pid), "/FO", "CSV", "/NH"])
-        .output()
-        .ok()
-        .and_then(|output| String::from_utf8(output.stdout).ok())
-        .map(|stdout| stdout.contains(&entry.pid.to_string()))
+      running_ids
+        .as_ref()
+        .map(|ids| ids.contains(&entry.pid))
         .unwrap_or(true)
     })
     .collect::<Vec<_>>();

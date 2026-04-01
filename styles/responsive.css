@@ -34,11 +34,6 @@
     height: 2.85rem;
   }
 
-  .overlay-logo-image {
-    width: 110px;
-    max-width: 40vw;
-  }
-
   .overlay-toolbar-wrap {
     bottom: calc(100% + 0.55rem);
   }

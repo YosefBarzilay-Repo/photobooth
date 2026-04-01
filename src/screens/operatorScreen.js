@@ -1,6 +1,6 @@
-import { APP_STRINGS, APP_THRESHOLDS, DISABLED_AUDIO_INPUT_ID } from "../constants/appConfig.js";
+import { APP_THRESHOLDS, DISABLED_AUDIO_INPUT_ID } from "../constants/appConfig.js";
 import renderFrameTray from "../components/frameTray.js";
-import { getDefaultRecordingsDirectory, isDesktopApp, listDesktopMonitors, pickDesktopDirectory } from "../services/desktopService.js";
+import { isDesktopApp, listDesktopMonitors } from "../services/desktopService.js";
 import { logger } from "../services/logger.js";
 import {
   createLogoOverlay,
@@ -353,12 +353,6 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     });
   }
 
-  function rotateOverlay(overlay, direction) {
-    overlay.rotation += direction * APP_THRESHOLDS.overlayRotationStep;
-    renderPreview();
-    notifySettingsChanged();
-  }
-
   function deleteOverlay(overlayId) {
     removeOverlayById(state, overlayId);
     state.showTextColorPalette = false;
@@ -369,47 +363,6 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
 
   function triggerLogoUpload() {
     dom.logoInput.click();
-  }
-
-  async function pickSaveFolder() {
-    if (isDesktopApp()) {
-      try {
-        const defaultPath = state.saveDirectoryPath || await getDefaultRecordingsDirectory().catch(() => "");
-        const selectedDirectory = await pickDesktopDirectory(defaultPath);
-        if (!selectedDirectory || Array.isArray(selectedDirectory)) {
-          return "cancelled";
-        }
-
-        state.saveDirectoryHandle = null;
-        state.saveDirectoryPath = selectedDirectory;
-        state.saveDirectoryName = selectedDirectory.split(/[\\/]/).filter(Boolean).pop() || APP_STRINGS.saveFolderDefault;
-        state.activeProjectPath = "";
-        renderPreview();
-        notifySettingsChanged();
-        return "picked";
-      } catch {
-        return "cancelled";
-      }
-    }
-
-    if (!("showDirectoryPicker" in window)) {
-      state.saveDirectoryName = APP_STRINGS.folderUnsupported;
-      renderPreview();
-      return "unsupported";
-    }
-
-    try {
-      const directoryHandle = await window.showDirectoryPicker();
-      state.saveDirectoryHandle = directoryHandle;
-      state.saveDirectoryPath = "";
-      state.saveDirectoryName = directoryHandle.name || APP_STRINGS.saveFolderDefault;
-      state.activeProjectPath = "";
-      renderPreview();
-      notifySettingsChanged();
-      return "picked";
-    } catch {
-      return "cancelled";
-    }
   }
 
   async function syncLogoUploadFromControl() {
@@ -462,10 +415,6 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
 
       if (action === "delete") {
         deleteOverlay(overlay.id);
-      } else if (action === "rotate-left") {
-        rotateOverlay(overlay, -1);
-      } else if (action === "rotate-right") {
-        rotateOverlay(overlay, 1);
       } else if (action === "color" && overlay.type === "text") {
         state.showTextColorPalette = !state.showTextColorPalette;
         renderPreview();
@@ -508,13 +457,28 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     state.showTextColorPalette = false;
     state.draggingOverlayTarget = overlay.type;
     state.draggingOverlayId = overlay.id;
-    state.overlayInteraction = handle instanceof HTMLElement ? "resize" : "move";
+    state.overlayInteraction = handle instanceof HTMLElement
+      ? (handle.dataset.overlayHandle === "rotate" ? "rotate" : "resize")
+      : "move";
     state.dragPointerId = event.pointerId;
     state.dragStartPointer = { x: event.clientX, y: event.clientY };
     state.dragSurfaceSize = { x: rect.width, y: rect.height };
     state.dragStartPosition = { ...overlay.position };
+    state.dragStartRotation = overlay.rotation;
     state.dragStartScale = overlay.type === "logo" ? overlay.scale : state.dragStartScale;
     state.dragStartTextSize = overlay.type === "text" ? overlay.size : state.dragStartTextSize;
+    state.dragStartPointerAngle = null;
+    state.dragRotationCenter = null;
+    if (state.overlayInteraction === "rotate") {
+      const bodyElement = handle?.closest(".overlay-item") ?? overlayElement?.closest(".overlay-item");
+      if (bodyElement instanceof HTMLElement) {
+        const overlayRect = bodyElement.getBoundingClientRect();
+        const centerX = overlayRect.left + (overlayRect.width / 2);
+        const centerY = overlayRect.top + (overlayRect.height / 2);
+        state.dragRotationCenter = { x: centerX, y: centerY };
+        state.dragStartPointerAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
+      }
+    }
     event.preventDefault();
     renderPreview();
     dom.cameraText.querySelector(`[data-overlay-id="${overlay.id}"]`)?.setPointerCapture?.(event.pointerId);
@@ -534,10 +498,16 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
         x: clamp(state.dragStartPosition.x + dxPercent, APP_THRESHOLDS.minOverlayX, APP_THRESHOLDS.maxOverlayX),
         y: clamp(state.dragStartPosition.y + dyPercent, APP_THRESHOLDS.minOverlayY, APP_THRESHOLDS.maxOverlayY)
       };
+    } else if (state.overlayInteraction === "rotate") {
+      const rotationCenter = state.dragRotationCenter;
+      if (rotationCenter && Number.isFinite(state.dragStartPointerAngle)) {
+        const currentAngle = Math.atan2(event.clientY - rotationCenter.y, event.clientX - rotationCenter.x) * (180 / Math.PI);
+        overlay.rotation = Math.round((state.dragStartRotation + currentAngle - state.dragStartPointerAngle) * 10) / 10;
+      }
     } else if (overlay.type === "logo") {
-      overlay.scale = clamp(state.dragStartScale + ((dxPercent + dyPercent) / 10), APP_THRESHOLDS.minLogoScale, APP_THRESHOLDS.maxLogoScale);
+      overlay.scale = Math.max(APP_THRESHOLDS.minLogoScale, state.dragStartScale + ((dxPercent + dyPercent) / 10));
     } else {
-      overlay.size = clamp(state.dragStartTextSize + ((dxPercent + dyPercent) * 2.4), APP_THRESHOLDS.minTextSize, APP_THRESHOLDS.maxTextSize);
+      overlay.size = Math.max(APP_THRESHOLDS.minTextSize, state.dragStartTextSize + ((dxPercent + dyPercent) * 2.4));
     }
 
     syncSelectedOverlayElement();
@@ -560,6 +530,9 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     state.dragStartPointer = null;
     state.dragSurfaceSize = null;
     state.dragStartPosition = null;
+    state.dragStartRotation = 0;
+    state.dragStartPointerAngle = null;
+    state.dragRotationCenter = null;
     syncControlsFromState();
     renderPreview();
     notifySettingsChanged();
@@ -647,7 +620,6 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     addTextOverlay: createInitialTextOverlay,
     triggerLogoUpload,
     syncLogoUploadFromControl,
-    pickSaveFolder,
     handleOverlayClick,
     startOverlayInteraction,
     updateOverlayFromPointer,

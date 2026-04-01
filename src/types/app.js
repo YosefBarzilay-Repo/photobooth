@@ -23,7 +23,7 @@
  */
 
 /**
- * @typedef {"move" | "resize" | null} OverlayInteraction
+ * @typedef {"move" | "resize" | "rotate" | null} OverlayInteraction
  */
 
 /**
@@ -86,6 +86,9 @@
  *   dragStartPointer: Vector2 | null,
  *   dragSurfaceSize: Vector2 | null,
  *   dragStartPosition: Vector2 | null,
+ *   dragStartRotation: number,
+ *   dragStartPointerAngle: number | null,
+ *   dragRotationCenter: Vector2 | null,
  *   dragStartScale: number,
  *   dragStartTextSize: number,
  *   overlayText: string,

@@ -179,13 +179,6 @@ export default function wireEvents(dom, state, handlers) {
     void logger.audit("Logo file input changed.");
     void handlers.operatorScreen.syncLogoUploadFromControl();
   });
-  dom.saveFolderButton.addEventListener("click", () => {
-    void logger.audit("Choose folder button clicked.", {
-      currentSaveDirectoryPath: state.saveDirectoryPath,
-      currentSaveDirectoryName: state.saveDirectoryName
-    });
-    void handlers.pickSaveFolder();
-  });
 
   dom.cameraText.addEventListener("click", handlers.operatorScreen.handleOverlayClick);
   dom.cameraText.addEventListener("pointerdown", handlers.operatorScreen.startOverlayInteraction);

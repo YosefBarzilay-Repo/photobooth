@@ -48,6 +48,10 @@ export function applyPersistedSettings(state, defaults, savedSettings) {
   }
 
   state.countdownSeconds = Number.isFinite(savedSettings.countdownSeconds) ? savedSettings.countdownSeconds : defaults.countdownSeconds;
+  state.recordingTimeoutSeconds = Number.isFinite(savedSettings.recordingTimeoutSeconds)
+    ? savedSettings.recordingTimeoutSeconds
+    : defaults.recordingTimeoutSeconds;
+  state.captureOrientation = savedSettings.captureOrientation === "portrait" ? "portrait" : defaults.captureOrientation;
   state.activeFrameId = typeof savedSettings.activeFrameId === "string" ? savedSettings.activeFrameId : defaults.activeFrameId;
   state.overlayText = typeof savedSettings.overlayText === "string" ? savedSettings.overlayText : defaults.overlayText;
   state.overlayFont = typeof savedSettings.overlayFont === "string" ? savedSettings.overlayFont : defaults.overlayFont;
@@ -78,6 +82,8 @@ export function applyPersistedSettings(state, defaults, savedSettings) {
 export function persistSettings(state) {
   const snapshot = {
     countdownSeconds: state.countdownSeconds,
+    recordingTimeoutSeconds: state.recordingTimeoutSeconds,
+    captureOrientation: state.captureOrientation,
     activeFrameId: state.activeFrameId,
     overlayText: state.overlayText,
     overlayFont: state.overlayFont,

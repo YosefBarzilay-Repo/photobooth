@@ -6,12 +6,13 @@ import createOperatorScreen from "../screens/operatorScreen.js";
 import createGalleryScreen from "../screens/galleryScreen.js";
 import wireEvents from "./events.js";
 import { APP_DEFAULTS, APP_STRINGS, APP_THRESHOLDS } from "../constants/appConfig.js";
-import { sleep, clearIntervalTimer } from "../utils/timing.js";
+import { sleep, clearIntervalTimer, clearTimer } from "../utils/timing.js";
 import { startCameraStream, stopCameraStream } from "../services/cameraService.js";
 import { createMediaRecorder, createRecordingBlob, getRecordingExtension } from "../services/recordingService.js";
 import {
   createObjectUrl,
   deleteSavedRecording,
+  ensureRecordingEntryUrl,
   saveRecording,
   buildTimestampFilename,
   loadSavedRecordingsFromDirectory
@@ -25,6 +26,7 @@ import {
   getFullscreenState,
   isDesktopApp,
   listDesktopProjects,
+  openDesktopSlideshowWindow,
   openDesktopDirectory,
   renameDesktopProjectDirectory,
   setFullscreenState
@@ -133,6 +135,8 @@ function drawOverlayText(ctx, state, width, height, metrics = null) {
   ctx.font = `800 ${metrics.fontSize}px "${state.overlayFont}", sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
   ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
   ctx.shadowBlur = 20;
   const textMetrics = ctx.measureText(state.overlayText);
@@ -216,24 +220,12 @@ function drawFrameOverlay(ctx, frameId, width, height) {
 
 function getCompositionSize(stageElement) {
   const rect = stageElement.getBoundingClientRect();
-  const stageWidth = Math.max(1, rect.width || APP_THRESHOLDS.composedWidth);
-  const stageHeight = Math.max(1, rect.height || APP_THRESHOLDS.composedHeight);
-  const aspectRatio = stageWidth / stageHeight;
-
-  if (aspectRatio >= 1) {
-    return {
-      stageWidth,
-      stageHeight,
-      width: APP_THRESHOLDS.composedWidth,
-      height: Math.max(2, Math.round(APP_THRESHOLDS.composedWidth / aspectRatio))
-    };
-  }
-
+  const isPortrait = stageElement.classList.contains("stage-card-portrait");
   return {
-    stageWidth,
-    stageHeight,
-    width: Math.max(2, Math.round(APP_THRESHOLDS.composedHeight * aspectRatio)),
-    height: APP_THRESHOLDS.composedHeight
+    stageWidth: Math.max(1, rect.width || (isPortrait ? APP_THRESHOLDS.composedPortraitWidth : APP_THRESHOLDS.composedLandscapeWidth)),
+    stageHeight: Math.max(1, rect.height || (isPortrait ? APP_THRESHOLDS.composedPortraitHeight : APP_THRESHOLDS.composedLandscapeHeight)),
+    width: isPortrait ? APP_THRESHOLDS.composedPortraitWidth : APP_THRESHOLDS.composedLandscapeWidth,
+    height: isPortrait ? APP_THRESHOLDS.composedPortraitHeight : APP_THRESHOLDS.composedLandscapeHeight
   };
 }
 
@@ -294,6 +286,8 @@ function createComposedRecorder(state, previewVideo, dom) {
 
   const render = () => {
     const overlayMetrics = getOverlayMetrics(dom, state, compositionSize);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawVideoCover(ctx, previewVideo, canvas.width, canvas.height);
     drawOverlayLogo(ctx, state, canvas.width, canvas.height, logoImage, overlayMetrics.logo);
@@ -354,6 +348,8 @@ export default function initApp() {
   let cameraSessionId = 0;
   let dialogResolver = null;
   let dialogIsConfirmation = false;
+  let projectDialogMode = "create";
+  let projectDialogProject = null;
 
   function syncModeUi() {
     cameraScreen.syncModeUi();
@@ -362,6 +358,11 @@ export default function initApp() {
   function resetDialogState() {
     dialogResolver = null;
     dialogIsConfirmation = false;
+  }
+
+  function resetProjectDialogState() {
+    projectDialogMode = "create";
+    projectDialogProject = null;
   }
 
   function hideAppDialog(result = false) {
@@ -399,20 +400,46 @@ export default function initApp() {
   }
 
   function showProjectDialog() {
+    projectDialogMode = "create";
+    projectDialogProject = null;
+    dom.projectDialogTitle.textContent = "Open New Project?";
+    dom.projectDialogMessage.textContent = "Create a new project folder for this event, or continue with the current setup.";
+    dom.projectContinueButton.textContent = "Continue Current";
+    dom.projectCreateButton.textContent = "Create Project";
     dom.projectDialogError.textContent = "";
     dom.projectDialogError.classList.add("hidden");
     dom.projectNameInput.value = "";
+    dom.projectContinueButton.classList.remove("hidden");
     dom.projectDialogOverlay.classList.remove("hidden");
     window.setTimeout(() => dom.projectNameInput.focus(), 0);
   }
 
   function hideProjectDialog() {
     dom.projectDialogOverlay.classList.add("hidden");
+    resetProjectDialogState();
   }
 
   function showProjectError(message) {
     dom.projectDialogError.textContent = message;
     dom.projectDialogError.classList.remove("hidden");
+  }
+
+  function showRenameProjectDialog(project) {
+    projectDialogMode = "rename";
+    projectDialogProject = project;
+    dom.projectDialogTitle.textContent = "Rename Project";
+    dom.projectDialogMessage.textContent = "Update the project folder name.";
+    dom.projectContinueButton.textContent = "Cancel";
+    dom.projectCreateButton.textContent = "Save Name";
+    dom.projectDialogError.textContent = "";
+    dom.projectDialogError.classList.add("hidden");
+    dom.projectNameInput.value = project.name;
+    dom.projectContinueButton.classList.remove("hidden");
+    dom.projectDialogOverlay.classList.remove("hidden");
+    window.setTimeout(() => {
+      dom.projectNameInput.focus();
+      dom.projectNameInput.select();
+    }, 0);
   }
 
   function hasUnsavedRecording() {
@@ -465,7 +492,14 @@ export default function initApp() {
     void logger.debug("Loading gallery entries for main app.", {
       source: typeof source === "string" ? source : source?.name || ""
     });
-    return loadSavedRecordingsFromDirectory(source);
+    try {
+      return await loadSavedRecordingsFromDirectory(source);
+    } catch (error) {
+      void logger.exception("Loading gallery entries failed.", error, {
+        source: typeof source === "string" ? source : source?.name || ""
+      });
+      throw error;
+    }
   }
 
   async function deleteGalleryEntry(entry) {
@@ -486,7 +520,15 @@ export default function initApp() {
     if (!state.isDesktopApp) {
       return [];
     }
-    return listDesktopProjects();
+    try {
+      void logger.audit("Project list requested.", { saveDirectoryPath: state.saveDirectoryPath });
+      const projectList = await listDesktopProjects();
+      void logger.info("Project list loaded.", { count: projectList.length });
+      return projectList;
+    } catch (error) {
+      void logger.exception("Project list load failed.", error, { saveDirectoryPath: state.saveDirectoryPath });
+      throw error;
+    }
   }
   function setActiveProject(projectPath, projectName) {
     state.saveDirectoryHandle = null;
@@ -510,25 +552,7 @@ export default function initApp() {
     if (!state.isDesktopApp) {
       return;
     }
-    const requestedName = window.prompt("Enter the new project name.", project.name);
-    if (requestedName === null) {
-      return;
-    }
-    const projectName = requestedName.trim();
-    const validationError = validateProjectName(projectName);
-    if (validationError) {
-      showAppDialog("Rename failed", validationError);
-      return;
-    }
-    try {
-      const renamedPath = await renameDesktopProjectDirectory(project.path, projectName);
-      if (state.saveDirectoryPath === project.path) {
-        setActiveProject(renamedPath, projectName);
-      }
-      hideAppDialog();
-    } catch (error) {
-      showErrorDialog("Rename failed", error, "Photobooth could not rename the selected project.");
-    }
+    showRenameProjectDialog(project);
   }
   async function deleteProject(project) {
     if (!state.isDesktopApp) {
@@ -564,10 +588,31 @@ export default function initApp() {
       showErrorDialog("Delete failed", error, "Photobooth could not delete the selected project.");
     }
   }
+
+  async function openSlideshowWindow() {
+    try {
+      if (!state.isDesktopApp) {
+        showAppDialog("Desktop only", "The slideshow window is available in the installed desktop app.");
+        return;
+      }
+
+      await logger.audit("Open slideshow window requested.", { saveDirectoryPath: state.saveDirectoryPath });
+      await openDesktopSlideshowWindow();
+      hideAppDialog();
+      void logger.info("Slideshow window opened.");
+    } catch (error) {
+      showErrorDialog("Slideshow unavailable", error, "Photobooth could not open the slideshow screen.");
+    }
+  }
   const galleryScreen = createGalleryScreen(dom, state, {
     loadEntries: loadGalleryEntries,
     loadProjects,
-    openEntry(entry) {
+    async ensureEntryReady(entry) {
+      await ensureRecordingEntryUrl(entry);
+      return entry;
+    },
+    async openEntry(entry) {
+      await ensureRecordingEntryUrl(entry);
       galleryScreen.setGalleryPanelOpen(false);
       hideAppDialog();
       applyPreviewEntry(entry);
@@ -606,6 +651,8 @@ export default function initApp() {
   function stopRecordingTimer() {
     clearIntervalTimer(state.recordIntervalId);
     state.recordIntervalId = null;
+    clearTimer(state.recordingTimeoutId);
+    state.recordingTimeoutId = null;
   }
 
   function updateRecordingTimer() {
@@ -679,6 +726,8 @@ export default function initApp() {
   }
 
   function resetProjectDesignState() {
+    state.recordingTimeoutSeconds = APP_DEFAULTS.recordingTimeoutSeconds;
+    state.captureOrientation = APP_DEFAULTS.captureOrientation;
     state.activeFrameId = APP_DEFAULTS.activeFrameId;
     state.activeOverlayTarget = APP_DEFAULTS.activeOverlayTarget;
     state.showTextColorPalette = APP_DEFAULTS.showTextColorPalette;
@@ -703,6 +752,7 @@ export default function initApp() {
     dom.logoInput.value = "";
     operatorScreen.syncControlsFromState();
     operatorScreen.renderFrameTray();
+    editorScreen.syncOrientationUi();
     editorScreen.renderOverlayPreview();
     syncModeUi();
   }
@@ -763,6 +813,19 @@ export default function initApp() {
 
     state.countdownValue = null;
     syncModeUi();
+  }
+
+  function scheduleRecordingTimeout() {
+    clearTimer(state.recordingTimeoutId);
+    state.recordingTimeoutId = null;
+
+    if (state.recordingTimeoutSeconds <= 0) {
+      return;
+    }
+
+    state.recordingTimeoutId = window.setTimeout(() => {
+      stopRecording();
+    }, state.recordingTimeoutSeconds * 1000);
   }
 
   function stopStream() {
@@ -902,12 +965,15 @@ export default function initApp() {
       return;
     }
 
-    operatorScreen.syncCountdownFromControl();
-    void logger.audit("Start recording requested.", {
-      countdownSeconds: state.countdownSeconds,
-      frameId: state.activeFrameId,
-      hasOverlayText: Boolean(state.overlayText),
-      hasLogo: Boolean(state.logoDataUrl)
+      operatorScreen.syncCountdownFromControl();
+      operatorScreen.syncRecordingTimeoutFromControl();
+      void logger.audit("Start recording requested.", {
+        countdownSeconds: state.countdownSeconds,
+        recordingTimeoutSeconds: state.recordingTimeoutSeconds,
+        captureOrientation: state.captureOrientation,
+        frameId: state.activeFrameId,
+        hasOverlayText: Boolean(state.overlayText),
+        hasLogo: Boolean(state.logoDataUrl)
     });
     state.captureInProgress = true;
     state.shutterAnimatingOut = state.countdownSeconds > 0;
@@ -937,6 +1003,7 @@ export default function initApp() {
       state.isRecording = true;
       dom.snapButton.disabled = false;
       stopRecordingTimer();
+      scheduleRecordingTimeout();
       state.recordIntervalId = window.setInterval(updateRecordingTimer, APP_THRESHOLDS.recordingTimerIntervalMs);
       updateRecordingTimer();
       syncModeUi();
@@ -1030,6 +1097,25 @@ export default function initApp() {
     }
 
     try {
+      if (projectDialogMode === "rename" && projectDialogProject) {
+        const previousProjectPath = projectDialogProject.path;
+        void logger.audit("Project rename requested.", {
+          previousProjectName: projectDialogProject.name,
+          projectName
+        });
+        const renamedPath = await renameDesktopProjectDirectory(previousProjectPath, projectName);
+        if (state.saveDirectoryPath === previousProjectPath) {
+          setActiveProject(renamedPath, projectName);
+        }
+        hideProjectDialog();
+        void logger.info("Project renamed successfully.", {
+          previousProjectPath,
+          renamedPath,
+          projectName
+        });
+        return;
+      }
+
       void logger.audit("Project creation requested.", { projectName });
       if (state.isDesktopApp) {
         const baseDirectory = await getDefaultRecordingsDirectory();
@@ -1049,8 +1135,14 @@ export default function initApp() {
         saveDirectoryName: state.saveDirectoryName
       });
     } catch (error) {
-      void logger.exception("Project creation failed.", error, { projectName });
-      showProjectError(formatErrorMessage(error, APP_STRINGS.projectCreateFailed));
+      const fallbackMessage = projectDialogMode === "rename"
+        ? "Photobooth could not rename the selected project."
+        : APP_STRINGS.projectCreateFailed;
+      void logger.exception(projectDialogMode === "rename" ? "Project rename failed." : "Project creation failed.", error, {
+        projectName,
+        projectPath: projectDialogProject?.path || ""
+      });
+      showProjectError(formatErrorMessage(error, fallbackMessage));
     }
   }
 
@@ -1135,6 +1227,7 @@ export default function initApp() {
   document.body.dataset.mode = state.mode;
   operatorScreen.syncControlsFromState();
   operatorScreen.renderFrameTray();
+  editorScreen.syncOrientationUi();
   editorScreen.renderOverlayPreview();
   editorScreen.syncPlaybackButton();
   editorScreen.syncEmptyState();
@@ -1181,6 +1274,7 @@ export default function initApp() {
     openSettingsView,
     pickSaveFolder,
     saveCurrentRecording,
+    openSlideshowWindow,
     closeApp,
     operatorScreen,
     editorScreen,
@@ -1189,8 +1283,3 @@ export default function initApp() {
   syncModeUi();
   void bootstrapApp();
 }
-
-
-
-
-

@@ -85,9 +85,14 @@
             </button>
             <button class="console-button hidden" id="resultGalleryButton" type="button" aria-label="Open gallery">
               <span class="material-symbols-outlined">video_library</span>
-              Gallery
+              Library
             </button>
             <span class="console-separator hidden" id="previewSeparatorSecondary" aria-hidden="true">|</span>
+            <button class="console-button hidden" id="resultSlideshowButton" type="button" aria-label="Open slideshow">
+              <span class="material-symbols-outlined">slideshow</span>
+              Slideshow
+            </button>
+            <span class="console-separator hidden" id="previewSeparatorTertiary" aria-hidden="true">|</span>
             <button class="console-button hidden" id="resultSettingsButton" type="button" aria-label="Open settings">
               <span class="material-symbols-outlined">tune</span>
               Settings
@@ -104,7 +109,7 @@
             <div class="brand operator-dialog-brand">Settings</div>
             <div class="gallery-tabs" role="tablist" aria-label="Settings views">
               <button class="gallery-tab is-active" id="settingsTabEditor" type="button" role="tab" aria-selected="true">Video Editor</button>
-              <button class="gallery-tab" id="settingsTabCountdown" type="button" role="tab" aria-selected="false">Recording Countdown</button>
+              <button class="gallery-tab" id="settingsTabCountdown" type="button" role="tab" aria-selected="false">Recording Timing</button>
               <button class="gallery-tab" id="settingsTabInputs" type="button" role="tab" aria-selected="false">Recording Inputs</button>
             </div>
           </div>
@@ -133,6 +138,13 @@
                 <option value="Courier New">Courier New</option>
               </select>
             </label>
+            <label class="field field-inline">
+              <span class="field-label">Video Orientation</span>
+              <select id="orientationSelect">
+                <option value="landscape">Horizontal</option>
+                <option value="portrait">Vertical</option>
+              </select>
+            </label>
             <button class="console-button secondary-button" id="logoUploadButton" type="button">
               <span class="material-symbols-outlined">image</span>
               Upload Logo
@@ -148,7 +160,7 @@
           <section class="panel-section hidden" id="settingsSectionCountdown">
             <div class="section-header">
               <div>
-                <p class="panel-title panel-title-small">Recording Countdown</p>
+                <p class="panel-title panel-title-small">Recording Timing</p>
               </div>
             </div>
             <div class="field field-inline">
@@ -159,6 +171,18 @@
                 </button>
                 <input id="countdownInput" type="number" min="0" max="120" step="1" value="3" inputmode="numeric">
                 <button class="stepper-button" id="countdownPlusButton" type="button" aria-label="Increase countdown">
+                  <span class="material-symbols-outlined">add</span>
+                </button>
+              </div>
+            </div>
+            <div class="field field-inline">
+              <span class="field-label">Recording Timeout Seconds</span>
+              <div class="stepper-control">
+                <button class="stepper-button" id="recordingTimeoutMinusButton" type="button" aria-label="Decrease recording timeout">
+                  <span class="material-symbols-outlined">remove</span>
+                </button>
+                <input id="recordingTimeoutInput" type="number" min="0" max="120" step="1" value="0" inputmode="numeric">
+                <button class="stepper-button" id="recordingTimeoutPlusButton" type="button" aria-label="Increase recording timeout">
                   <span class="material-symbols-outlined">add</span>
                 </button>
               </div>
@@ -184,7 +208,7 @@
                 <option value="__none__">Audio Off</option>
               </select>
             </label>
-            <button class="console-button secondary-button" id="saveFolderButton" type="button">
+            <button class="console-button secondary-button settings-spaced-action" id="saveFolderButton" type="button">
               <span class="material-symbols-outlined">folder_open</span>
               Choose Folder
             </button>
@@ -199,9 +223,7 @@
           </button>
         </div>
 
-        <button class="operator-dialog-resize" id="operatorDialogResize" type="button" aria-label="Resize settings dialog">
-          <span class="material-symbols-outlined">open_in_full</span>
-        </button>
+        <button class="operator-dialog-resize" id="operatorDialogResize" type="button" aria-label="Resize settings dialog"></button>
       </div>
     </section>
 
@@ -237,9 +259,7 @@
           </button>
         </div>
 
-        <button class="operator-dialog-resize" id="galleryDialogResize" type="button" aria-label="Resize gallery dialog">
-          <span class="material-symbols-outlined">open_in_full</span>
-        </button>
+        <button class="operator-dialog-resize" id="galleryDialogResize" type="button" aria-label="Resize gallery dialog"></button>
       </div>
     </section>
 

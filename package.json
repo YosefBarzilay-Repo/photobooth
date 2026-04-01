@@ -4,7 +4,7 @@
   "private": true,
   "description": "Photobooth Windows desktop app powered by Tauri",
   "scripts": {
-    "build": "npm.cmd run tauri build",
+    "build": "powershell -ExecutionPolicy Bypass -File scripts/build-tauri.ps1",
     "build:static": "powershell -ExecutionPolicy Bypass -File scripts/build-static.ps1",
     "tauri": "tauri"
   },

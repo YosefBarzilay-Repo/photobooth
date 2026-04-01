@@ -26,6 +26,7 @@ struct SavedProject {
   path: String,
   created_at: u128,
   video_count: usize,
+  total_size_bytes: u64,
 }
 
 #[derive(Serialize)]
@@ -94,16 +95,34 @@ fn is_valid_project_name(project_name: &str) -> bool {
     })
 }
 
-fn count_video_files(directory: &Path) -> usize {
-  fs::read_dir(directory)
-    .ok()
-    .into_iter()
-    .flat_map(|entries| entries.filter_map(Result::ok))
-    .filter(|entry| {
-      let path = entry.path();
-      path.is_file() && is_supported_video_file(&path)
-    })
-    .count()
+fn compute_directory_metrics(directory: &Path) -> (usize, u64) {
+  let mut video_count = 0usize;
+  let mut total_size_bytes = 0u64;
+
+  let entries = match fs::read_dir(directory) {
+    Ok(entries) => entries,
+    Err(_) => return (0, 0),
+  };
+
+  for entry in entries.filter_map(Result::ok) {
+    let path = entry.path();
+    if path.is_dir() {
+      let (nested_count, nested_size) = compute_directory_metrics(&path);
+      video_count += nested_count;
+      total_size_bytes = total_size_bytes.saturating_add(nested_size);
+      continue;
+    }
+
+    if let Ok(metadata) = entry.metadata() {
+      total_size_bytes = total_size_bytes.saturating_add(metadata.len());
+    }
+
+    if path.is_file() && is_supported_video_file(&path) {
+      video_count += 1;
+    }
+  }
+
+  (video_count, total_size_bytes)
 }
 
 fn get_path_created_at(path: &Path) -> u128 {
@@ -147,12 +166,18 @@ fn read_project_registry() -> Result<Vec<SavedProject>, String> {
       .and_then(Value::as_u64)
       .map(|value| value as usize)
       .unwrap_or(0);
+    let total_size_bytes = raw_entry
+      .get("totalSizeBytes")
+      .or_else(|| raw_entry.get("total_size_bytes"))
+      .and_then(Value::as_u64)
+      .unwrap_or(0);
 
     projects.push(SavedProject {
       name,
       path,
       created_at,
       video_count,
+      total_size_bytes,
     });
   }
 
@@ -173,18 +198,20 @@ fn upsert_project_registry_entry(project_path: &Path, project_name: &str) -> Res
   let project_path_string = project_path.to_string_lossy().into_owned();
   let mut projects = read_project_registry()?;
   let created_at = get_path_created_at(project_path);
-  let video_count = count_video_files(project_path);
+  let (video_count, total_size_bytes) = compute_directory_metrics(project_path);
 
   if let Some(existing_project) = projects.iter_mut().find(|project| project.path.eq_ignore_ascii_case(&project_path_string)) {
     existing_project.name = project_name.to_string();
     existing_project.created_at = if existing_project.created_at > 0 { existing_project.created_at } else { created_at };
     existing_project.video_count = video_count;
+    existing_project.total_size_bytes = total_size_bytes;
   } else {
     projects.push(SavedProject {
       name: project_name.to_string(),
       path: project_path_string,
       created_at,
       video_count,
+      total_size_bytes,
     });
   }
 
@@ -220,7 +247,8 @@ fn build_saved_projects() -> Result<Vec<SavedProject>, String> {
         name: fallback_name,
         path: path_string,
         created_at: get_path_created_at(&path),
-        video_count: count_video_files(&path),
+        video_count: 0,
+        total_size_bytes: 0,
       });
     }
   }
@@ -228,7 +256,14 @@ fn build_saved_projects() -> Result<Vec<SavedProject>, String> {
   projects.retain(|project| Path::new(&project.path).exists());
   projects.iter_mut().for_each(|project| {
     let path = PathBuf::from(&project.path);
-    project.video_count = if path.exists() { count_video_files(&path) } else { 0 };
+    if path.exists() {
+      let (video_count, total_size_bytes) = compute_directory_metrics(&path);
+      project.video_count = video_count;
+      project.total_size_bytes = total_size_bytes;
+    } else {
+      project.video_count = 0;
+      project.total_size_bytes = 0;
+    }
     if project.created_at == 0 {
       project.created_at = get_path_created_at(&path);
     }

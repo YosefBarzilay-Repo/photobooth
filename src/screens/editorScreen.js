@@ -11,6 +11,12 @@ import { renderOverlayLayer } from "../components/overlayRenderer.js";
  * @param {AppState} state
  */
 export default function createEditorScreen(dom, state) {
+  function syncOrientationUi() {
+    const portrait = state.captureOrientation === "portrait";
+    dom.cameraStage.classList.toggle("stage-card-portrait", portrait);
+    dom.editorStage.classList.toggle("stage-card-portrait", portrait);
+  }
+
   function syncEmptyState() {
     const shouldShowEmptyState = !state.recordingUrl;
     dom.resultEmptyState.classList.toggle("hidden", !shouldShowEmptyState);
@@ -24,6 +30,7 @@ export default function createEditorScreen(dom, state) {
   }
 
   function renderOverlayPreview() {
+    syncOrientationUi();
     dom.cameraFrame.innerHTML = renderFrameMarkup(state.activeFrameId);
     dom.resultFrame.innerHTML = "";
     renderOverlayLayer(dom.cameraText, state, { interactive: state.operatorPanelOpen && state.mode === "camera" });
@@ -54,6 +61,7 @@ export default function createEditorScreen(dom, state) {
     }
 
     state.mode = "editor";
+    syncOrientationUi();
     renderOverlayPreview();
     syncEmptyState();
   }
@@ -91,6 +99,7 @@ export default function createEditorScreen(dom, state) {
 
   return {
     renderOverlayPreview,
+    syncOrientationUi,
     showResult,
     togglePlayback,
     resetResultVideo,

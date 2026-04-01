@@ -70,6 +70,23 @@ async function getDesktopRecordingUrl(path, filename) {
   }
 }
 
+export async function ensureRecordingEntryUrl(entry) {
+  if (!entry) {
+    return "";
+  }
+
+  if (entry.url) {
+    return entry.url;
+  }
+
+  if (isDesktopApp()) {
+    entry.url = await getDesktopRecordingUrl(entry.path, entry.filename);
+    return entry.url;
+  }
+
+  return entry.url || "";
+}
+
 export function isVideoFilename(filename) {
   const lowerCaseName = String(filename || "").toLowerCase();
   return VIDEO_FILE_EXTENSIONS.some((extension) => lowerCaseName.endsWith(extension));
@@ -172,12 +189,12 @@ export async function loadSavedRecordingsFromDirectory(directoryHandle) {
     const directoryPath = directoryHandle || await invokeDesktop("get_default_recordings_directory");
     void logger.debug("Loading saved recordings from desktop directory.", { directoryPath });
     const entries = await invokeDesktop("list_saved_recordings", { directoryPath });
-    const recordings = await Promise.all(entries.map(async (entry) => ({
+    const recordings = entries.map((entry) => ({
       filename: entry.filename,
       path: entry.path,
       modifiedAt: entry.modifiedAt,
-      url: await getDesktopRecordingUrl(entry.path, entry.filename)
-    })));
+      url: ""
+    }));
     void logger.info("Loaded saved recordings from desktop directory.", {
       directoryPath,
       count: entries.length

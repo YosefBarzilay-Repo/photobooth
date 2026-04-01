@@ -22,6 +22,8 @@ export const VIDEO_FILE_EXTENSIONS = [".mp4", ".webm", ".mov", ".m4v", ".ogg"];
 export const APP_DEFAULTS = {
   mode: "editor",
   countdownSeconds: 3,
+  recordingTimeoutSeconds: 0,
+  captureOrientation: "landscape",
   activeFrameId: "none",
   activeOverlayTarget: null,
   showTextColorPalette: false,
@@ -61,8 +63,10 @@ export const APP_THRESHOLDS = {
   dialogDefaultWidth: 420,
   dialogDefaultHeight: 960,
   dialogEdgeMargin: 24,
-  composedWidth: 1280,
-  composedHeight: 720,
+  composedLandscapeWidth: 1920,
+  composedLandscapeHeight: 1080,
+  composedPortraitWidth: 1080,
+  composedPortraitHeight: 1920,
   composedFps: 30
 };
 

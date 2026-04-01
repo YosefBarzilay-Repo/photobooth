@@ -47,24 +47,6 @@ export async function invokeDesktop(command, args = {}) {
   return getTauriGlobal().core.invoke(command, args);
 }
 
-async function invokeDesktopWithTimeout(command, args = {}, timeoutMs = 4000) {
-  let timeoutId = null;
-  try {
-    return await Promise.race([
-      invokeDesktop(command, args),
-      new Promise((_, reject) => {
-        timeoutId = window.setTimeout(() => {
-          reject(new Error(`Desktop command timed out: ${command}`));
-        }, timeoutMs);
-      })
-    ]);
-  } finally {
-    if (timeoutId !== null) {
-      window.clearTimeout(timeoutId);
-    }
-  }
-}
-
 async function fetchBuildInfo() {
   try {
     const response = await fetch("./build-info.json", { cache: "no-store" });
@@ -164,6 +146,14 @@ export async function closeDesktopApp() {
   }
 
   window.close();
+}
+
+export async function openDesktopSlideshowWindow() {
+  if (!isDesktopApp()) {
+    throw new Error("Desktop APIs are not available.");
+  }
+
+  return invokeDesktop("open_slideshow_window");
 }
 
 export async function openDesktopDirectory(directoryPath = "") {

@@ -163,15 +163,29 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     notifySettingsChanged();
   }
 
+  function syncRecordingTimeoutFromControl() {
+    const timeoutValue = clampCountdown(Number(dom.recordingTimeoutInput.value) || 0);
+    state.recordingTimeoutSeconds = timeoutValue;
+    syncOffField(dom.recordingTimeoutInput, timeoutValue);
+    notifySettingsChanged();
+  }
+
   function stepCountdown(delta) {
     const currentValue = state.countdownSeconds;
     dom.countdownInput.value = String(clampCountdown(currentValue + delta));
     syncCountdownFromControl();
   }
 
+  function stepRecordingTimeout(delta) {
+    const currentValue = state.recordingTimeoutSeconds;
+    dom.recordingTimeoutInput.value = String(clampCountdown(currentValue + delta));
+    syncRecordingTimeoutFromControl();
+  }
+
   function syncOverlayControls() {
     state.overlayText = dom.textInput.value.trim();
     state.overlayFont = dom.fontSelect.value;
+    state.captureOrientation = dom.orientationSelect.value === "portrait" ? "portrait" : "landscape";
 
     if (state.overlayText && !state.activeOverlayTarget) {
       state.activeOverlayTarget = "text";
@@ -204,13 +218,16 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
 
   function syncControlsFromState() {
     syncOffField(dom.countdownInput, state.countdownSeconds);
+    syncOffField(dom.recordingTimeoutInput, state.recordingTimeoutSeconds);
     dom.textInput.value = state.overlayText;
     dom.fontSelect.value = state.overlayFont;
+    dom.orientationSelect.value = state.captureOrientation;
     dom.cameraInputSelect.value = state.videoInputId;
     dom.audioInputSelect.value = state.audioInputId || DISABLED_AUDIO_INPUT_ID;
     dialogRect.width = APP_THRESHOLDS.dialogDefaultWidth;
     dialogRect.height = Math.max(APP_THRESHOLDS.dialogMinHeight, window.innerHeight - APP_THRESHOLDS.dialogEdgeMargin * 2);
     syncCountdownFromControl();
+    syncRecordingTimeoutFromControl();
     syncDialogRect();
     syncSectionUi();
     renderPreview();
@@ -559,7 +576,6 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
       dialogRect.y = dialogStartRect.y + dy;
     } else {
       dialogRect.width = dialogStartRect.width + dx;
-      dialogRect.height = dialogStartRect.height + dy;
     }
 
     syncDialogRect();
@@ -588,9 +604,11 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     syncControlsFromState,
     syncOverlayControls,
     syncCountdownFromControl,
+    syncRecordingTimeoutFromControl,
     syncMediaInputSelections,
     populateMediaDeviceOptions,
     stepCountdown,
+    stepRecordingTimeout,
     setOperatorPanelOpen,
     switchSection,
     registerOperatorAccessClick,

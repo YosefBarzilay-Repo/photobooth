@@ -30,6 +30,11 @@ export default function wireEvents(dom, state, handlers) {
     void handlers.openGalleryPanel("videos");
   });
 
+  dom.resultSlideshowButton.addEventListener("click", () => {
+    void logger.audit("Result slideshow button clicked.");
+    void handlers.openSlideshowWindow();
+  });
+
   dom.galleryCloseButton.addEventListener("click", () => {
     void logger.audit("Gallery close button clicked.");
     handlers.closeGalleryPanel();
@@ -114,10 +119,30 @@ export default function wireEvents(dom, state, handlers) {
     void logger.audit("Countdown increment button clicked.");
     handlers.operatorScreen.stepCountdown(1);
   });
+  dom.recordingTimeoutInput.addEventListener("input", () => {
+    void logger.audit("Recording timeout input changed.", { value: dom.recordingTimeoutInput.value });
+    handlers.operatorScreen.syncRecordingTimeoutFromControl();
+  });
+  dom.recordingTimeoutInput.addEventListener("change", () => {
+    void logger.audit("Recording timeout input committed.", { value: dom.recordingTimeoutInput.value });
+    handlers.operatorScreen.syncRecordingTimeoutFromControl();
+  });
+  dom.recordingTimeoutMinusButton.addEventListener("click", () => {
+    void logger.audit("Recording timeout decrement button clicked.");
+    handlers.operatorScreen.stepRecordingTimeout(-1);
+  });
+  dom.recordingTimeoutPlusButton.addEventListener("click", () => {
+    void logger.audit("Recording timeout increment button clicked.");
+    handlers.operatorScreen.stepRecordingTimeout(1);
+  });
 
-  [dom.textInput, dom.fontSelect].forEach((input) => {
+  [dom.textInput, dom.fontSelect, dom.orientationSelect].forEach((input) => {
     input.addEventListener("input", () => {
       void logger.audit("Overlay input changed.", { id: input.id, value: input.value });
+      handlers.operatorScreen.syncOverlayControls();
+    });
+    input.addEventListener("change", () => {
+      void logger.audit("Overlay input committed.", { id: input.id, value: input.value });
       handlers.operatorScreen.syncOverlayControls();
     });
   });

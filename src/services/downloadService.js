@@ -6,6 +6,8 @@ import {
 } from "./desktopService.js";
 import { logger } from "./logger.js";
 
+const desktopRecordingUrlCache = new Map();
+
 function pad(value) {
   return String(value).padStart(2, "0");
 }
@@ -22,6 +24,50 @@ export function revokeObjectUrl(url) {
 
 export function createObjectUrl(blob) {
   return URL.createObjectURL(blob);
+}
+
+function getVideoMimeType(filename) {
+  const lowerCaseName = String(filename || "").toLowerCase();
+
+  if (lowerCaseName.endsWith(".mp4") || lowerCaseName.endsWith(".m4v")) {
+    return "video/mp4";
+  }
+
+  if (lowerCaseName.endsWith(".mov")) {
+    return "video/quicktime";
+  }
+
+  if (lowerCaseName.endsWith(".ogg")) {
+    return "video/ogg";
+  }
+
+  return "video/webm";
+}
+
+async function getDesktopRecordingUrl(path, filename) {
+  const cacheKey = String(path || "").trim();
+  if (!cacheKey) {
+    return "";
+  }
+
+  const cachedUrl = desktopRecordingUrlCache.get(cacheKey);
+  if (cachedUrl) {
+    return cachedUrl;
+  }
+
+  try {
+    const bytes = await invokeDesktop("read_recording_file", { filePath: cacheKey });
+    const blob = new Blob([Uint8Array.from(bytes)], { type: getVideoMimeType(filename) });
+    const url = createObjectUrl(blob);
+    desktopRecordingUrlCache.set(cacheKey, url);
+    return url;
+  } catch (error) {
+    void logger.exception("Desktop recording blob load failed. Falling back to file source.", error, {
+      filePath: cacheKey,
+      filename
+    });
+    return convertDesktopFileSrc(cacheKey);
+  }
 }
 
 export function isVideoFilename(filename) {
@@ -100,6 +146,11 @@ export async function deleteSavedRecording(entry, saveDirectory = null) {
     await invokeDesktop("delete_recording_file", {
       filePath: entry.path
     });
+    const cachedUrl = desktopRecordingUrlCache.get(entry.path);
+    if (cachedUrl) {
+      revokeObjectUrl(cachedUrl);
+      desktopRecordingUrlCache.delete(entry.path);
+    }
     void logger.info("Recording deleted from desktop directory.", { filename: entry.filename, filePath: entry.path });
     return;
   }
@@ -121,16 +172,17 @@ export async function loadSavedRecordingsFromDirectory(directoryHandle) {
     const directoryPath = directoryHandle || await invokeDesktop("get_default_recordings_directory");
     void logger.debug("Loading saved recordings from desktop directory.", { directoryPath });
     const entries = await invokeDesktop("list_saved_recordings", { directoryPath });
+    const recordings = await Promise.all(entries.map(async (entry) => ({
+      filename: entry.filename,
+      path: entry.path,
+      modifiedAt: entry.modifiedAt,
+      url: await getDesktopRecordingUrl(entry.path, entry.filename)
+    })));
     void logger.info("Loaded saved recordings from desktop directory.", {
       directoryPath,
       count: entries.length
     });
-    return entries.map((entry) => ({
-      filename: entry.filename,
-      path: entry.path,
-      modifiedAt: entry.modifiedAt,
-      url: convertDesktopFileSrc(entry.path)
-    }));
+    return recordings;
   }
 
   if (!directoryHandle || !("values" in directoryHandle)) {

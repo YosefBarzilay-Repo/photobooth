@@ -49,6 +49,7 @@ function replaceSelectOptions(select, options, selectedValue) {
 export default function createOperatorScreen(dom, state, editorScreen, onSettingsChanged = () => {}) {
   let operatorAccessClickCount = 0;
   let operatorAccessClickTimer = null;
+  let activeSection = "editor";
   let dialogRect = {
     x: APP_THRESHOLDS.dialogEdgeMargin,
     y: APP_THRESHOLDS.dialogEdgeMargin,
@@ -78,6 +79,29 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     dom.operatorDialog.style.top = `${dialogRect.y}px`;
     dom.operatorDialog.style.width = `${dialogRect.width}px`;
     dom.operatorDialog.style.height = `${dialogRect.height}px`;
+  }
+
+  function syncSectionUi() {
+    const sections = {
+      editor: dom.settingsSectionEditor,
+      countdown: dom.settingsSectionCountdown,
+      inputs: dom.settingsSectionInputs
+    };
+    const tabs = {
+      editor: dom.settingsTabEditor,
+      countdown: dom.settingsTabCountdown,
+      inputs: dom.settingsTabInputs
+    };
+
+    Object.entries(sections).forEach(([section, element]) => {
+      element.classList.toggle("hidden", section !== activeSection);
+    });
+
+    Object.entries(tabs).forEach(([section, element]) => {
+      const isActive = section === activeSection;
+      element.classList.toggle("is-active", isActive);
+      element.setAttribute("aria-selected", String(isActive));
+    });
   }
 
   function renderPreview() {
@@ -188,6 +212,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     dialogRect.height = Math.max(APP_THRESHOLDS.dialogMinHeight, window.innerHeight - APP_THRESHOLDS.dialogEdgeMargin * 2);
     syncCountdownFromControl();
     syncDialogRect();
+    syncSectionUi();
     renderPreview();
   }
 
@@ -195,7 +220,19 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     state.operatorPanelOpen = isOpen;
     dom.operatorPanel.classList.toggle("hidden", !isOpen);
     dom.console.classList.toggle("hidden", isOpen);
+    if (isOpen) {
+      syncSectionUi();
+    }
     renderPreview();
+  }
+
+  function switchSection(section) {
+    if (!["editor", "countdown", "inputs"].includes(section)) {
+      return;
+    }
+
+    activeSection = section;
+    syncSectionUi();
   }
 
   function registerOperatorAccessClick() {
@@ -555,6 +592,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     populateMediaDeviceOptions,
     stepCountdown,
     setOperatorPanelOpen,
+    switchSection,
     registerOperatorAccessClick,
     renderFrameTray: renderFrameTrayView,
     triggerLogoUpload,

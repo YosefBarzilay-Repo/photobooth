@@ -7,7 +7,7 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function formatGalleryStatus(count, visibleCount) {
+function formatVideoStatus(count, visibleCount) {
   if (count === 0) {
     return "0 saved videos";
   }
@@ -17,6 +17,14 @@ function formatGalleryStatus(count, visibleCount) {
   }
 
   return `Showing ${visibleCount} of ${count} saved videos`;
+}
+
+function formatProjectStatus(count) {
+  if (count === 0) {
+    return "0 projects";
+  }
+
+  return count === 1 ? "1 project" : `${count} projects`;
 }
 
 function formatDuration(seconds) {
@@ -137,6 +145,7 @@ function sortEntriesByOldest(entries) {
 
 export default function createGalleryScreen(dom, state, handlers) {
   let entries = [];
+  let projects = [];
   let visibleCount = GALLERY_PAGE_SIZE;
   const metadataCache = new Map();
   const metadataPromiseCache = new Map();
@@ -175,6 +184,18 @@ export default function createGalleryScreen(dom, state, handlers) {
     if (isOpen) {
       syncDialogRect();
     }
+  }
+
+  function syncViewUi() {
+    const isVideosView = state.galleryView === "videos";
+    dom.galleryTabVideos.classList.toggle("is-active", isVideosView);
+    dom.galleryTabVideos.setAttribute("aria-selected", String(isVideosView));
+    dom.galleryTabProjects.classList.toggle("is-active", !isVideosView);
+    dom.galleryTabProjects.setAttribute("aria-selected", String(!isVideosView));
+    dom.galleryOpenFolderLabel.textContent = isVideosView ? "Open Folder" : "Open Projects Folder";
+    dom.galleryFooterLabel.textContent = isVideosView
+      ? `Current project: ${state.saveDirectoryName || APP_STRINGS.saveFolderDefault}`
+      : "Choose a project to make it the active save location.";
   }
 
   function pumpMetadataQueue() {
@@ -224,8 +245,10 @@ export default function createGalleryScreen(dom, state, handlers) {
     const { preserveScroll = false, previousScrollTop = 0 } = options;
     const renderedEntries = entries.slice(0, visibleCount);
     dom.galleryList.replaceChildren();
-    dom.galleryStatus.textContent = formatGalleryStatus(entries.length, renderedEntries.length);
+    dom.galleryStatus.textContent = formatVideoStatus(entries.length, renderedEntries.length);
     dom.galleryEmptyState.classList.toggle("hidden", entries.length > 0);
+    dom.galleryEmptyIcon.textContent = "video_library";
+    dom.galleryEmptyText.textContent = "No saved videos yet. Save a recording to show it here.";
 
     renderedEntries.forEach((entry, index) => {
       const card = document.createElement("article");
@@ -315,16 +338,96 @@ export default function createGalleryScreen(dom, state, handlers) {
   }
 
   async function refreshGallery() {
+    if (state.galleryView === "projects") {
+      projects = await handlers.loadProjects();
+      renderProjects();
+      return;
+    }
+
     entries = sortEntriesByOldest(await handlers.loadEntries());
     visibleCount = Math.min(entries.length, GALLERY_PAGE_SIZE);
     renderEntries();
   }
 
-  async function openGalleryPanel() {
+  function renderProjects() {
+    dom.galleryList.replaceChildren();
+    dom.galleryStatus.textContent = formatProjectStatus(projects.length);
+    dom.galleryEmptyState.classList.toggle("hidden", projects.length > 0);
+    dom.galleryEmptyIcon.textContent = "folder_copy";
+    dom.galleryEmptyText.textContent = "No projects found yet. Create one to organize recordings.";
+
+    projects.forEach((project, index) => {
+      const card = document.createElement("article");
+      card.className = "gallery-row gallery-project-row";
+
+      const thumb = document.createElement("div");
+      thumb.className = "gallery-row-thumb gallery-project-thumb";
+      thumb.innerHTML = '<div class="gallery-row-thumb-fallback"><span class="material-symbols-outlined">folder</span></div>';
+
+      const details = document.createElement("div");
+      details.className = "gallery-row-details";
+
+      const name = document.createElement("p");
+      name.className = "gallery-row-name";
+      name.textContent = project.name;
+
+      const meta = document.createElement("p");
+      meta.className = "gallery-row-meta";
+      meta.textContent = `${project.videoCount || 0} videos`;
+
+      const path = document.createElement("p");
+      path.className = "gallery-row-path";
+      path.textContent = project.path;
+
+      const actions = document.createElement("div");
+      actions.className = "gallery-project-actions";
+
+      const chooseButton = document.createElement("button");
+      chooseButton.type = "button";
+      chooseButton.className = "gallery-delete-button";
+      chooseButton.dataset.action = "choose-project";
+      chooseButton.dataset.index = String(index);
+      chooseButton.innerHTML = '<span class="material-symbols-outlined">check_circle</span><span>Choose Project</span>';
+
+      const openFolderButton = document.createElement("button");
+      openFolderButton.type = "button";
+      openFolderButton.className = "gallery-delete-button";
+      openFolderButton.dataset.action = "open-project-folder";
+      openFolderButton.dataset.index = String(index);
+      openFolderButton.innerHTML = '<span class="material-symbols-outlined">folder_open</span><span>Open Folder</span>';
+
+      const renameButton = document.createElement("button");
+      renameButton.type = "button";
+      renameButton.className = "gallery-delete-button";
+      renameButton.dataset.action = "rename-project";
+      renameButton.dataset.index = String(index);
+      renameButton.innerHTML = '<span class="material-symbols-outlined">edit</span><span>Rename</span>';
+
+      if (state.saveDirectoryPath && project.path.toLowerCase() === state.saveDirectoryPath.toLowerCase()) {
+        chooseButton.disabled = true;
+        chooseButton.innerHTML = '<span class="material-symbols-outlined">task_alt</span><span>Current Project</span>';
+      }
+
+      actions.append(chooseButton, openFolderButton, renameButton);
+      details.append(name, meta, path, actions);
+      card.append(thumb, details);
+      dom.galleryList.appendChild(card);
+    });
+  }
+
+  async function switchView(view) {
+    state.galleryView = view === "projects" ? "projects" : "videos";
+    syncViewUi();
+    await refreshGallery();
+  }
+
+  async function openGalleryPanel(initialView = "videos") {
     dialogRect.width = APP_THRESHOLDS.dialogDefaultWidth;
     dialogRect.height = Math.max(APP_THRESHOLDS.dialogMinHeight, window.innerHeight - APP_THRESHOLDS.dialogEdgeMargin * 2);
     dialogRect.x = APP_THRESHOLDS.dialogEdgeMargin;
     dialogRect.y = APP_THRESHOLDS.dialogEdgeMargin;
+    state.galleryView = initialView === "projects" ? "projects" : "videos";
+    syncViewUi();
     await refreshGallery();
     setGalleryPanelOpen(true);
   }
@@ -341,6 +444,32 @@ export default function createGalleryScreen(dom, state, handlers) {
     }
 
     const index = Number.parseInt(actionElement.dataset.index || "", 10);
+    if (state.galleryView === "projects") {
+      const project = projects[index];
+      if (!project) {
+        return;
+      }
+
+      if (actionElement.dataset.action === "choose-project") {
+        await handlers.openProject(project);
+        await switchView("videos");
+        return;
+      }
+
+      if (actionElement.dataset.action === "open-project-folder") {
+        await handlers.openProjectFolder(project);
+        return;
+      }
+
+      if (actionElement.dataset.action === "rename-project") {
+        await handlers.renameProject(project);
+        await refreshGallery();
+        return;
+      }
+
+      return;
+    }
+
     const entry = entries[index];
     if (!entry) {
       return;
@@ -430,6 +559,7 @@ export default function createGalleryScreen(dom, state, handlers) {
   return {
     setGalleryPanelOpen,
     openGalleryPanel,
+    switchView,
     refreshGallery,
     startDialogInteraction,
     updateDialogInteraction,

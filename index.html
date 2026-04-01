@@ -88,16 +88,6 @@
               Gallery
             </button>
             <span class="console-separator hidden" id="previewSeparatorSecondary" aria-hidden="true">|</span>
-            <button class="console-button hidden" id="resultProjectsButton" type="button" aria-label="Open projects">
-              <span class="material-symbols-outlined">folder_copy</span>
-              Projects
-            </button>
-            <span class="console-separator hidden" id="previewSeparatorTertiary" aria-hidden="true">|</span>
-            <button class="console-button hidden" id="resultSlideshowButton" type="button" aria-label="Open slideshow window">
-              <span class="material-symbols-outlined">slideshow</span>
-              Slideshow
-            </button>
-            <span class="console-separator hidden" id="previewSeparatorQuaternary" aria-hidden="true">|</span>
             <button class="console-button hidden" id="resultSettingsButton" type="button" aria-label="Open settings">
               <span class="material-symbols-outlined">tune</span>
               Settings
@@ -112,6 +102,11 @@
         <header class="operator-dialog-header" id="operatorDialogHeader">
           <div class="operator-heading">
             <div class="brand operator-dialog-brand">Settings</div>
+            <div class="gallery-tabs" role="tablist" aria-label="Settings views">
+              <button class="gallery-tab is-active" id="settingsTabEditor" type="button" role="tab" aria-selected="true">Video Editor</button>
+              <button class="gallery-tab" id="settingsTabCountdown" type="button" role="tab" aria-selected="false">Recording Countdown</button>
+              <button class="gallery-tab" id="settingsTabInputs" type="button" role="tab" aria-selected="false">Recording Inputs</button>
+            </div>
           </div>
           <button class="icon-button" id="operatorCloseButton" type="button" title="Close operator settings">
             <span class="material-symbols-outlined">close</span>
@@ -119,7 +114,7 @@
         </header>
 
         <div class="operator-dialog-body">
-          <section class="panel-section">
+          <section class="panel-section" id="settingsSectionEditor">
             <div class="section-header">
               <div>
                 <p class="panel-title panel-title-small">Video Editor</p>
@@ -150,9 +145,7 @@
             <div class="frame-tray operator-frame-tray" id="frameTray"></div>
           </section>
 
-          <div class="panel-separator" aria-hidden="true"></div>
-
-          <section class="panel-section">
+          <section class="panel-section hidden" id="settingsSectionCountdown">
             <div class="section-header">
               <div>
                 <p class="panel-title panel-title-small">Recording Countdown</p>
@@ -172,24 +165,7 @@
             </div>
           </section>
 
-          <div class="panel-separator" aria-hidden="true"></div>
-
-          <section class="panel-section">
-            <div class="section-header">
-              <div>
-                <p class="panel-title panel-title-small">Save Folder</p>
-              </div>
-            </div>
-            <button class="console-button secondary-button" id="saveFolderButton" type="button">
-              <span class="material-symbols-outlined">folder_open</span>
-              Choose Folder
-            </button>
-            
-          </section>
-
-          <div class="panel-separator" aria-hidden="true"></div>
-
-          <section class="panel-section">
+          <section class="panel-section hidden" id="settingsSectionInputs">
             <div class="section-header">
               <div>
                 <p class="panel-title panel-title-small">Recording Inputs</p>
@@ -208,25 +184,19 @@
                 <option value="__none__">Audio Off</option>
               </select>
             </label>
-          </section>
-
-          <div class="panel-separator" aria-hidden="true"></div>
-
-          <section class="panel-section">
-            <div class="section-header">
-              <div>
-                <p class="panel-title panel-title-small">Close App</p>
-              </div>
-            </div>
-            <button class="console-button secondary-button" id="operatorCloseAppButton" type="button">
-              <span class="material-symbols-outlined">power_settings_new</span>
-              Close App
+            <button class="console-button secondary-button" id="saveFolderButton" type="button">
+              <span class="material-symbols-outlined">folder_open</span>
+              Choose Folder
             </button>
           </section>
         </div>
 
-        <div class="operator-dialog-footer">
+        <div class="operator-dialog-footer operator-dialog-footer-actions">
           <p class="operator-version-label" id="appVersionLabel">Version 1.0.0.0_0</p>
+          <button class="console-button secondary-button" id="operatorCloseAppButton" type="button">
+            <span class="material-symbols-outlined">power_settings_new</span>
+            Close App
+          </button>
         </div>
 
         <button class="operator-dialog-resize" id="operatorDialogResize" type="button" aria-label="Resize settings dialog">
@@ -263,7 +233,7 @@
           <p class="operator-version-label" id="galleryFooterLabel">Open a saved video to load it into preview.</p>
           <button class="secondary-button gallery-footer-action" id="galleryOpenFolderButton" type="button">
             <span class="material-symbols-outlined">folder_open</span>
-            Open Folder
+            <span id="galleryOpenFolderLabel">Open Folder</span>
           </button>
         </div>
 

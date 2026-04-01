@@ -30,11 +30,6 @@ export default function wireEvents(dom, state, handlers) {
     void handlers.openGalleryPanel("videos");
   });
 
-  dom.resultProjectsButton.addEventListener("click", () => {
-    void logger.audit("Result projects button clicked.");
-    void handlers.openGalleryPanel("projects");
-  });
-
   dom.galleryCloseButton.addEventListener("click", () => {
     void logger.audit("Gallery close button clicked.");
     handlers.closeGalleryPanel();
@@ -55,6 +50,21 @@ export default function wireEvents(dom, state, handlers) {
     void handlers.galleryScreen.switchView("projects");
   });
 
+  dom.settingsTabEditor.addEventListener("click", () => {
+    void logger.audit("Settings video editor tab clicked.");
+    handlers.operatorScreen.switchSection("editor");
+  });
+
+  dom.settingsTabCountdown.addEventListener("click", () => {
+    void logger.audit("Settings recording countdown tab clicked.");
+    handlers.operatorScreen.switchSection("countdown");
+  });
+
+  dom.settingsTabInputs.addEventListener("click", () => {
+    void logger.audit("Settings recording inputs tab clicked.");
+    handlers.operatorScreen.switchSection("inputs");
+  });
+
   dom.resultSaveButton.addEventListener("click", () => {
     void logger.audit("Result save button clicked.", { filename: state.recordingFilename });
     void handlers.saveCurrentRecording();
@@ -63,16 +73,6 @@ export default function wireEvents(dom, state, handlers) {
   dom.resultNewButton.addEventListener("click", () => {
     void logger.audit("Result new button clicked.");
     void handlers.handleResultReset();
-  });
-
-  dom.resultSlideshowButton.addEventListener("click", () => {
-    if (dom.resultSlideshowButton.disabled) {
-      void logger.warn("Result slideshow button click ignored because it is disabled.");
-      return;
-    }
-
-    void logger.audit("Result slideshow button clicked.");
-    void handlers.openSlideshowWindow();
   });
 
   dom.resultSettingsButton.addEventListener("click", () => {

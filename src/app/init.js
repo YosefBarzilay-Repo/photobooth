@@ -25,7 +25,6 @@ import {
   getFullscreenState,
   isDesktopApp,
   listDesktopProjects,
-  openDesktopSlideshowWindow,
   openDesktopDirectory,
   renameDesktopProjectDirectory,
   setFullscreenState
@@ -648,22 +647,6 @@ export default function initApp() {
     }
   }
 
-  async function openSlideshowWindow() {
-    try {
-      if (!state.isDesktopApp) {
-        showAppDialog("Desktop only", "The separate slideshow screen is available in the installed desktop app.");
-        return;
-      }
-
-      await logger.audit("Open slideshow window requested.", { saveDirectoryPath: state.saveDirectoryPath });
-      await openDesktopSlideshowWindow();
-      hideAppDialog();
-      void logger.info("Slideshow window opened.");
-    } catch (error) {
-      showErrorDialog("Slideshow unavailable", error, "Photobooth could not open the slideshow screen.");
-    }
-  }
-
   async function openGalleryPanel(initialView = "videos") {
     try {
       hideAppDialog();
@@ -1198,7 +1181,6 @@ export default function initApp() {
     openSettingsView,
     pickSaveFolder,
     saveCurrentRecording,
-    openSlideshowWindow,
     closeApp,
     operatorScreen,
     editorScreen,

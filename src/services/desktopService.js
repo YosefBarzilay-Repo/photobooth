@@ -166,12 +166,6 @@ export async function closeDesktopApp() {
   window.close();
 }
 
-export async function openDesktopSlideshowWindow() {
-  if (isDesktopApp()) {
-    await invokeDesktopWithTimeout("open_slideshow_window", {}, 12000);
-  }
-}
-
 export async function openDesktopDirectory(directoryPath = "") {
   if (!isDesktopApp()) {
     throw new Error("Desktop APIs are not available.");

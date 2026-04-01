@@ -59,6 +59,13 @@
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.operator-dialog-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .operator-version-label {
   margin: 0;
   color: rgba(255, 255, 255, 0.58);

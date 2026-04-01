@@ -54,12 +54,6 @@ export default function createCameraScreen(dom, state) {
     dom.resultGalleryButton.classList.toggle("hidden", !showResultActions);
     dom.resultGalleryButton.disabled = resultActionsDisabled;
     dom.previewSeparatorSecondary.classList.toggle("hidden", !showResultActions);
-    dom.resultProjectsButton.classList.toggle("hidden", !showResultActions);
-    dom.resultProjectsButton.disabled = resultActionsDisabled;
-    dom.previewSeparatorTertiary.classList.toggle("hidden", !showResultActions);
-    dom.resultSlideshowButton.classList.toggle("hidden", !showResultActions);
-    dom.resultSlideshowButton.disabled = resultActionsDisabled;
-    dom.previewSeparatorQuaternary.classList.toggle("hidden", !showResultActions);
     dom.resultSettingsButton.classList.toggle("hidden", !showResultActions);
     dom.resultSettingsButton.disabled = resultActionsDisabled;
     dom.resultNewButton.disabled = resultActionsDisabled;

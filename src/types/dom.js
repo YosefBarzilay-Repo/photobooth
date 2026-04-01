@@ -105,7 +105,6 @@
  *   textInput: HTMLInputElement,
  *   fontSelect: HTMLSelectElement,
  *   orientationSelect: HTMLSelectElement,
- *   slideshowModeSelect: HTMLSelectElement,
  *   slideshowFullscreenSelect: HTMLSelectElement,
  *   slideshowMonitorSelect: HTMLSelectElement,
  *   slideshowAudioOutputSelect: HTMLSelectElement,

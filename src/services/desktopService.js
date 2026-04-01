@@ -289,7 +289,9 @@ export async function closeDesktopApp() {
  * @returns {Promise<unknown>}
  */
 export async function openDesktopSlideshowWindow(projectPath) {
-  return invokeDesktop("open_slideshow_process", { projectPath });
+  return invokeDesktop("open_slideshow_process", { projectPath }, {
+    timeoutMs: 12000
+  });
 }
 
 /**

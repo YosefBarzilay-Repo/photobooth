@@ -37,7 +37,6 @@ export const APP_DEFAULTS = {
   logoScale: 1,
   logoRotation: 0,
   logoPosition: { x: 50, y: 20 },
-  slideshowMode: "internal",
   slideshowSoundEnabled: false,
   slideshowAudioOutputId: "",
   slideshowFadeEnabled: true,

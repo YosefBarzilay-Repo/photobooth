@@ -1,7 +1,16 @@
 import { APP_STRINGS, APP_THRESHOLDS } from "../constants/appConfig.js";
 
 const GALLERY_PAGE_SIZE = 18;
-const GALLERY_METADATA_CONCURRENCY = 2;
+const GALLERY_METADATA_CONCURRENCY = 1;
+
+function scheduleBackgroundTask(callback) {
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(() => callback(), { timeout: 250 });
+    return;
+  }
+
+  window.setTimeout(callback, 32);
+}
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -166,6 +175,7 @@ export default function createGalleryScreen(dom, state, handlers) {
   let visibleCount = GALLERY_PAGE_SIZE;
   let isLoading = false;
   let refreshToken = 0;
+  let slideshowToggleInFlight = false;
   const metadataCache = new Map();
   const metadataPromiseCache = new Map();
   let activeMetadataLoads = 0;
@@ -226,6 +236,7 @@ export default function createGalleryScreen(dom, state, handlers) {
   async function syncSlideshowButton() {
     if (state.galleryView !== "videos") {
       dom.gallerySlideshowLabel.textContent = "Start Slideshow";
+      dom.gallerySlideshowButton.disabled = true;
       return;
     }
 
@@ -233,6 +244,7 @@ export default function createGalleryScreen(dom, state, handlers) {
       ? await handlers.hasActiveSlideshowForProject(state.activeProjectPath)
       : false;
     dom.gallerySlideshowLabel.textContent = hasActiveSlideshow ? "Stop Slideshow" : "Start Slideshow";
+    dom.gallerySlideshowButton.disabled = slideshowToggleInFlight || !state.activeProjectPath;
   }
 
   function renderLoadingState(message) {
@@ -252,14 +264,20 @@ export default function createGalleryScreen(dom, state, handlers) {
       }
 
       activeMetadataLoads += 1;
-      nextTask().finally(() => {
-        activeMetadataLoads -= 1;
-        pumpMetadataQueue();
+      scheduleBackgroundTask(() => {
+        void nextTask().finally(() => {
+          activeMetadataLoads -= 1;
+          pumpMetadataQueue();
+        });
       });
     }
   }
 
   function queueMetadataLoad(entry, updateUi) {
+    if (!state.galleryPanelOpen || state.galleryView !== "videos") {
+      return;
+    }
+
     const metadataKey = entry.path || entry.url;
     const cachedMetadata = metadataCache.get(metadataKey);
     if (cachedMetadata) {
@@ -275,6 +293,12 @@ export default function createGalleryScreen(dom, state, handlers) {
 
     const promise = new Promise((resolve) => {
       metadataQueue.push(async () => {
+        if (!state.galleryPanelOpen || state.galleryView !== "videos") {
+          metadataPromiseCache.delete(metadataKey);
+          resolve({ thumbnail: "", duration: NaN });
+          return;
+        }
+
         await handlers.ensureEntryReady(entry);
         const metadata = await loadMetadata(entry.url);
         metadataCache.set(metadataKey, metadata);
@@ -666,12 +690,22 @@ export default function createGalleryScreen(dom, state, handlers) {
 
   dom.gallerySlideshowButton.addEventListener("click", () => {
     void (async () => {
+      if (slideshowToggleInFlight) {
+        return;
+      }
+
+      slideshowToggleInFlight = true;
+      dom.gallerySlideshowButton.disabled = true;
       let isPlaying = false;
-      if (state.activeProjectPath && await handlers.hasActiveSlideshowForProject(state.activeProjectPath)) {
-        await handlers.closeProjectSlideshow(state.activeProjectPath);
-        isPlaying = false;
-      } else {
-        isPlaying = Boolean(await handlers.startProjectSlideshow());
+      try {
+        if (state.activeProjectPath && await handlers.hasActiveSlideshowForProject(state.activeProjectPath)) {
+          await handlers.closeProjectSlideshow(state.activeProjectPath);
+          isPlaying = false;
+        } else {
+          isPlaying = Boolean(await handlers.startProjectSlideshow());
+        }
+      } finally {
+        slideshowToggleInFlight = false;
       }
 
       syncViewUi();

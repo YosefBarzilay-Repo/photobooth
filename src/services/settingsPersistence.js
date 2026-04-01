@@ -121,7 +121,6 @@ function normalizePersistedSettings(savedSettings, defaults) {
     logoScale: Number.isFinite(savedSettings.logoScale) ? savedSettings.logoScale : defaults.logoScale,
     logoRotation: Number.isFinite(savedSettings.logoRotation) ? savedSettings.logoRotation : defaults.logoRotation,
     logoPosition: cloneVector(savedSettings.logoPosition, defaults.logoPosition),
-    slideshowMode: savedSettings.slideshowMode === "external" ? "external" : defaults.slideshowMode,
     slideshowSoundEnabled: typeof savedSettings.slideshowSoundEnabled === "boolean"
       ? savedSettings.slideshowSoundEnabled
       : defaults.slideshowSoundEnabled,
@@ -194,7 +193,6 @@ function serializeStateSettings(state) {
     logoScale: state.logoScale,
     logoRotation: state.logoRotation,
     logoPosition: state.logoPosition,
-    slideshowMode: state.slideshowMode,
     slideshowSoundEnabled: state.slideshowSoundEnabled,
     slideshowAudioOutputId: state.slideshowAudioOutputId,
     slideshowFadeEnabled: state.slideshowFadeEnabled,
@@ -344,7 +342,6 @@ export function applyPersistedSettings(state, defaults, savedSettings) {
   state.logoScale = normalizedSettings.logoScale;
   state.logoRotation = normalizedSettings.logoRotation;
   state.logoPosition = normalizedSettings.logoPosition;
-  state.slideshowMode = normalizedSettings.slideshowMode;
   state.slideshowSoundEnabled = normalizedSettings.slideshowSoundEnabled;
   state.slideshowAudioOutputId = normalizedSettings.slideshowAudioOutputId;
   state.slideshowFadeEnabled = normalizedSettings.slideshowFadeEnabled;

@@ -154,7 +154,7 @@ export default function wireEvents(dom, state, handlers) {
     void handlers.closeAllSlideshows();
   });
 
-  [dom.textInput, dom.fontSelect, dom.orientationSelect, dom.slideshowModeSelect, dom.slideshowFullscreenSelect, dom.slideshowMonitorSelect, dom.slideshowAudioOutputSelect, dom.slideshowSoundEnabledSelect, dom.slideshowFadeEnabledSelect, dom.mainWindowFullscreenSelect, dom.mainWindowMonitorSelect].forEach((input) => {
+  [dom.textInput, dom.fontSelect, dom.orientationSelect, dom.slideshowFullscreenSelect, dom.slideshowMonitorSelect, dom.slideshowAudioOutputSelect, dom.slideshowSoundEnabledSelect, dom.slideshowFadeEnabledSelect, dom.mainWindowFullscreenSelect, dom.mainWindowMonitorSelect].forEach((input) => {
     input.addEventListener("input", () => {
       void logger.audit("Overlay input changed.", { id: input.id, value: input.value });
       handlers.operatorScreen.syncOverlayControls();

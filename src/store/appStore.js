@@ -76,7 +76,6 @@ export default function createAppStore() {
     logoPosition: { ...APP_DEFAULTS.logoPosition },
     slideshowSoundEnabled: APP_DEFAULTS.slideshowSoundEnabled,
     slideshowAudioOutputId: APP_DEFAULTS.slideshowAudioOutputId,
-    slideshowMode: APP_DEFAULTS.slideshowMode,
     slideshowFadeEnabled: APP_DEFAULTS.slideshowFadeEnabled,
     slideshowFadeDurationMs: APP_DEFAULTS.slideshowFadeDurationMs,
     mainWindowMonitorId: APP_DEFAULTS.mainWindowMonitorId,

@@ -71,19 +71,6 @@ function formatErrorMessage(error, fallbackMessage) {
   return fallbackMessage;
 }
 
-async function applyAudioOutputToVideo(video, deviceId = "") {
-  if (!(video instanceof HTMLMediaElement) || typeof video.setSinkId !== "function") {
-    return false;
-  }
-
-  try {
-    await video.setSinkId(String(deviceId || ""));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function buildDefaultProjectName() {
   const now = new Date();
   const pad = (value) => String(value).padStart(2, "0");
@@ -447,18 +434,49 @@ export default function createAppRuntime({
   let projectMetadataProject = null;
   let previewAccessClickCount = 0;
   let previewAccessClickTimer = null;
-  let slideshowEntries = [];
-  let slideshowIndex = -1;
-  let slideshowStartedAt = 0;
+  let activeSlideshowsCache = [];
+  let activeSlideshowsCacheTimestamp = 0;
+  let activeSlideshowsPromise = null;
+  let pendingSlideshowProjectPath = "";
+  const ACTIVE_SLIDESHOW_CACHE_MS = 1200;
 
-  async function getActiveSlideshows() {
+  function normalizeProjectPath(projectPath) {
+    return String(projectPath || "").trim().toLowerCase();
+  }
+
+  function invalidateActiveSlideshowsCache() {
+    activeSlideshowsCache = [];
+    activeSlideshowsCacheTimestamp = 0;
+    activeSlideshowsPromise = null;
+  }
+
+  async function getActiveSlideshows(forceRefresh = false) {
     if (!state.isDesktopApp) {
       return [];
     }
 
+    const now = Date.now();
+    if (!forceRefresh && activeSlideshowsCacheTimestamp > 0 && now - activeSlideshowsCacheTimestamp < ACTIVE_SLIDESHOW_CACHE_MS) {
+      return activeSlideshowsCache;
+    }
+
+    if (!forceRefresh && activeSlideshowsPromise) {
+      return activeSlideshowsPromise;
+    }
+
     try {
-      return await listActiveDesktopSlideshows();
+      activeSlideshowsPromise = listActiveDesktopSlideshows()
+        .then((slideshows) => {
+          activeSlideshowsCache = Array.isArray(slideshows) ? slideshows : [];
+          activeSlideshowsCacheTimestamp = Date.now();
+          return activeSlideshowsCache;
+        })
+        .finally(() => {
+          activeSlideshowsPromise = null;
+        });
+      return await activeSlideshowsPromise;
     } catch (error) {
+      invalidateActiveSlideshowsCache();
       void logger.warn("Active slideshow list failed.", {
         error: error instanceof Error ? error.message : String(error || "")
       });
@@ -467,36 +485,17 @@ export default function createAppRuntime({
   }
 
   async function hasActiveSlideshowForProject(projectPath) {
-    const normalizedProjectPath = String(projectPath || "").trim();
+    const normalizedProjectPath = normalizeProjectPath(projectPath);
     if (!normalizedProjectPath) {
       return false;
     }
 
-    if (state.mode === "slideshow" && state.saveDirectoryPath && state.saveDirectoryPath.toLowerCase() === normalizedProjectPath.toLowerCase()) {
+    if (normalizeProjectPath(pendingSlideshowProjectPath) === normalizedProjectPath) {
       return true;
     }
 
     const activeSlideshows = await getActiveSlideshows();
-    return activeSlideshows.some((entry) => String(entry.projectPath || "").trim().toLowerCase() === normalizedProjectPath.toLowerCase());
-  }
-
-  function getSlideshowFadeDurationMs() {
-    return state.slideshowFadeEnabled ? Math.max(0, state.slideshowFadeDurationMs || 0) : 0;
-  }
-
-  async function transitionSlideshowVideo(loadVideo) {
-    const fadeDurationMs = getSlideshowFadeDurationMs();
-    dom.slideshowVideo.style.transitionDuration = `${fadeDurationMs}ms`;
-    if (fadeDurationMs > 0) {
-      dom.slideshowVideo.classList.add("is-fading");
-      await sleep(fadeDurationMs);
-    }
-
-    await loadVideo();
-
-    if (fadeDurationMs > 0) {
-      dom.slideshowVideo.classList.remove("is-fading");
-    }
+    return activeSlideshows.some((entry) => normalizeProjectPath(entry.projectPath) === normalizedProjectPath);
   }
 
   function syncModeUi() {
@@ -813,7 +812,7 @@ export default function createAppRuntime({
 
     applyPersistedSettings(state, { ...APP_DEFAULTS, saveFolderDefault: APP_STRINGS.saveFolderDefault }, projectSettings);
     state.saveDirectoryPath = normalizedProjectPath;
-    state.saveDirectoryName = projectSettings.saveDirectoryName || state.saveDirectoryName;
+    state.saveDirectoryName = projectSettings?.saveDirectoryName || state.saveDirectoryName;
     state.activeProjectPath = normalizedProjectPath;
     operatorScreen.syncControlsFromState();
     operatorScreen.renderFrameTray();
@@ -901,44 +900,18 @@ export default function createAppRuntime({
     }
   }
 
-  function updateSlideshowEmptyState(isEmpty, message = "No saved videos yet in this project.") {
-    dom.slideshowEmptyState.classList.toggle("hidden", !isEmpty);
-    dom.slideshowVideo.classList.toggle("hidden", isEmpty);
-    dom.slideshowMeta.classList.toggle("hidden", isEmpty);
-    dom.slideshowEmptyText.textContent = message;
-  }
-
-  function stopSlideshowPlayback() {
-    dom.slideshowVideo.pause();
-    dom.slideshowVideo.removeAttribute("src");
-    dom.slideshowVideo.load();
-    slideshowEntries = [];
-    slideshowIndex = -1;
-  }
-
-  function exitSlideshow() {
-    if (state.mode !== "slideshow") {
-      return;
-    }
-
-    stopSlideshowPlayback();
-    state.mode = "editor";
-    syncModeUi();
-    editorScreen.showResult();
-  }
-
   async function closeProjectSlideshow(projectPath = state.activeProjectPath || state.saveDirectoryPath) {
     const normalizedProjectPath = String(projectPath || "").trim();
     if (!normalizedProjectPath) {
       return;
     }
 
-    if (state.mode === "slideshow" && state.saveDirectoryPath && state.saveDirectoryPath.toLowerCase() === normalizedProjectPath.toLowerCase()) {
-      exitSlideshow();
-    }
-
     if (state.isDesktopApp) {
       await closeExternalDesktopSlideshows(normalizedProjectPath);
+      if (normalizeProjectPath(pendingSlideshowProjectPath) === normalizeProjectPath(normalizedProjectPath)) {
+        pendingSlideshowProjectPath = "";
+      }
+      invalidateActiveSlideshowsCache();
     }
 
     if (state.galleryPanelOpen) {
@@ -947,53 +920,14 @@ export default function createAppRuntime({
   }
 
   async function closeAllSlideshows() {
-    if (state.mode === "slideshow") {
-      exitSlideshow();
-    }
-
     if (state.isDesktopApp) {
       await closeExternalDesktopSlideshows();
+      pendingSlideshowProjectPath = "";
+      invalidateActiveSlideshowsCache();
     }
 
     if (state.galleryPanelOpen) {
       await galleryScreen.syncSlideshowButton();
-    }
-  }
-
-  async function playSlideshowEntry(index) {
-    if (!slideshowEntries.length) {
-      updateSlideshowEmptyState(true);
-      return;
-    }
-
-    slideshowIndex = ((index % slideshowEntries.length) + slideshowEntries.length) % slideshowEntries.length;
-    const entry = slideshowEntries[slideshowIndex];
-    await ensureRecordingEntryUrl(entry);
-
-    updateSlideshowEmptyState(false);
-    try {
-      await transitionSlideshowVideo(async () => {
-        dom.slideshowVideo.pause();
-        dom.slideshowVideo.src = entry.url;
-        dom.slideshowVideo.currentTime = 0;
-        dom.slideshowVideo.load();
-        await applyAudioOutputToVideo(dom.slideshowVideo, state.slideshowAudioOutputId);
-        dom.slideshowVideo.muted = !state.slideshowSoundEnabled;
-        dom.slideshowVideo.defaultMuted = !state.slideshowSoundEnabled;
-        dom.slideshowVideo.volume = 1;
-        await dom.slideshowVideo.play();
-      });
-    } catch (error) {
-      void logger.warn("Slideshow playback failed. Advancing to next video.", {
-        filename: entry.filename,
-        error: error instanceof Error ? error.message : String(error || "")
-      });
-
-      if (slideshowEntries.length > 1) {
-        await playSlideshowEntry(slideshowIndex + 1);
-      } else {
-        updateSlideshowEmptyState(true, "This project has a video, but it could not be played.");
-      }
     }
   }
 
@@ -1009,40 +943,36 @@ export default function createAppRuntime({
     }
 
     try {
-      if (state.slideshowMode === "external" && state.isDesktopApp) {
-        if (await hasActiveSlideshowForProject(state.activeProjectPath)) {
-          if (state.galleryPanelOpen) {
-            await galleryScreen.syncSlideshowButton();
-          }
-          return true;
-        }
+      if (!state.isDesktopApp) {
+        showAppDialog("Slideshow unavailable", "Slideshows are available only in the desktop app.");
+        return false;
+      }
 
-        persistSettings(state);
-        await openDesktopSlideshowWindow(state.activeProjectPath);
+      if (await hasActiveSlideshowForProject(state.activeProjectPath)) {
         if (state.galleryPanelOpen) {
           await galleryScreen.syncSlideshowButton();
         }
         return true;
       }
 
-      stopStream();
-      closeGalleryPanel();
-      dom.resultVideo.pause();
-      state.mode = "slideshow";
-      slideshowStartedAt = Date.now();
-      syncModeUi();
-      updateSlideshowEmptyState(true, "Loading project videos...");
-
-      slideshowEntries = await loadSavedRecordingsFromDirectory(state.activeProjectPath);
-
-      if (!slideshowEntries.length) {
-        updateSlideshowEmptyState(true);
-        return true;
+      pendingSlideshowProjectPath = state.activeProjectPath;
+      if (state.galleryPanelOpen) {
+        await galleryScreen.syncSlideshowButton();
       }
-
-      await playSlideshowEntry(0);
+      persistSettings(state);
+      await openDesktopSlideshowWindow(state.activeProjectPath);
+      pendingSlideshowProjectPath = "";
+      await getActiveSlideshows(true);
+      if (state.galleryPanelOpen) {
+        await galleryScreen.syncSlideshowButton();
+      }
       return true;
     } catch (error) {
+      pendingSlideshowProjectPath = "";
+      invalidateActiveSlideshowsCache();
+      if (state.galleryPanelOpen) {
+        await galleryScreen.syncSlideshowButton();
+      }
       showErrorDialog("Slideshow unavailable", error, "Photobooth could not open the slideshow.");
       return false;
     }
@@ -1641,6 +1571,11 @@ export default function createAppRuntime({
       resetProjectDesignState();
       persistSettings(state);
       hideProjectDialog();
+      if (state.galleryPanelOpen && state.galleryView === "projects") {
+        void galleryScreen.refreshGallery();
+      } else if (state.galleryPanelOpen) {
+        void galleryScreen.syncSlideshowButton();
+      }
       void logger.info("Project created successfully.", {
         projectName,
         saveDirectoryPath: state.saveDirectoryPath,
@@ -1759,16 +1694,6 @@ export default function createAppRuntime({
       setProjectMetadataError(formatErrorMessage(error, "Photobooth could not save the booking details."));
     }
   });
-  dom.slideshowVideo.addEventListener("ended", () => {
-    if (state.mode === "slideshow" && slideshowEntries.length > 0) {
-      void playSlideshowEntry(slideshowIndex + 1);
-    }
-  });
-  dom.slideshowVideo.addEventListener("error", () => {
-    if (state.mode === "slideshow" && slideshowEntries.length > 0) {
-      void playSlideshowEntry(slideshowIndex + 1);
-    }
-  });
   navigator.mediaDevices?.addEventListener?.("devicechange", () => {
     void refreshMediaDeviceOptions();
   });
@@ -1827,35 +1752,15 @@ export default function createAppRuntime({
   window.addEventListener("focus", () => {
     void applyMainWindowDisplaySettings();
     if (state.galleryPanelOpen) {
-      void galleryScreen.refreshGallery();
+      void galleryScreen.syncSlideshowButton();
     }
   });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
       void applyMainWindowDisplaySettings();
       if (state.galleryPanelOpen) {
-        void galleryScreen.refreshGallery();
+        void galleryScreen.syncSlideshowButton();
       }
-    }
-  });
-  window.addEventListener("pointermove", (event) => {
-    if (state.mode !== "slideshow") {
-      return;
-    }
-
-    if (Date.now() - slideshowStartedAt < 400) {
-      return;
-    }
-
-    if (Math.abs(event.movementX) < 1 && Math.abs(event.movementY) < 1) {
-      return;
-    }
-
-    exitSlideshow();
-  });
-  window.addEventListener("keydown", (event) => {
-    if (state.mode === "slideshow" && event.key === "Escape") {
-      exitSlideshow();
     }
   });
   wireEvents(dom, state, {

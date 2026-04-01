@@ -216,7 +216,6 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
 
   function syncOverlayControls() {
     state.captureOrientation = dom.orientationSelect.value === "portrait" ? "portrait" : "landscape";
-    state.slideshowMode = dom.slideshowModeSelect.value === "external" ? "external" : "internal";
     state.mainWindowFullscreen = dom.mainWindowFullscreenSelect.value !== "false";
     state.mainWindowMonitorId = dom.mainWindowMonitorSelect.value;
     state.slideshowFullscreen = dom.slideshowFullscreenSelect.value !== "false";
@@ -294,7 +293,6 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     dom.textInput.value = activeOverlay?.type === "text" ? activeOverlay.text : "";
     dom.fontSelect.value = activeOverlay?.type === "text" ? activeOverlay.font : state.overlayFont;
     dom.orientationSelect.value = state.captureOrientation;
-    dom.slideshowModeSelect.value = state.slideshowMode;
     dom.mainWindowFullscreenSelect.value = String(state.mainWindowFullscreen);
     replaceSelectOptions(dom.mainWindowMonitorSelect, monitorOptions, state.mainWindowMonitorId);
     dom.slideshowFullscreenSelect.value = String(state.slideshowFullscreen);

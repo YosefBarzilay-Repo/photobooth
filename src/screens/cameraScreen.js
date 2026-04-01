@@ -10,10 +10,9 @@ export default function createCameraScreen(dom, state) {
     document.body.dataset.mode = state.mode;
     const cameraMode = state.mode === "camera";
     const editorVisible = state.mode === "editor";
-    const slideshowVisible = state.mode === "slideshow";
     const countdownActive = state.countdownValue !== null;
     const showResultActions = state.mode === "editor";
-    const hideConsole = state.operatorPanelOpen || state.galleryPanelOpen || slideshowVisible;
+    const hideConsole = state.operatorPanelOpen || state.galleryPanelOpen;
     const resultActionsDisabled = state.isSaving;
 
     dom.cameraStage.classList.toggle("hidden", !cameraMode);
@@ -59,7 +58,7 @@ export default function createCameraScreen(dom, state) {
     dom.resultSettingsButton.classList.toggle("hidden", !showResultActions);
     dom.resultSettingsButton.disabled = resultActionsDisabled;
     dom.resultNewButton.disabled = resultActionsDisabled;
-    dom.slideshowOverlay.classList.toggle("hidden", !slideshowVisible);
+    dom.slideshowOverlay.classList.add("hidden");
   }
 
   function showError(message) {

@@ -119,7 +119,6 @@ export default function createDomRefs() {
     textInput: getRequiredElement("textInput"),
     fontSelect: getRequiredElement("fontSelect"),
     orientationSelect: getRequiredElement("orientationSelect"),
-    slideshowModeSelect: getRequiredElement("slideshowModeSelect"),
     slideshowFullscreenSelect: getRequiredElement("slideshowFullscreenSelect"),
     slideshowMonitorSelect: getRequiredElement("slideshowMonitorSelect"),
     slideshowAudioOutputSelect: getRequiredElement("slideshowAudioOutputSelect"),

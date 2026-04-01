@@ -18,13 +18,16 @@ import {
   loadSavedRecordingsFromDirectory
 } from "../services/downloadService.js";
 import {
+  applyCurrentWindowDisplaySettings,
   closeDesktopApp,
+  closeExternalDesktopSlideshows,
   createDesktopProjectDirectory,
   deleteDesktopProjectDirectory,
   getDefaultRecordingsDirectory,
   getDesktopAppVersion,
   getFullscreenState,
   isDesktopApp,
+  listActiveDesktopSlideshows,
   listDesktopProjects,
   openDesktopSlideshowWindow,
   openDesktopDirectory,
@@ -375,9 +378,16 @@ function createDirectRecorder(previewVideo) {
   };
 }
 
-async function requestFullscreenIfPossible() {
+async function requestFullscreenIfPossible(desired = true) {
   if (isDesktopApp()) {
-    return setFullscreenState(true);
+    return setFullscreenState(Boolean(desired));
+  }
+
+  if (!desired) {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen?.();
+    }
+    return Boolean(document.fullscreenElement);
   }
 
   if (!document.fullscreenEnabled || document.fullscreenElement) {
@@ -404,6 +414,9 @@ export default function initApp() {
   state.isDesktopApp = isDesktopApp();
   applyPersistedSettings(state, { ...APP_DEFAULTS, saveFolderDefault: APP_STRINGS.saveFolderDefault }, loadPersistedSettings());
   syncActiveOverlayState(state);
+  function handleSettingsChanged(nextState) {
+    persistSettings(nextState);
+  }
   void logger.info("Photobooth app initialization started.", {
     isDesktopApp: state.isDesktopApp,
     saveDirectoryPath: state.saveDirectoryPath,
@@ -412,7 +425,7 @@ export default function initApp() {
   const dom = createDomRefs();
   const cameraScreen = createCameraScreen(dom, state);
   const editorScreen = createEditorScreen(dom, state);
-  const operatorScreen = createOperatorScreen(dom, state, editorScreen, persistSettings);
+  const operatorScreen = createOperatorScreen(dom, state, editorScreen, handleSettingsChanged);
   let composedRecorder = null;
   let cameraSessionId = 0;
   let dialogResolver = null;
@@ -421,9 +434,40 @@ export default function initApp() {
   let projectDialogProject = null;
   let recentProjects = [];
   let projectMetadataProject = null;
+  let previewAccessClickCount = 0;
+  let previewAccessClickTimer = null;
   let slideshowEntries = [];
   let slideshowIndex = -1;
   let slideshowStartedAt = 0;
+
+  async function getActiveSlideshows() {
+    if (!state.isDesktopApp) {
+      return [];
+    }
+
+    try {
+      return await listActiveDesktopSlideshows();
+    } catch (error) {
+      void logger.warn("Active slideshow list failed.", {
+        error: error instanceof Error ? error.message : String(error || "")
+      });
+      return [];
+    }
+  }
+
+  async function hasActiveSlideshowForProject(projectPath) {
+    const normalizedProjectPath = String(projectPath || "").trim();
+    if (!normalizedProjectPath) {
+      return false;
+    }
+
+    if (state.mode === "slideshow" && state.saveDirectoryPath && state.saveDirectoryPath.toLowerCase() === normalizedProjectPath.toLowerCase()) {
+      return true;
+    }
+
+    const activeSlideshows = await getActiveSlideshows();
+    return activeSlideshows.some((entry) => String(entry.projectPath || "").trim().toLowerCase() === normalizedProjectPath.toLowerCase());
+  }
 
   function getSlideshowFadeDurationMs() {
     return state.slideshowFadeEnabled ? Math.max(0, state.slideshowFadeDurationMs || 0) : 0;
@@ -456,6 +500,14 @@ export default function initApp() {
   function resetProjectDialogState() {
     projectDialogMode = "create";
     projectDialogProject = null;
+  }
+
+  function resetPreviewAccessClicks() {
+    previewAccessClickCount = 0;
+    if (previewAccessClickTimer !== null) {
+      window.clearTimeout(previewAccessClickTimer);
+      previewAccessClickTimer = null;
+    }
   }
 
   function hideAppDialog(result = false) {
@@ -530,6 +582,25 @@ export default function initApp() {
   function showProjectError(message) {
     dom.projectDialogError.textContent = message;
     dom.projectDialogError.classList.remove("hidden");
+  }
+
+  function registerPreviewAccessClick() {
+    if (state.mode !== "camera") {
+      return;
+    }
+
+    previewAccessClickCount += 1;
+    if (previewAccessClickCount >= APP_THRESHOLDS.operatorAccessClickCount) {
+      resetPreviewAccessClicks();
+      openPreviewView();
+      return;
+    }
+
+    if (previewAccessClickTimer !== null) {
+      window.clearTimeout(previewAccessClickTimer);
+    }
+
+    previewAccessClickTimer = window.setTimeout(resetPreviewAccessClicks, APP_THRESHOLDS.operatorAccessTimeoutMs);
   }
 
   function showRenameProjectDialog(project) {
@@ -813,6 +884,39 @@ export default function initApp() {
     editorScreen.showResult();
   }
 
+  async function closeProjectSlideshow(projectPath = state.saveDirectoryPath) {
+    const normalizedProjectPath = String(projectPath || "").trim();
+    if (!normalizedProjectPath) {
+      return;
+    }
+
+    if (state.mode === "slideshow" && state.saveDirectoryPath && state.saveDirectoryPath.toLowerCase() === normalizedProjectPath.toLowerCase()) {
+      exitSlideshow();
+    }
+
+    if (state.isDesktopApp) {
+      await closeExternalDesktopSlideshows(normalizedProjectPath);
+    }
+
+    if (state.galleryPanelOpen) {
+      await galleryScreen.refreshGallery();
+    }
+  }
+
+  async function closeAllSlideshows() {
+    if (state.mode === "slideshow") {
+      exitSlideshow();
+    }
+
+    if (state.isDesktopApp) {
+      await closeExternalDesktopSlideshows();
+    }
+
+    if (state.galleryPanelOpen) {
+      await galleryScreen.refreshGallery();
+    }
+  }
+
   async function playSlideshowEntry(index) {
     if (!slideshowEntries.length) {
       updateSlideshowEmptyState(true);
@@ -859,7 +963,11 @@ export default function initApp() {
 
     try {
       if (state.slideshowMode === "external" && state.isDesktopApp) {
-        await openDesktopSlideshowWindow();
+        persistSettings(state);
+        await openDesktopSlideshowWindow(state.saveDirectoryPath);
+        if (state.galleryPanelOpen) {
+          await galleryScreen.refreshGallery();
+        }
         return;
       }
 
@@ -881,6 +989,16 @@ export default function initApp() {
       showErrorDialog("Slideshow unavailable", error, "Photobooth could not open the slideshow.");
     }
   }
+
+  async function toggleCurrentProjectSlideshow() {
+    if (state.saveDirectoryPath && await hasActiveSlideshowForProject(state.saveDirectoryPath)) {
+      await closeProjectSlideshow(state.saveDirectoryPath);
+      return;
+    }
+
+    await startProjectSlideshow();
+  }
+
   const galleryScreen = createGalleryScreen(dom, state, {
     loadEntries: loadGalleryEntries,
     loadProjects,
@@ -911,7 +1029,9 @@ export default function initApp() {
     renameProject,
     deleteProject,
     openProjectMetadata,
+    hasActiveSlideshowForProject,
     startProjectSlideshow,
+    closeProjectSlideshow,
     openNewProjectDialog: showProjectDialog
   });
 
@@ -949,12 +1069,18 @@ export default function initApp() {
     restartAnimation(dom.flashOverlay, "flash-active");
   }
 
-  async function restoreFullscreenIfNeeded() {
-    if (state.mode !== "camera") {
+  async function applyMainWindowDisplaySettings() {
+    if (state.isDesktopApp) {
+      await applyCurrentWindowDisplaySettings({
+        monitorId: state.mainWindowMonitorId,
+        fullscreen: state.mainWindowFullscreen
+      });
+      state.isFullscreen = await getFullscreenState();
+      syncModeUi();
       return;
     }
 
-    state.isFullscreen = await requestFullscreenIfPossible();
+    state.isFullscreen = await requestFullscreenIfPossible(state.mainWindowFullscreen);
     syncModeUi();
   }
 
@@ -1169,7 +1295,7 @@ export default function initApp() {
     }
 
     if (cameraSessionId === sessionId) {
-      void restoreFullscreenIfNeeded();
+      void applyMainWindowDisplaySettings();
     }
   }
 
@@ -1466,21 +1592,20 @@ export default function initApp() {
       if (desktopSettings) {
         applyPersistedSettings(state, { ...APP_DEFAULTS, saveFolderDefault: APP_STRINGS.saveFolderDefault }, desktopSettings);
         syncActiveOverlayState(state);
-        operatorScreen.syncControlsFromState();
-        operatorScreen.renderFrameTray();
-        editorScreen.syncOrientationUi();
-        editorScreen.renderOverlayPreview();
-        editorScreen.syncEmptyState();
-        syncModeUi();
       }
+
+      await operatorScreen.loadMonitorOptions();
+      operatorScreen.syncControlsFromState();
+      operatorScreen.renderFrameTray();
+      editorScreen.syncOrientationUi();
+      editorScreen.renderOverlayPreview();
+      editorScreen.syncEmptyState();
+      syncModeUi();
 
       await Promise.all([
         loadAppVersion(),
         refreshMediaDeviceOptions(),
-        getFullscreenState().then((fullscreen) => {
-          state.isFullscreen = fullscreen;
-          syncModeUi();
-        })
+        applyMainWindowDisplaySettings()
       ]);
     } finally {
       await sleep(600);
@@ -1606,31 +1731,31 @@ export default function initApp() {
   editorScreen.renderOverlayPreview();
   editorScreen.syncPlaybackButton();
   editorScreen.syncEmptyState();
-  void requestFullscreenIfPossible().then((fullscreen) => {
+  void requestFullscreenIfPossible(state.mainWindowFullscreen).then((fullscreen) => {
     state.isFullscreen = fullscreen;
     syncModeUi();
   });
   document.addEventListener("pointerdown", () => {
-    void requestFullscreenIfPossible().then((fullscreen) => {
+    void requestFullscreenIfPossible(state.mainWindowFullscreen).then((fullscreen) => {
       state.isFullscreen = fullscreen;
       syncModeUi();
     });
   }, { once: true });
   document.addEventListener("keydown", () => {
-    void requestFullscreenIfPossible().then((fullscreen) => {
+    void requestFullscreenIfPossible(state.mainWindowFullscreen).then((fullscreen) => {
       state.isFullscreen = fullscreen;
       syncModeUi();
     });
   }, { once: true });
   window.addEventListener("focus", () => {
-    void restoreFullscreenIfNeeded();
+    void applyMainWindowDisplaySettings();
     if (state.galleryPanelOpen) {
       void galleryScreen.refreshGallery();
     }
   });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
-      void restoreFullscreenIfNeeded();
+      void applyMainWindowDisplaySettings();
       if (state.galleryPanelOpen) {
         void galleryScreen.refreshGallery();
       }
@@ -1663,13 +1788,16 @@ export default function initApp() {
     handleResultReset,
     handleResultEnded,
     hideAppDialog,
+    applyMainWindowDisplaySettings,
+    registerPreviewAccessClick,
+    closeAllSlideshows,
     openGalleryFolder,
     openGalleryPanel,
     openPreviewView,
     openSettingsView,
     pickSaveFolder,
     saveCurrentRecording,
-    openSlideshowWindow: startProjectSlideshow,
+    openSlideshowWindow: toggleCurrentProjectSlideshow,
     closeApp,
     operatorScreen,
     editorScreen,

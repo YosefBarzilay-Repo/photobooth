@@ -201,37 +201,32 @@
 .operator-dialog-resize {
   position: absolute;
   right: 0;
-  top: 50%;
-  width: 16px;
-  height: 8rem;
+  bottom: 0;
+  width: 2.4rem;
+  height: 2.4rem;
   padding: 0;
   border: 0;
-  border-radius: 24px 0 0 24px;
+  border-radius: 18px 0 0 0;
   background: transparent;
   color: transparent;
-  transform: translateY(-50%);
-  cursor: ew-resize;
+  cursor: nwse-resize;
   z-index: 2;
 }
 
 #operatorDialogResize {
-  right: -10px;
+  right: 0;
 }
 
 .operator-dialog-resize::before {
   content: "";
   position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 6px;
-  width: 4px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 136, 181, 0.7), rgba(255, 255, 255, 0.12));
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
-}
-
-#galleryDialogResize::before {
-  display: none;
+  right: 0.45rem;
+  bottom: 0.45rem;
+  width: 0.95rem;
+  height: 0.95rem;
+  border-right: 3px solid rgba(255, 136, 181, 0.78);
+  border-bottom: 3px solid rgba(255, 136, 181, 0.78);
+  border-radius: 0 0 0.28rem 0;
 }
 
 .operator-dialog-body::-webkit-scrollbar {

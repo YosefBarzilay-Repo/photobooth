@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Photobooth",
+        "title": "Photobooth Main",
         "width": 1280,
         "height": 720,
         "resizable": true,

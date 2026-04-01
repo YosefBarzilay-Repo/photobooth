@@ -4,23 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Photobooth Slideshow</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:FILL@0..1" rel="stylesheet">
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #000; color: #f5f4f8; }
+  </style>
   <link rel="stylesheet" href="styles/library.css">
 </head>
 <body class="slideshow-page">
   <div class="slideshow-shell slideshow-shell-external">
-    <button class="slideshow-close-button" id="slideshowCloseButton" type="button" aria-label="Close slideshow">
-      <span class="material-symbols-outlined">close</span>
-    </button>
     <main class="slideshow-stage slideshow-stage-external">
       <video class="slideshow-video hidden" id="slideshowVideo" playsinline muted autoplay></video>
       <section class="library-empty" id="slideshowEmptyState">
-        <span class="material-symbols-outlined">slideshow</span>
-        <h2>No gallery videos yet</h2>
-        <p>This screen plays the saved gallery videos in a loop. Save a video and refresh to include it.</p>
+        <div class="slideshow-loader" aria-hidden="true"></div>
+        <h2>Loading Slideshow</h2>
+        <p>This player loads the current project videos and plays them in a loop.</p>
       </section>
       <div class="slideshow-meta hidden" id="slideshowMeta">
         <span id="slideshowFilename"></span>
@@ -29,6 +25,9 @@
     </main>
   </div>
 
+  <script>
+    console.log("slideshow-html-bootstrap");
+  </script>
   <script type="module" src="src/slideshowWindow.js"></script>
 </body>
 </html>

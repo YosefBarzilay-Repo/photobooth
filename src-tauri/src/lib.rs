@@ -1,5 +1,5 @@
 use chrono::Local;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
   env,
@@ -9,7 +9,11 @@ use std::{
   process::Command,
   time::UNIX_EPOCH,
 };
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{
+  AppHandle, Listener, LogicalSize, Manager, Monitor, PhysicalPosition, Position, Size, WebviewUrl, WebviewWindow,
+  WebviewWindowBuilder,
+};
+use url::Url;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -27,6 +31,14 @@ struct SavedProject {
   created_at: u128,
   video_count: usize,
   total_size_bytes: u64,
+  order_id: String,
+  client_name: String,
+  project_date: String,
+  project_status: String,
+  phone: String,
+  email: String,
+  address: String,
+  notes: String,
 }
 
 #[derive(Serialize)]
@@ -35,6 +47,51 @@ struct AppVersionInfo {
   version: String,
   build_number: String,
   display_version: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MonitorInfo {
+  id: String,
+  name: String,
+  is_primary: bool,
+  width: u32,
+  height: u32,
+  position_x: i32,
+  position_y: i32,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectMetadata {
+  order_id: String,
+  client_name: String,
+  project_date: String,
+  project_status: String,
+  phone: String,
+  email: String,
+  address: String,
+  notes: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ActiveSlideshow {
+  pid: u32,
+  project_path: String,
+}
+
+fn default_project_metadata() -> ProjectMetadata {
+  ProjectMetadata {
+    order_id: String::new(),
+    client_name: String::new(),
+    project_date: String::new(),
+    project_status: "New".to_string(),
+    phone: String::new(),
+    email: String::new(),
+    address: String::new(),
+    notes: String::new(),
+  }
 }
 
 fn is_supported_video_file(path: &Path) -> bool {
@@ -55,22 +112,34 @@ fn get_default_recordings_directory_path() -> Result<PathBuf, String> {
     .map_err(|error| error.to_string())
 }
 
-fn get_app_data_directory_path() -> Result<PathBuf, String> {
+fn get_app_data_root_directory_path() -> Result<PathBuf, String> {
   if let Some(local_app_data) = env::var_os("LOCALAPPDATA") {
-    return Ok(PathBuf::from(local_app_data).join("Photobooth").join("Data").join("Database"));
+    return Ok(PathBuf::from(local_app_data).join("Photobooth").join("Data"));
   }
 
   env::current_dir()
-    .map(|path| path.join("Photobooth").join("Data").join("Database"))
+    .map(|path| path.join("Photobooth").join("Data"))
     .map_err(|error| error.to_string())
 }
 
+fn get_app_database_directory_path() -> Result<PathBuf, String> {
+  get_app_data_root_directory_path().map(|path| path.join("Database"))
+}
+
 fn get_app_log_path() -> Result<PathBuf, String> {
-  get_app_data_directory_path().map(|path| path.join("Logs").join("photobooth.log"))
+  get_app_data_root_directory_path().map(|path| path.join("Logs").join("photobooth.log"))
 }
 
 fn get_project_registry_path() -> Result<PathBuf, String> {
-  get_app_data_directory_path().map(|path| path.join("projects.json"))
+  get_app_database_directory_path().map(|path| path.join("projects.json"))
+}
+
+fn get_legacy_project_registry_path() -> Result<PathBuf, String> {
+  get_app_data_root_directory_path().map(|path| path.join("projects.json"))
+}
+
+fn get_active_slideshows_path() -> Result<PathBuf, String> {
+  get_app_database_directory_path().map(|path| path.join("active-slideshows.json"))
 }
 
 fn sanitize_log_text(value: &str) -> String {
@@ -132,13 +201,44 @@ fn get_path_created_at(path: &Path) -> u128 {
     .unwrap_or(0)
 }
 
+fn parse_project_metadata(raw_entry: &Value) -> ProjectMetadata {
+  let metadata = raw_entry.get("metadata").and_then(Value::as_object);
+  let get_value = |camel_key: &str, snake_key: &str| -> String {
+    metadata
+      .and_then(|value| value.get(camel_key).or_else(|| value.get(snake_key)))
+      .and_then(Value::as_str)
+      .unwrap_or_else(|| raw_entry.get(camel_key).or_else(|| raw_entry.get(snake_key)).and_then(Value::as_str).unwrap_or(""))
+      .trim()
+      .to_string()
+  };
+
+  ProjectMetadata {
+    order_id: get_value("orderId", "order_id"),
+    client_name: get_value("clientName", "client_name"),
+    project_date: get_value("projectDate", "project_date"),
+    project_status: {
+      let value = get_value("projectStatus", "project_status");
+      if value.is_empty() { "New".to_string() } else { value }
+    },
+    phone: get_value("phone", "phone"),
+    email: get_value("email", "email"),
+    address: get_value("address", "address"),
+    notes: get_value("notes", "notes"),
+  }
+}
+
 fn read_project_registry() -> Result<Vec<SavedProject>, String> {
   let registry_path = get_project_registry_path()?;
-  if !registry_path.exists() {
+  let legacy_registry_path = get_legacy_project_registry_path()?;
+  let source_path = if registry_path.exists() {
+    registry_path
+  } else if legacy_registry_path.exists() {
+    legacy_registry_path
+  } else {
     return Ok(Vec::new());
-  }
+  };
 
-  let registry_text = fs::read_to_string(registry_path).map_err(|error| error.to_string())?;
+  let registry_text = fs::read_to_string(source_path).map_err(|error| error.to_string())?;
   if registry_text.trim().is_empty() {
     return Ok(Vec::new());
   }
@@ -169,6 +269,7 @@ fn read_project_registry() -> Result<Vec<SavedProject>, String> {
       .or_else(|| raw_entry.get("total_size_bytes"))
       .and_then(Value::as_u64)
       .unwrap_or(0);
+    let metadata = parse_project_metadata(&raw_entry);
 
     projects.push(SavedProject {
       name,
@@ -176,6 +277,14 @@ fn read_project_registry() -> Result<Vec<SavedProject>, String> {
       created_at,
       video_count,
       total_size_bytes,
+      order_id: metadata.order_id,
+      client_name: metadata.client_name,
+      project_date: metadata.project_date,
+      project_status: metadata.project_status,
+      phone: metadata.phone,
+      email: metadata.email,
+      address: metadata.address,
+      notes: metadata.notes,
     });
   }
 
@@ -192,6 +301,159 @@ fn write_project_registry(projects: &[SavedProject]) -> Result<(), String> {
   fs::write(registry_path, payload).map_err(|error| error.to_string())
 }
 
+fn read_active_slideshows() -> Result<Vec<ActiveSlideshow>, String> {
+  let path = get_active_slideshows_path()?;
+  if !path.exists() {
+    return Ok(Vec::new());
+  }
+
+  let text = fs::read_to_string(path).map_err(|error| error.to_string())?;
+  if text.trim().is_empty() {
+    return Ok(Vec::new());
+  }
+
+  let entries = serde_json::from_str::<Vec<ActiveSlideshow>>(&text).map_err(|error| error.to_string())?;
+  let active_entries = entries
+    .into_iter()
+    .filter(|entry| {
+      Command::new("tasklist")
+        .args(["/FI", &format!("PID eq {}", entry.pid), "/FO", "CSV", "/NH"])
+        .output()
+        .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|stdout| stdout.contains(&entry.pid.to_string()))
+        .unwrap_or(true)
+    })
+    .collect::<Vec<_>>();
+  if active_entries.len() > 0 || !text.trim().is_empty() {
+    let _ = write_active_slideshows(&active_entries);
+  }
+  Ok(active_entries)
+}
+
+fn write_active_slideshows(entries: &[ActiveSlideshow]) -> Result<(), String> {
+  let path = get_active_slideshows_path()?;
+  if let Some(parent) = path.parent() {
+    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+  }
+
+  let payload = serde_json::to_string_pretty(entries).map_err(|error| error.to_string())?;
+  fs::write(path, payload).map_err(|error| error.to_string())
+}
+
+fn read_legacy_project_metadata(project_path: &Path) -> Result<Option<ProjectMetadata>, String> {
+  let project_path_string = project_path.to_string_lossy().trim().trim_end_matches(['\\', '/']).to_string();
+  if project_path_string.is_empty() {
+    return Ok(None);
+  }
+
+  let mut candidates = vec![
+    PathBuf::from(format!("{project_path_string}\\project.json")),
+    PathBuf::from(format!("{project_path_string}\\booking.json")),
+  ];
+
+  if let Ok(database_directory) = get_app_database_directory_path() {
+    let project_directory_name = project_path_string
+      .replace(['<', '>', ':', '"', '/', '\\', '|', '?', '*'], "_")
+      .split_whitespace()
+      .collect::<Vec<_>>()
+      .join(" ");
+    candidates.push(database_directory.join("Projects").join(&project_directory_name).join("project.json"));
+    candidates.push(database_directory.join("Projects").join(project_directory_name).join("booking.json"));
+  }
+
+  for candidate in candidates {
+    if !candidate.exists() {
+      continue;
+    }
+
+    let text = fs::read_to_string(&candidate).map_err(|error| error.to_string())?;
+    if text.trim().is_empty() {
+      continue;
+    }
+
+    let raw_entry = serde_json::from_str::<Value>(&text).map_err(|error| error.to_string())?;
+    let metadata = parse_project_metadata(&raw_entry);
+    if candidate.starts_with(project_path) {
+      let _ = fs::remove_file(&candidate);
+    }
+    return Ok(Some(metadata));
+  }
+
+  Ok(None)
+}
+
+fn get_or_migrate_project_metadata(project_path: &str) -> Result<ProjectMetadata, String> {
+  let project_path_buf = PathBuf::from(project_path);
+  let mut projects = read_project_registry()?;
+  if let Some(project) = projects.iter_mut().find(|entry| entry.path.eq_ignore_ascii_case(project_path)) {
+    let metadata = ProjectMetadata {
+      order_id: project.order_id.clone(),
+      client_name: project.client_name.clone(),
+      project_date: project.project_date.clone(),
+      project_status: if project.project_status.trim().is_empty() { "New".to_string() } else { project.project_status.clone() },
+      phone: project.phone.clone(),
+      email: project.email.clone(),
+      address: project.address.clone(),
+      notes: project.notes.clone(),
+    };
+
+    let has_metadata = [
+      &metadata.order_id,
+      &metadata.client_name,
+      &metadata.project_date,
+      &metadata.phone,
+      &metadata.email,
+      &metadata.address,
+      &metadata.notes,
+    ]
+    .iter()
+    .any(|value| !value.trim().is_empty());
+
+    if has_metadata {
+      return Ok(metadata);
+    }
+
+    if let Some(legacy_metadata) = read_legacy_project_metadata(&project_path_buf)? {
+      project.order_id = legacy_metadata.order_id.clone();
+      project.client_name = legacy_metadata.client_name.clone();
+      project.project_date = legacy_metadata.project_date.clone();
+      project.project_status = legacy_metadata.project_status.clone();
+      project.phone = legacy_metadata.phone.clone();
+      project.email = legacy_metadata.email.clone();
+      project.address = legacy_metadata.address.clone();
+      project.notes = legacy_metadata.notes.clone();
+      write_project_registry(&projects)?;
+      return Ok(legacy_metadata);
+    }
+
+    return Ok(metadata);
+  }
+
+  if let Some(legacy_metadata) = read_legacy_project_metadata(&project_path_buf)? {
+    return Ok(legacy_metadata);
+  }
+
+  Ok(default_project_metadata())
+}
+
+fn save_project_metadata_for_path(project_path: &str, metadata: ProjectMetadata) -> Result<(), String> {
+  let mut projects = read_project_registry()?;
+  let project = projects
+    .iter_mut()
+    .find(|entry| entry.path.eq_ignore_ascii_case(project_path))
+    .ok_or_else(|| "Photobooth could not find the selected project folder.".to_string())?;
+  project.order_id = metadata.order_id;
+  project.client_name = metadata.client_name;
+  project.project_date = metadata.project_date;
+  project.project_status = metadata.project_status;
+  project.phone = metadata.phone;
+  project.email = metadata.email;
+  project.address = metadata.address;
+  project.notes = metadata.notes;
+  write_project_registry(&projects)
+}
+
 fn upsert_project_registry_entry(project_path: &Path, project_name: &str) -> Result<(), String> {
   let project_path_string = project_path.to_string_lossy().into_owned();
   let mut projects = read_project_registry()?;
@@ -204,12 +466,21 @@ fn upsert_project_registry_entry(project_path: &Path, project_name: &str) -> Res
     existing_project.video_count = video_count;
     existing_project.total_size_bytes = total_size_bytes;
   } else {
+    let metadata = default_project_metadata();
     projects.push(SavedProject {
       name: project_name.to_string(),
       path: project_path_string,
       created_at,
       video_count,
       total_size_bytes,
+      order_id: metadata.order_id,
+      client_name: metadata.client_name,
+      project_date: metadata.project_date,
+      project_status: metadata.project_status,
+      phone: metadata.phone,
+      email: metadata.email,
+      address: metadata.address,
+      notes: metadata.notes,
     });
   }
 
@@ -247,6 +518,14 @@ fn build_saved_projects() -> Result<Vec<SavedProject>, String> {
         created_at: get_path_created_at(&path),
         video_count: 0,
         total_size_bytes: 0,
+        order_id: String::new(),
+        client_name: String::new(),
+        project_date: String::new(),
+        project_status: "New".to_string(),
+        phone: String::new(),
+        email: String::new(),
+        address: String::new(),
+        notes: String::new(),
       });
     }
   }
@@ -296,10 +575,114 @@ fn show_or_create_window(
     .title(title)
     .inner_size(width, height)
     .resizable(true)
+    .fullscreen(label == "main")
+    .build()
+    .map(|_| ())
+    .map_err(|error| error.to_string())
+}
+
+fn recreate_window(
+  app: &AppHandle,
+  label: &str,
+  title: &str,
+  page: &str,
+  width: f64,
+  height: f64,
+) -> Result<(), String> {
+  if let Some(window) = app.get_webview_window(label) {
+    window.close().map_err(|error| error.to_string())?;
+  }
+
+  WebviewWindowBuilder::new(app, label, WebviewUrl::App(page.into()))
+    .title(title)
+    .inner_size(width, height)
+    .resizable(true)
     .fullscreen(false)
     .build()
     .map(|_| ())
     .map_err(|error| error.to_string())
+}
+
+fn is_external_slideshow_process() -> bool {
+  env::args().any(|argument| argument == "--external-slideshow")
+}
+
+fn get_external_slideshow_project_path() -> Option<String> {
+  let mut args = env::args();
+  while let Some(argument) = args.next() {
+    if argument == "--slideshow-project" {
+      return args.next();
+    }
+  }
+  None
+}
+
+fn build_monitor_id(monitor: &Monitor, index: usize) -> String {
+  let name = monitor
+    .name()
+    .cloned()
+    .unwrap_or_else(|| format!("Monitor {}", index + 1));
+  let position = monitor.position();
+  let size = monitor.size();
+  format!(
+    "{}|{}|{}|{}|{}",
+    name,
+    position.x,
+    position.y,
+    size.width,
+    size.height
+  )
+}
+
+fn get_monitor_infos(window: &WebviewWindow) -> Result<Vec<MonitorInfo>, String> {
+  let primary_id = window
+    .primary_monitor()
+    .map_err(|error| error.to_string())?
+    .map(|monitor| build_monitor_id(&monitor, 0))
+    .unwrap_or_default();
+
+  let monitors = window.available_monitors().map_err(|error| error.to_string())?;
+  Ok(
+    monitors
+      .into_iter()
+      .enumerate()
+      .map(|(index, monitor)| {
+        let id = build_monitor_id(&monitor, index);
+        let name = monitor
+          .name()
+          .cloned()
+          .unwrap_or_else(|| format!("Monitor {}", index + 1));
+        let size = monitor.size();
+        let position = monitor.position();
+        MonitorInfo {
+          is_primary: id == primary_id,
+          id,
+          name,
+          width: size.width,
+          height: size.height,
+          position_x: position.x,
+          position_y: position.y,
+        }
+      })
+      .collect(),
+  )
+}
+
+fn find_monitor_by_id(window: &WebviewWindow, monitor_id: &str) -> Result<Option<Monitor>, String> {
+  let monitors = window.available_monitors().map_err(|error| error.to_string())?;
+  Ok(
+    monitors
+      .into_iter()
+      .enumerate()
+      .find_map(|(index, monitor)| (build_monitor_id(&monitor, index) == monitor_id).then_some(monitor)),
+  )
+}
+
+fn clamp_windowed_size(monitor: &Monitor) -> (f64, f64) {
+  let size = monitor.size();
+  let width = ((size.width as f64) * 0.82).round().clamp(960.0, 1600.0);
+  let height = ((size.height as f64) * 0.82).round().clamp(720.0, 1200.0);
+  (width, height)
 }
 
 #[tauri::command]
@@ -346,7 +729,82 @@ fn get_default_recordings_directory() -> Result<String, String> {
 
 #[tauri::command]
 fn get_app_data_directory() -> Result<String, String> {
-  get_app_data_directory_path().map(|path| path.to_string_lossy().into_owned())
+  get_app_database_directory_path().map(|path| path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn list_available_monitors(window: WebviewWindow) -> Result<Vec<MonitorInfo>, String> {
+  get_monitor_infos(&window)
+}
+
+#[tauri::command]
+fn apply_current_window_settings(window: WebviewWindow, monitor_id: Option<String>, fullscreen: bool) -> Result<(), String> {
+  if !fullscreen {
+    window.set_fullscreen(false).map_err(|error| error.to_string())?;
+  }
+
+  if let Some(target_monitor_id) = monitor_id.as_deref().filter(|value| !value.trim().is_empty()) {
+    if let Some(monitor) = find_monitor_by_id(&window, target_monitor_id)? {
+      let position = monitor.position();
+      if fullscreen {
+        window
+          .set_position(Position::Physical(PhysicalPosition::new(position.x, position.y)))
+          .map_err(|error| error.to_string())?;
+      } else {
+        let (width, height) = clamp_windowed_size(&monitor);
+        let position_x = position.x + 48;
+        let position_y = position.y + 48;
+        window
+          .set_size(Size::Logical(LogicalSize::new(width, height)))
+          .map_err(|error| error.to_string())?;
+        window
+          .set_position(Position::Physical(PhysicalPosition::new(position_x, position_y)))
+          .map_err(|error| error.to_string())?;
+      }
+    }
+  }
+
+  window.set_fullscreen(fullscreen).map_err(|error| error.to_string())?;
+  window.show().map_err(|error| error.to_string())?;
+  window.unminimize().map_err(|error| error.to_string())?;
+  window.set_focus().map_err(|error| error.to_string())?;
+  Ok(())
+}
+
+#[tauri::command]
+fn get_project_metadata(project_path: String) -> Result<ProjectMetadata, String> {
+  get_or_migrate_project_metadata(&project_path)
+}
+
+#[tauri::command]
+fn save_project_metadata(project_path: String, metadata: ProjectMetadata) -> Result<(), String> {
+  save_project_metadata_for_path(&project_path, metadata)
+}
+
+#[tauri::command]
+fn list_active_slideshows() -> Result<Vec<ActiveSlideshow>, String> {
+  read_active_slideshows()
+}
+
+#[tauri::command]
+fn close_external_slideshows(project_path: Option<String>) -> Result<(), String> {
+  let slideshows = read_active_slideshows()?;
+  let normalized_project_path = project_path.unwrap_or_default();
+  let close_all = normalized_project_path.trim().is_empty();
+  let mut remaining = Vec::new();
+
+  for slideshow in slideshows {
+    let matches_project = close_all || slideshow.project_path.eq_ignore_ascii_case(&normalized_project_path);
+    if matches_project {
+      let _ = Command::new("taskkill")
+        .args(["/PID", &slideshow.pid.to_string(), "/T", "/F"])
+        .spawn();
+    } else {
+      remaining.push(slideshow);
+    }
+  }
+
+  write_active_slideshows(&remaining)
 }
 
 #[tauri::command]
@@ -540,12 +998,25 @@ fn append_app_log(level: String, message: String, context: Option<String>) -> Re
 
 #[tauri::command]
 fn open_slideshow_window(app: AppHandle) -> Result<(), String> {
-  show_or_create_window(&app, "slideshow", "Photobooth Slideshow", "slideshow.html", 1440.0, 900.0)
+  recreate_window(&app, "slideshow", "Photobooth Slideshow", "slideshow.html", 1440.0, 900.0)
+}
+
+#[tauri::command]
+fn open_slideshow_process(project_path: String) -> Result<(), String> {
+  let executable_path = env::current_exe().map_err(|error| error.to_string())?;
+  Command::new(executable_path)
+    .arg("--external-slideshow")
+    .arg("--slideshow-project")
+    .arg(project_path)
+    .env_remove("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS")
+    .spawn()
+    .map(|_| ())
+    .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 fn open_gallery_window(app: AppHandle) -> Result<(), String> {
-  show_or_create_window(&app, "gallery", "Photobooth Gallery", "gallery.html", 1320.0, 860.0)
+  show_or_create_window(&app, "gallery", "Photobooth Library", "gallery.html", 1320.0, 860.0)
 }
 
 #[tauri::command]
@@ -555,15 +1026,56 @@ fn exit_app(app: tauri::AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+  let run_external_slideshow = is_external_slideshow_process();
+  let external_slideshow_project_path = get_external_slideshow_project_path().unwrap_or_default();
   tauri::Builder::default()
     .plugin(tauri_plugin_dialog::init())
-    .setup(|app| {
+    .setup(move |app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(
           tauri_plugin_log::Builder::default()
             .level(log::LevelFilter::Info)
             .build(),
         )?;
+      }
+
+      if run_external_slideshow {
+        let current_pid = std::process::id();
+        let mut slideshows = read_active_slideshows().unwrap_or_default();
+        slideshows.retain(|entry| entry.pid != current_pid);
+        slideshows.push(ActiveSlideshow {
+          pid: current_pid,
+          project_path: external_slideshow_project_path.clone(),
+        });
+        let _ = write_active_slideshows(&slideshows);
+
+        let main_window = app
+          .get_webview_window("main")
+          .ok_or_else(|| "Photobooth could not find the external slideshow window.".to_string())?;
+        main_window
+          .set_title("Photobooth Slideshow")
+          .map_err(|error| error.to_string())?;
+        main_window
+          .set_fullscreen(false)
+          .map_err(|error| error.to_string())?;
+        let slideshow_url = if external_slideshow_project_path.trim().is_empty() {
+          "http://tauri.localhost/slideshow.html".to_string()
+        } else {
+          format!(
+            "http://tauri.localhost/slideshow.html?project={}",
+            urlencoding::encode(&external_slideshow_project_path)
+          )
+        };
+        main_window
+          .navigate(Url::parse(&slideshow_url).map_err(|error| error.to_string())?)
+          .map_err(|error| error.to_string())?;
+        let project_path = external_slideshow_project_path.clone();
+        app.handle().listen("tauri://destroyed", move |_| {
+          let current_pid = std::process::id();
+          let mut slideshows = read_active_slideshows().unwrap_or_default();
+          slideshows.retain(|entry| !(entry.pid == current_pid && entry.project_path.eq_ignore_ascii_case(&project_path)));
+          let _ = write_active_slideshows(&slideshows);
+        });
       }
       Ok(())
     })
@@ -574,6 +1086,12 @@ pub fn run() {
       save_recording_to_default_directory,
       get_default_recordings_directory,
       get_app_data_directory,
+      list_available_monitors,
+      apply_current_window_settings,
+      get_project_metadata,
+      save_project_metadata,
+      list_active_slideshows,
+      close_external_slideshows,
       create_project_directory,
       list_saved_projects,
       rename_project_directory,
@@ -585,6 +1103,7 @@ pub fn run() {
       get_app_version,
       append_app_log,
       open_slideshow_window,
+      open_slideshow_process,
       open_gallery_window,
       open_directory_in_file_manager,
       exit_app

@@ -3,6 +3,7 @@ dist/
 build/
 src-tauri/target/
 src-tauri/gen/
+build-info.json
 
 *.log
 *.tmp
@@ -16,3 +17,4 @@ Thumbs.db
 .DS_Store
 
 REQUIREMENTS.md
+scripts/test-external-slideshow*.mjs

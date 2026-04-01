@@ -6,9 +6,9 @@
 import { logger } from "../services/logger.js";
 
 export default function wireEvents(dom, state, handlers) {
-  dom.openPreviewButton.addEventListener("click", () => {
-    void logger.audit("Open preview button clicked.", { mode: state.mode });
-    handlers.openPreviewView();
+  dom.appBrandButton.addEventListener("click", () => {
+    void logger.audit("App brand button clicked.", { mode: state.mode });
+    handlers.registerPreviewAccessClick();
   });
 
   dom.snapButton.addEventListener("click", () => {
@@ -159,8 +159,12 @@ export default function wireEvents(dom, state, handlers) {
     void logger.audit("Slideshow fade duration increment button clicked.");
     handlers.operatorScreen.stepSlideshowFadeDuration(1);
   });
+  dom.closeSlideshowButton.addEventListener("click", () => {
+    void logger.audit("Close all slideshows button clicked.");
+    void handlers.closeAllSlideshows();
+  });
 
-  [dom.textInput, dom.fontSelect, dom.orientationSelect, dom.slideshowModeSelect, dom.slideshowFadeEnabledSelect].forEach((input) => {
+  [dom.textInput, dom.fontSelect, dom.orientationSelect, dom.slideshowModeSelect, dom.slideshowFullscreenSelect, dom.slideshowMonitorSelect, dom.slideshowFadeEnabledSelect, dom.mainWindowFullscreenSelect, dom.mainWindowMonitorSelect].forEach((input) => {
     input.addEventListener("input", () => {
       void logger.audit("Overlay input changed.", { id: input.id, value: input.value });
       handlers.operatorScreen.syncOverlayControls();
@@ -168,6 +172,12 @@ export default function wireEvents(dom, state, handlers) {
     input.addEventListener("change", () => {
       void logger.audit("Overlay input committed.", { id: input.id, value: input.value });
       handlers.operatorScreen.syncOverlayControls();
+    });
+  });
+
+  [dom.mainWindowFullscreenSelect, dom.mainWindowMonitorSelect].forEach((input) => {
+    input.addEventListener("change", () => {
+      void handlers.applyMainWindowDisplaySettings();
     });
   });
 

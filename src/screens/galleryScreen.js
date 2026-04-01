@@ -219,6 +219,18 @@ export default function createGalleryScreen(dom, state, handlers) {
       : `Current project: ${state.saveDirectoryName || APP_STRINGS.saveFolderDefault}`;
   }
 
+  async function syncSlideshowButton() {
+    if (state.galleryView !== "videos") {
+      dom.gallerySlideshowLabel.textContent = "Start Slideshow";
+      return;
+    }
+
+    const hasActiveSlideshow = state.saveDirectoryPath
+      ? await handlers.hasActiveSlideshowForProject(state.saveDirectoryPath)
+      : false;
+    dom.gallerySlideshowLabel.textContent = hasActiveSlideshow ? "Close Slideshow" : "Start Slideshow";
+  }
+
   function renderLoadingState(message) {
     dom.galleryList.replaceChildren();
     dom.galleryStatus.textContent = state.galleryView === "projects" ? "Loading projects..." : "Loading videos...";
@@ -377,9 +389,10 @@ export default function createGalleryScreen(dom, state, handlers) {
     if (state.galleryView === "projects") {
       try {
         void console.time?.("gallery-projects-load");
-        projects = await handlers.loadProjects();
-        renderProjects();
-      } finally {
+      projects = await handlers.loadProjects();
+      renderProjects();
+      await syncSlideshowButton();
+    } finally {
         void console.timeEnd?.("gallery-projects-load");
         isLoading = false;
       }
@@ -391,6 +404,7 @@ export default function createGalleryScreen(dom, state, handlers) {
       entries = sortEntriesByOldest(await handlers.loadEntries());
       visibleCount = Math.min(entries.length, GALLERY_PAGE_SIZE);
       renderEntries();
+      await syncSlideshowButton();
     } finally {
       void console.timeEnd?.("gallery-videos-load");
       isLoading = false;
@@ -609,6 +623,7 @@ export default function createGalleryScreen(dom, state, handlers) {
       dialogRect.y = dialogStartRect.y + dy;
     } else {
       dialogRect.width = dialogStartRect.width + dx;
+      dialogRect.height = dialogStartRect.height + dy;
     }
 
     syncDialogRect();
@@ -640,7 +655,14 @@ export default function createGalleryScreen(dom, state, handlers) {
   });
 
   dom.gallerySlideshowButton.addEventListener("click", () => {
-    void handlers.startProjectSlideshow();
+    void (async () => {
+      if (state.saveDirectoryPath && await handlers.hasActiveSlideshowForProject(state.saveDirectoryPath)) {
+        await handlers.closeProjectSlideshow(state.saveDirectoryPath);
+      } else {
+        await handlers.startProjectSlideshow();
+      }
+      await syncSlideshowButton();
+    })();
   });
   dom.galleryNewProjectButton.addEventListener("click", () => {
     void handlers.openNewProjectDialog();
@@ -652,6 +674,7 @@ export default function createGalleryScreen(dom, state, handlers) {
     openGalleryPanel,
     switchView,
     refreshGallery,
+    syncSlideshowButton,
     startDialogInteraction,
     updateDialogInteraction,
     stopDialogInteraction,

@@ -40,6 +40,10 @@ export const APP_DEFAULTS = {
   slideshowMode: "internal",
   slideshowFadeEnabled: true,
   slideshowFadeDurationMs: 600,
+  mainWindowMonitorId: "",
+  mainWindowFullscreen: true,
+  slideshowMonitorId: "",
+  slideshowFullscreen: true,
   videoInputId: "",
   audioInputId: ""
 };

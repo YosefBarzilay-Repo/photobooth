@@ -1,122 +1,82 @@
 import { loadSavedRecordingsFromDirectory } from "./services/downloadService.js";
-import { setFullscreenState } from "./services/desktopService.js";
+import {
+  applyCurrentWindowDisplaySettings,
+  convertDesktopFileSrc,
+  invokeDesktop
+} from "./services/desktopService.js";
 import { logger } from "./services/logger.js";
 import { loadDesktopPersistedSettings, loadPersistedSettings } from "./services/settingsPersistence.js";
 
-const PLAYABLE_TIMEOUT_MS = 5000;
-const RETRY_DELAY_MS = 750;
-const MAX_ENTRY_FAILURES = 2;
-const SETTINGS_SYNC_INTERVAL_MS = 2000;
-let entries = [];
-let currentIndex = 0;
-let loadTimeoutId = null;
-let retryTimeoutId = null;
-let playGeneration = 0;
-let diagnosticsBound = false;
-let settingsSyncIntervalId = null;
-let lastSettingsSignature = "";
+const REFRESH_INTERVAL_MS = 3000;
+const PLAYBACK_RETRY_DELAY_MS = 350;
+const PLAYBACK_FATAL_RETRY_LIMIT = 4;
+
+let slideshowEntries = [];
+let slideshowIndex = 0;
+let slideshowRefreshIntervalId = null;
+let lastDirectoryPath = "";
 let lastEntriesSignature = "";
-const entryFailureCounts = new Map();
-
-function getPersistedSaveDirectory() {
-  try {
-    const settings = loadPersistedSettings();
-    return typeof settings?.saveDirectoryPath === "string" ? settings.saveDirectoryPath : "";
-  } catch {
-    return "";
-  }
-}
-
-function getSlideshowSettings() {
-  try {
-    const settings = loadPersistedSettings() || {};
-    return {
-      fadeEnabled: typeof settings?.slideshowFadeEnabled === "boolean" ? settings.slideshowFadeEnabled : true,
-      fadeDurationMs: Number.isFinite(settings?.slideshowFadeDurationMs) ? Math.max(0, settings.slideshowFadeDurationMs) : 600
-    };
-  } catch {
-    return { fadeEnabled: true, fadeDurationMs: 600 };
-  }
-}
+let isTransitioning = false;
+let hasAppliedWindowSettings = false;
+let consecutivePlaybackFailures = 0;
 
 function getVideoElement() {
   const video = document.getElementById("slideshowVideo");
   return video instanceof HTMLVideoElement ? video : null;
 }
 
-function getCurrentEntry() {
-  return entries[currentIndex] || null;
+function getEmptyStateElements() {
+  return {
+    emptyState: document.getElementById("slideshowEmptyState"),
+    emptyMessage: document.getElementById("slideshowEmptyState")?.querySelector("p")
+  };
 }
 
-function getEntryKey(entry) {
-  return entry?.path || entry?.filename || "";
+function getPersistedSettingsSnapshot() {
+  const settings = loadPersistedSettings();
+  return settings && typeof settings === "object" ? settings : {};
 }
 
-function getEntryFailureCount(entry) {
-  return entryFailureCounts.get(getEntryKey(entry)) || 0;
-}
-
-function recordEntryFailure(entry, reason) {
-  const entryKey = getEntryKey(entry);
-  if (!entryKey) {
-    return 0;
+function getProjectDirectoryPath() {
+  const argumentMatch = window.location.search.match(/[?&]project=([^&]+)/);
+  if (argumentMatch?.[1]) {
+    return decodeURIComponent(argumentMatch[1]).trim();
   }
 
-  const failureCount = getEntryFailureCount(entry) + 1;
-  entryFailureCounts.set(entryKey, failureCount);
-  void logger.warn("Slideshow entry playback failed.", {
-    reason,
-    filename: entry?.filename || "",
-    currentIndex,
-    failureCount,
-    maxFailures: MAX_ENTRY_FAILURES
-  });
-  return failureCount;
+  const settings = getPersistedSettingsSnapshot();
+  return typeof settings.saveDirectoryPath === "string" ? settings.saveDirectoryPath.trim() : "";
 }
 
-function resetEntryFailure(entry) {
-  const entryKey = getEntryKey(entry);
-  if (entryKey) {
-    entryFailureCounts.delete(entryKey);
-  }
+function getFadeSettings() {
+  const settings = getPersistedSettingsSnapshot();
+  return {
+    enabled: settings.slideshowFadeEnabled !== false,
+    durationMs: Number.isFinite(settings.slideshowFadeDurationMs) ? Math.max(0, settings.slideshowFadeDurationMs) : 600
+  };
 }
 
-function updateEmptyState(isEmpty, message = "No videos are available in the gallery folder yet.") {
-  const emptyState = document.getElementById("slideshowEmptyState");
-  const emptyMessage = emptyState?.querySelector("p");
-  emptyState?.classList.toggle("hidden", !isEmpty);
-  document.getElementById("slideshowVideo")?.classList.toggle("hidden", isEmpty);
-  document.getElementById("slideshowMeta")?.classList.toggle("hidden", isEmpty);
-  if (emptyMessage) {
-    emptyMessage.textContent = message;
-  }
+function getSlideshowWindowSettings() {
+  const settings = getPersistedSettingsSnapshot();
+  return {
+    fullscreen: settings.slideshowFullscreen !== false,
+    monitorId: typeof settings.slideshowMonitorId === "string" ? settings.slideshowMonitorId.trim() : ""
+  };
 }
 
-function clearTimers() {
-  if (loadTimeoutId !== null) {
-    window.clearTimeout(loadTimeoutId);
-    loadTimeoutId = null;
-  }
-
-  if (retryTimeoutId !== null) {
-    window.clearTimeout(retryTimeoutId);
-    retryTimeoutId = null;
-  }
-}
-
-function getEntriesSignature(nextEntries = entries) {
-  return nextEntries
-    .map((entry) => `${entry.path || entry.filename || ""}:${entry.modifiedAt || 0}`)
+function getEntriesSignature(entries) {
+  return entries
+    .map((entry) => `${entry.path || ""}:${entry.modifiedAt || 0}`)
     .join("|");
 }
 
-function getSettingsSignature() {
-  const settings = loadPersistedSettings() || {};
-  return JSON.stringify({
-    saveDirectoryPath: settings.saveDirectoryPath || "",
-    slideshowFadeEnabled: Boolean(settings.slideshowFadeEnabled),
-    slideshowFadeDurationMs: Number.isFinite(settings.slideshowFadeDurationMs) ? Math.max(0, settings.slideshowFadeDurationMs) : 600
-  });
+function updateEmptyState(isEmpty, message = "No saved videos yet in this project.") {
+  const video = getVideoElement();
+  const { emptyState, emptyMessage } = getEmptyStateElements();
+  emptyState?.classList.toggle("hidden", !isEmpty);
+  video?.classList.toggle("hidden", isEmpty);
+  if (emptyMessage) {
+    emptyMessage.textContent = message;
+  }
 }
 
 function clearVideoSource() {
@@ -130,430 +90,268 @@ function clearVideoSource() {
   video.load();
 }
 
-function describeVideoError(video) {
-  if (!video?.error) {
+function stopRefreshLoop() {
+  if (slideshowRefreshIntervalId !== null) {
+    window.clearInterval(slideshowRefreshIntervalId);
+    slideshowRefreshIntervalId = null;
+  }
+}
+
+async function buildBlobSource(entry) {
+  if (!entry?.path) {
     return "";
   }
 
-  return `${video.error.code}:${video.error.message || "media error"}`;
+  const bytes = await invokeDesktop("read_recording_file", { filePath: entry.path });
+  const extension = String(entry.filename || "").toLowerCase();
+  const mimeType = extension.endsWith(".mov")
+    ? "video/quicktime"
+    : extension.endsWith(".ogg")
+      ? "video/ogg"
+      : "video/mp4";
+  const blob = new Blob([Uint8Array.from(bytes)], { type: mimeType });
+  return URL.createObjectURL(blob);
 }
 
-function scheduleRetry(reason, delayMs = RETRY_DELAY_MS) {
-  if (retryTimeoutId !== null) {
-    window.clearTimeout(retryTimeoutId);
+async function resolveEntrySource(entry) {
+  const assetSource = entry?.path ? convertDesktopFileSrc(entry.path) : "";
+  if (assetSource) {
+    return assetSource;
   }
 
-  retryTimeoutId = window.setTimeout(() => {
-    retryTimeoutId = null;
-    void logger.warn("Slideshow retry scheduled after playback issue.", {
-      reason,
-      delayMs,
-      currentIndex,
-      entryCount: entries.length,
-      filename: getCurrentEntry()?.filename || ""
-    });
-    void advanceSlideshow(`retry:${reason}`, { skipCurrent: true });
-  }, delayMs);
+  return buildBlobSource(entry);
 }
 
-async function loadEntries() {
-  const directoryPath = getPersistedSaveDirectory();
-  void logger.debug("Slideshow loading entries.", { directoryPath });
-  return loadSavedRecordingsFromDirectory(directoryPath || null);
+function normalizeIndex(index, length) {
+  if (length <= 0) {
+    return 0;
+  }
+
+  return ((index % length) + length) % length;
 }
 
-function clampIndex() {
-  if (entries.length === 0) {
-    currentIndex = 0;
-    return;
-  }
+async function transitionVideo(video, callback) {
+  const fade = getFadeSettings();
+  video.style.transitionDuration = `${fade.enabled ? fade.durationMs : 0}ms`;
 
-  currentIndex = Math.max(0, Math.min(currentIndex, entries.length - 1));
-}
-
-async function refreshEntries(reason = "refresh") {
-  const currentEntryKey = getEntryKey(getCurrentEntry());
-  const nextEntries = await loadEntries();
-  const nextEntriesSignature = getEntriesSignature(nextEntries);
-  entries = nextEntries;
-  if (currentEntryKey) {
-    const matchingIndex = entries.findIndex((entry) => getEntryKey(entry) === currentEntryKey);
-    currentIndex = matchingIndex >= 0 ? matchingIndex : 0;
-  }
-  clampIndex();
-  lastEntriesSignature = nextEntriesSignature;
-  void logger.info("Slideshow refreshed entries.", {
-    reason,
-    count: entries.length,
-    currentIndex,
-    saveDirectoryPath: getPersistedSaveDirectory(),
-    filenames: entries.map((entry) => entry.filename)
-  });
-
-  if (entries.length === 0) {
-    currentIndex = 0;
-    clearVideoSource();
-    updateEmptyState(true, "No videos are available in the gallery folder yet.");
-    return false;
-  }
-
-  return true;
-}
-
-function bindVideoDiagnostics(video) {
-  if (diagnosticsBound) {
-    return;
-  }
-
-  diagnosticsBound = true;
-  ["loadstart", "loadedmetadata", "loadeddata", "canplay", "canplaythrough", "playing", "pause", "waiting", "stalled", "suspend", "emptied"].forEach((eventName) => {
-    video.addEventListener(eventName, () => {
-      const entry = getCurrentEntry();
-      void logger.debug("Slideshow video event fired.", {
-        eventName,
-        filename: entry?.filename || "",
-        currentIndex,
-        readyState: video.readyState,
-        networkState: video.networkState,
-        currentTime: video.currentTime,
-        duration: video.duration
-      });
-    });
-  });
-
-  video.addEventListener("error", () => {
-    const entry = getCurrentEntry();
-    void logger.warn("Slideshow video element emitted an error event.", {
-      filename: entry?.filename || "",
-      currentIndex,
-      readyState: video.readyState,
-      networkState: video.networkState,
-      mediaError: describeVideoError(video)
-    });
-  });
-}
-
-function bindPlaybackState(video, generation, entry) {
-  let settled = false;
-
-  function cleanup() {
-    video.removeEventListener("loadedmetadata", handleReady);
-    video.removeEventListener("loadeddata", handleReady);
-    video.removeEventListener("canplay", handleReady);
-    video.removeEventListener("error", handleError);
-    if (loadTimeoutId !== null) {
-      window.clearTimeout(loadTimeoutId);
-      loadTimeoutId = null;
-    }
-  }
-
-  function finish(callback) {
-    if (settled || generation !== playGeneration) {
-      return;
-    }
-
-    settled = true;
-    cleanup();
-    callback();
-  }
-
-  function handleReady() {
-    finish(() => {
-      resetEntryFailure(entry);
-      void logger.debug("Slideshow entry reached playable state.", {
-        filename: entry.filename,
-        generation,
-        readyState: video.readyState,
-        networkState: video.networkState,
-        duration: video.duration
-      });
-      video.play().then(() => {
-        void logger.info("Slideshow video playback started.", {
-          filename: entry.filename,
-          generation,
-          duration: video.duration,
-          currentTime: video.currentTime
-        });
-      }).catch((error) => {
-        void logger.exception("Slideshow video play() rejected.", error, {
-          filename: entry.filename,
-          generation,
-          readyState: video.readyState,
-          networkState: video.networkState
-        });
-        recordEntryFailure(entry, "play-rejected");
-        scheduleRetry("play-rejected");
-      });
-    });
-  }
-
-  function handleError() {
-    finish(() => {
-      const failureCount = recordEntryFailure(entry, "load-failed");
-      void logger.warn("Slideshow video failed to become playable. Retrying.", {
-        filename: entry.filename,
-        generation,
-        readyState: video.readyState,
-        networkState: video.networkState,
-        mediaError: describeVideoError(video),
-        failureCount
-      });
-      scheduleRetry("load-failed");
-    });
-  }
-
-  video.addEventListener("loadedmetadata", handleReady);
-  video.addEventListener("loadeddata", handleReady);
-  video.addEventListener("canplay", handleReady);
-  video.addEventListener("error", handleError);
-  loadTimeoutId = window.setTimeout(() => {
-    void logger.warn("Slideshow timed out waiting for a video to become playable.", {
-      filename: entry.filename,
-      generation,
-      readyState: video.readyState,
-      networkState: video.networkState
-    });
-    handleError();
-  }, PLAYABLE_TIMEOUT_MS);
-}
-
-function findNextPlayableIndex(startIndex) {
-  if (entries.length === 0) {
-    return -1;
-  }
-
-  for (let offset = 0; offset < entries.length; offset += 1) {
-    const candidateIndex = (startIndex + offset) % entries.length;
-    if (getEntryFailureCount(entries[candidateIndex]) < MAX_ENTRY_FAILURES) {
-      return candidateIndex;
-    }
-  }
-
-  return -1;
-}
-
-async function playCurrentEntry(reason = "play") {
-  const video = getVideoElement();
-  const filename = document.getElementById("slideshowFilename");
-  const counter = document.getElementById("slideshowCounter");
-  if (!video || !filename || !counter) {
-    updateEmptyState(true, "Photobooth could not initialize the slideshow player.");
-    void logger.error("Slideshow player could not initialize because required DOM elements were missing.");
-    return;
-  }
-
-  if (entries.length === 0) {
-    const hasEntries = await refreshEntries(reason);
-    if (!hasEntries) {
-      return;
-    }
-  }
-
-  const playableIndex = findNextPlayableIndex(currentIndex);
-  if (playableIndex < 0) {
-    clearVideoSource();
-    updateEmptyState(true, "Photobooth could not play the saved slideshow videos.");
-    void logger.error("Slideshow could not find any playable entries.", {
-      entryCount: entries.length,
-      failureCounts: Object.fromEntries(entryFailureCounts.entries())
-    });
-    return;
-  }
-
-  currentIndex = playableIndex;
-  const generation = playGeneration;
-  const entry = getCurrentEntry();
-  if (!entry) {
-    void logger.warn("Slideshow play request skipped because the entry was missing.", { currentIndex, entryCount: entries.length, reason });
-    return;
-  }
-
-  bindVideoDiagnostics(video);
-  void logger.audit("Slideshow playing entry.", {
-    reason,
-    filename: entry.filename,
-    filePath: entry.path || "",
-    url: entry.url,
-    currentIndex,
-    totalEntries: entries.length,
-    failureCount: getEntryFailureCount(entry)
-  });
-
-  updateEmptyState(true, `Loading ${entry.filename}...`);
-
-  clearTimers();
-  clearVideoSource();
-
-  const { fadeEnabled, fadeDurationMs } = getSlideshowSettings();
-  video.style.transitionDuration = `${fadeEnabled ? fadeDurationMs : 0}ms`;
-  if (fadeEnabled && fadeDurationMs > 0) {
+  if (fade.enabled && fade.durationMs > 0) {
     video.classList.add("is-fading");
-    await new Promise((resolve) => window.setTimeout(resolve, fadeDurationMs));
+    await new Promise((resolve) => window.setTimeout(resolve, fade.durationMs));
   }
 
-  video.loop = false;
-  video.muted = true;
-  video.defaultMuted = true;
-  video.autoplay = true;
-  video.playsInline = true;
-  video.preload = "auto";
-  video.currentTime = 0;
-  bindPlaybackState(video, generation, entry);
-  video.src = entry.url;
-  video.load();
-  updateEmptyState(false);
+  await callback();
   video.classList.remove("is-fading");
 }
 
-async function advanceSlideshow(reason = "advance", { skipCurrent = false } = {}) {
-  clearTimers();
-
-  if (entries.length === 0) {
-    const hasEntries = await refreshEntries(reason);
-    if (!hasEntries) {
-      return;
-    }
-  } else {
-    const offset = skipCurrent ? 1 : 0;
-    currentIndex = (currentIndex + offset) % entries.length;
-    if (currentIndex === 0) {
-      const hasEntries = await refreshEntries("wrap");
-      if (!hasEntries) {
-        return;
-      }
-    }
+async function playSlideshowEntry(index, reason = "play") {
+  if (isTransitioning) {
+    return;
   }
 
-  void logger.debug("Slideshow advancing to next entry.", {
-    reason,
-    currentIndex,
-    entryCount: entries.length,
-    filename: getCurrentEntry()?.filename || "",
-    skipCurrent
-  });
-  void playCurrentEntry(reason);
-}
+  const video = getVideoElement();
+  if (!video) {
+    return;
+  }
 
-async function loadSlideshow(reason = "initial-load") {
-  playGeneration += 1;
-  clearTimers();
-  clearVideoSource();
-  updateEmptyState(true, "Loading slideshow videos...");
+  if (slideshowEntries.length === 0) {
+    clearVideoSource();
+    updateEmptyState(true, "No saved videos yet in this project.");
+    return;
+  }
 
-  try {
-    currentIndex = 0;
-    entryFailureCounts.clear();
-    const hasEntries = await refreshEntries(reason);
-    if (!hasEntries) {
-      void logger.warn("Slideshow found no playable entries.", {
+  slideshowIndex = normalizeIndex(index, slideshowEntries.length);
+  const entry = slideshowEntries[slideshowIndex];
+  let source = entry?.url || "";
+  if (!source) {
+    try {
+      source = await resolveEntrySource(entry);
+      entry.url = source;
+    } catch (error) {
+      void logger.warn("External slideshow failed to resolve a playable source.", {
+        filename: entry?.filename || "",
         reason,
-        saveDirectoryPath: getPersistedSaveDirectory()
+        error: error instanceof Error ? error.message : String(error || "")
       });
-      return;
+    }
+  }
+
+  if (!source) {
+    void logger.warn("External slideshow skipped entry because no playable source was available.", {
+      filename: entry?.filename || "",
+      reason
+    });
+    if (slideshowEntries.length > 1) {
+      window.setTimeout(() => {
+        void playSlideshowEntry(slideshowIndex + 1, "missing-source");
+      }, PLAYBACK_RETRY_DELAY_MS);
+    }
+    return;
+  }
+
+  isTransitioning = true;
+  try {
+    await transitionVideo(video, async () => {
+      video.pause();
+      video.src = source;
+      video.currentTime = 0;
+      video.loop = false;
+      video.muted = true;
+      video.defaultMuted = true;
+      video.autoplay = true;
+      video.playsInline = true;
+      video.preload = "auto";
+      video.load();
+      updateEmptyState(false);
+      await video.play();
+    });
+    consecutivePlaybackFailures = 0;
+    document.body.classList.remove("slideshow-booting");
+    document.body.classList.add("slideshow-ready");
+
+    if (!hasAppliedWindowSettings) {
+      hasAppliedWindowSettings = true;
+      const windowSettings = getSlideshowWindowSettings();
+      void applyCurrentWindowDisplaySettings(windowSettings).catch((error) => {
+        void logger.warn("External slideshow fullscreen activation failed.", {
+          error: error instanceof Error ? error.message : String(error || "")
+        });
+      });
     }
 
-    void logger.info("Slideshow initialization complete.", { reason, count: entries.length });
-    void playCurrentEntry(reason);
-  } catch (error) {
-    void logger.exception("Slideshow failed while loading videos.", error, {
-      reason,
-      saveDirectoryPath: getPersistedSaveDirectory()
+    void logger.info("External slideshow started playback.", {
+      filename: entry.filename,
+      filePath: entry.path,
+      index: slideshowIndex,
+      totalEntries: slideshowEntries.length,
+      reason
     });
-    entries = [];
-    updateEmptyState(true, "Photobooth could not load videos from the gallery folder.");
+  } catch (error) {
+    consecutivePlaybackFailures += 1;
+    void logger.warn("External slideshow playback failed. Advancing to next video.", {
+      filename: entry?.filename || "",
+      reason,
+      error: error instanceof Error ? error.message : String(error || ""),
+      consecutivePlaybackFailures
+    });
+
+    if (consecutivePlaybackFailures >= PLAYBACK_FATAL_RETRY_LIMIT) {
+      updateEmptyState(true, "Photobooth could not play the external slideshow.");
+      window.setTimeout(() => {
+        window.close();
+      }, 1200);
+    } else {
+      window.setTimeout(() => {
+        void playSlideshowEntry(slideshowIndex + 1, "play-error");
+      }, PLAYBACK_RETRY_DELAY_MS);
+    }
+  } finally {
+    isTransitioning = false;
   }
 }
 
-async function syncSlideshowState() {
+async function refreshSlideshowEntries(reason = "refresh") {
+  await loadDesktopPersistedSettings();
+  const projectDirectoryPath = getProjectDirectoryPath();
+  if (!projectDirectoryPath) {
+    slideshowEntries = [];
+    slideshowIndex = 0;
+    lastDirectoryPath = "";
+    lastEntriesSignature = "";
+    clearVideoSource();
+    updateEmptyState(true, "Choose a project to start the external slideshow.");
+    return;
+  }
+
+  const nextEntries = await loadSavedRecordingsFromDirectory(projectDirectoryPath);
+  const nextEntriesSignature = getEntriesSignature(nextEntries);
+  const directoryChanged = projectDirectoryPath !== lastDirectoryPath;
+  const entriesChanged = nextEntriesSignature !== lastEntriesSignature;
+  if (!directoryChanged && !entriesChanged) {
+    return;
+  }
+
+  const currentEntryPath = slideshowEntries[slideshowIndex]?.path || "";
+  slideshowEntries = nextEntries;
+  lastDirectoryPath = projectDirectoryPath;
+  lastEntriesSignature = nextEntriesSignature;
+
+  if (slideshowEntries.length === 0) {
+    slideshowIndex = 0;
+    clearVideoSource();
+    updateEmptyState(true, "No saved videos yet in this project.");
+    void logger.info("External slideshow found no project videos.", { reason, projectDirectoryPath });
+    return;
+  }
+
+  const matchingIndex = currentEntryPath
+    ? slideshowEntries.findIndex((entry) => entry.path === currentEntryPath)
+    : -1;
+  slideshowIndex = matchingIndex >= 0 ? matchingIndex : 0;
+
+  void logger.info("External slideshow refreshed project videos.", {
+    reason,
+    projectDirectoryPath,
+    count: slideshowEntries.length,
+    directoryChanged,
+    entriesChanged
+  });
+
+  await playSlideshowEntry(slideshowIndex, directoryChanged ? "project-change" : "entries-change");
+}
+
+async function bootstrapExternalSlideshow() {
+  updateEmptyState(true, "Loading project videos...");
+
   try {
     await loadDesktopPersistedSettings();
-    const nextSettingsSignature = getSettingsSignature();
-    const currentEntryKey = getEntryKey(getCurrentEntry());
-    const nextEntries = await loadEntries();
-    const nextEntriesSignature = getEntriesSignature(nextEntries);
-
-    const settingsChanged = nextSettingsSignature !== lastSettingsSignature;
-    const entriesChanged = nextEntriesSignature !== lastEntriesSignature;
-    if (!settingsChanged && !entriesChanged) {
-      return;
-    }
-
-    lastSettingsSignature = nextSettingsSignature;
-    entries = nextEntries;
-    if (currentEntryKey) {
-      const matchingIndex = entries.findIndex((entry) => getEntryKey(entry) === currentEntryKey);
-      currentIndex = matchingIndex >= 0 ? matchingIndex : 0;
-    } else {
-      currentIndex = 0;
-    }
-    clampIndex();
-    lastEntriesSignature = nextEntriesSignature;
-
-    void logger.info("Slideshow external window detected shared-state changes.", {
-      settingsChanged,
-      entriesChanged,
-      count: entries.length,
-      currentIndex,
-      saveDirectoryPath: getPersistedSaveDirectory()
-    });
-
-    if (!entries.length) {
-      clearVideoSource();
-      updateEmptyState(true, "No videos are available in the gallery folder yet.");
-      return;
-    }
-
-    await playCurrentEntry(settingsChanged ? "settings-sync" : "entries-sync");
+    await applyCurrentWindowDisplaySettings(getSlideshowWindowSettings());
+    hasAppliedWindowSettings = true;
   } catch (error) {
-    void logger.warn("Slideshow shared-state sync failed.", {
+    void logger.warn("External slideshow settings preload failed.", {
       error: error instanceof Error ? error.message : String(error || "")
     });
   }
+
+  try {
+    await refreshSlideshowEntries("initial-load");
+  } catch (error) {
+    void logger.exception("External slideshow failed during bootstrap.", error, {
+      projectDirectoryPath: getProjectDirectoryPath()
+    });
+    clearVideoSource();
+    updateEmptyState(true, "Photobooth could not open the external slideshow.");
+  }
+
+  stopRefreshLoop();
+  slideshowRefreshIntervalId = window.setInterval(() => {
+    void refreshSlideshowEntries("interval-refresh");
+  }, REFRESH_INTERVAL_MS);
 }
 
+window.addEventListener("beforeunload", () => {
+  stopRefreshLoop();
+  clearVideoSource();
+});
+
 window.addEventListener("error", (event) => {
-  void logger.exception("Unhandled slideshow window error.", event.error || event.message, {
+  void logger.exception("Unhandled external slideshow error.", event.error || event.message, {
     message: event.message || ""
   });
-  updateEmptyState(true, "Photobooth hit an error while opening the slideshow.");
-  clearTimers();
   clearVideoSource();
-});
-
-window.addEventListener("beforeunload", () => {
-  clearTimers();
-  clearVideoSource();
-  if (settingsSyncIntervalId !== null) {
-    window.clearInterval(settingsSyncIntervalId);
-    settingsSyncIntervalId = null;
-  }
-});
-
-document.getElementById("slideshowCloseButton")?.addEventListener("click", () => {
-  window.close();
-});
-
-document.getElementById("slideshowVideo")?.addEventListener("ended", () => {
-  void logger.debug("Slideshow video ended. Advancing to next entry.", {
-    filename: getCurrentEntry()?.filename || "",
-    currentIndex
-  });
-  void advanceSlideshow("ended", { skipCurrent: true });
+  updateEmptyState(true, "Photobooth hit an error while opening the external slideshow.");
 });
 
 document.addEventListener("contextmenu", (event) => {
   event.preventDefault();
 });
 
-void (async () => {
-  await loadDesktopPersistedSettings();
-  lastSettingsSignature = getSettingsSignature();
-  void logger.info("Slideshow window bootstrap started.", {
-    saveDirectoryPath: getPersistedSaveDirectory()
-  });
-  void setFullscreenState(true);
-  await loadSlideshow();
-  settingsSyncIntervalId = window.setInterval(() => {
-    void syncSlideshowState();
-  }, SETTINGS_SYNC_INTERVAL_MS);
-})();
+document.getElementById("slideshowVideo")?.addEventListener("ended", () => {
+  void playSlideshowEntry(slideshowIndex + 1, "ended");
+});
+
+document.getElementById("slideshowVideo")?.addEventListener("error", () => {
+  void playSlideshowEntry(slideshowIndex + 1, "video-error");
+});
+
+document.body.classList.add("slideshow-booting");
+void bootstrapExternalSlideshow();

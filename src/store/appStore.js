@@ -76,6 +76,10 @@ export default function createAppStore() {
     slideshowMode: APP_DEFAULTS.slideshowMode,
     slideshowFadeEnabled: APP_DEFAULTS.slideshowFadeEnabled,
     slideshowFadeDurationMs: APP_DEFAULTS.slideshowFadeDurationMs,
+    mainWindowMonitorId: APP_DEFAULTS.mainWindowMonitorId,
+    mainWindowFullscreen: APP_DEFAULTS.mainWindowFullscreen,
+    slideshowMonitorId: APP_DEFAULTS.slideshowMonitorId,
+    slideshowFullscreen: APP_DEFAULTS.slideshowFullscreen,
     videoInputId: APP_DEFAULTS.videoInputId,
     audioInputId: APP_DEFAULTS.audioInputId
   };

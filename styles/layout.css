@@ -12,16 +12,20 @@
   position: fixed;
   top: max(0.9rem, env(safe-area-inset-top));
   left: 50%;
-  transform: translateX(-50%);
   z-index: 20;
+  transform: translateX(-50%);
   pointer-events: none;
 }
 
 .app-brand-title {
+  border: 0;
+  background: transparent;
+  padding: 0.25rem 0.35rem;
   font-size: clamp(1rem, 1.6vw, 1.35rem);
   letter-spacing: 0.28em;
   color: rgba(255, 245, 250, 0.92);
   text-shadow: 0 10px 26px rgba(0, 0, 0, 0.34);
+  pointer-events: auto;
 }
 
 .layout {

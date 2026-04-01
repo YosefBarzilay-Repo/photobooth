@@ -1,6 +1,6 @@
 import { APP_STRINGS, APP_THRESHOLDS, DISABLED_AUDIO_INPUT_ID } from "../constants/appConfig.js";
 import renderFrameTray from "../components/frameTray.js";
-import { getDefaultRecordingsDirectory, isDesktopApp, pickDesktopDirectory } from "../services/desktopService.js";
+import { getDefaultRecordingsDirectory, isDesktopApp, listDesktopMonitors, pickDesktopDirectory } from "../services/desktopService.js";
 import { logger } from "../services/logger.js";
 import {
   createLogoOverlay,
@@ -53,6 +53,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   let dialogInteraction = null;
   let dialogStartPointer = null;
   let dialogStartRect = null;
+  let monitorOptions = [{ value: "", label: "Current Monitor" }];
 
   function notifySettingsChanged() {
     onSettingsChanged(state);
@@ -217,6 +218,10 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   function syncOverlayControls() {
     state.captureOrientation = dom.orientationSelect.value === "portrait" ? "portrait" : "landscape";
     state.slideshowMode = dom.slideshowModeSelect.value === "external" ? "external" : "internal";
+    state.mainWindowFullscreen = dom.mainWindowFullscreenSelect.value !== "false";
+    state.mainWindowMonitorId = dom.mainWindowMonitorSelect.value;
+    state.slideshowFullscreen = dom.slideshowFullscreenSelect.value !== "false";
+    state.slideshowMonitorId = dom.slideshowMonitorSelect.value;
     state.slideshowFadeEnabled = dom.slideshowFadeEnabledSelect.value === "true";
     state.slideshowFadeDurationMs = clampSlideshowFadeDuration(Number(dom.slideshowFadeDurationInput.value) || 0);
     dom.slideshowFadeDurationInput.value = String(state.slideshowFadeDurationMs);
@@ -253,6 +258,31 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     state.audioInputId = dom.audioInputSelect.value;
   }
 
+  async function loadMonitorOptions() {
+    if (!isDesktopApp()) {
+      return;
+    }
+
+    try {
+      const monitors = await listDesktopMonitors();
+      monitorOptions = [
+        { value: "", label: "Current Monitor" },
+        ...monitors.map((monitor, index) => ({
+          value: monitor.id,
+          label: `${monitor.name || `Monitor ${index + 1}`}${monitor.isPrimary ? " (Primary)" : ""}`
+        }))
+      ];
+      replaceSelectOptions(dom.mainWindowMonitorSelect, monitorOptions, state.mainWindowMonitorId);
+      replaceSelectOptions(dom.slideshowMonitorSelect, monitorOptions, state.slideshowMonitorId);
+      state.mainWindowMonitorId = dom.mainWindowMonitorSelect.value;
+      state.slideshowMonitorId = dom.slideshowMonitorSelect.value;
+    } catch (error) {
+      void logger.warn("Monitor list load failed.", {
+        error: error instanceof Error ? error.message : String(error || "")
+      });
+    }
+  }
+
   function syncControlsFromState() {
     syncOffField(dom.countdownInput, state.countdownSeconds);
     syncOffField(dom.recordingTimeoutInput, state.recordingTimeoutSeconds);
@@ -261,6 +291,10 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     dom.fontSelect.value = activeOverlay?.type === "text" ? activeOverlay.font : state.overlayFont;
     dom.orientationSelect.value = state.captureOrientation;
     dom.slideshowModeSelect.value = state.slideshowMode;
+    dom.mainWindowFullscreenSelect.value = String(state.mainWindowFullscreen);
+    replaceSelectOptions(dom.mainWindowMonitorSelect, monitorOptions, state.mainWindowMonitorId);
+    dom.slideshowFullscreenSelect.value = String(state.slideshowFullscreen);
+    replaceSelectOptions(dom.slideshowMonitorSelect, monitorOptions, state.slideshowMonitorId);
     dom.slideshowFadeEnabledSelect.value = String(state.slideshowFadeEnabled);
     dom.slideshowFadeDurationInput.value = String(clampSlideshowFadeDuration(state.slideshowFadeDurationMs));
     dom.cameraInputSelect.value = state.videoInputId;
@@ -563,6 +597,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
       dialogRect.y = dialogStartRect.y + dy;
     } else {
       dialogRect.width = dialogStartRect.width + dx;
+      dialogRect.height = dialogStartRect.height + dy;
     }
 
     syncDialogRect();
@@ -594,6 +629,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     syncRecordingTimeoutFromControl,
     syncMediaInputSelections,
     populateMediaDeviceOptions,
+    loadMonitorOptions,
     stepCountdown,
     stepRecordingTimeout,
     syncSlideshowFadeDurationFromControl,

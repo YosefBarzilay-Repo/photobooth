@@ -101,6 +101,26 @@ export async function getDesktopAppDataDirectory() {
   return invokeDesktop("get_app_data_directory");
 }
 
+export async function listDesktopMonitors() {
+  if (!isDesktopApp()) {
+    return [];
+  }
+
+  return invokeDesktop("list_available_monitors");
+}
+
+export async function applyCurrentWindowDisplaySettings({ monitorId = "", fullscreen = true } = {}) {
+  if (!isDesktopApp()) {
+    return false;
+  }
+
+  await invokeDesktop("apply_current_window_settings", {
+    monitorId: typeof monitorId === "string" && monitorId.trim() ? monitorId : null,
+    fullscreen: Boolean(fullscreen)
+  });
+  return Boolean(fullscreen);
+}
+
 export async function createDesktopProjectDirectory(projectName, parentDirectory = "") {
   if (!isDesktopApp()) {
     throw new Error("Desktop APIs are not available.");
@@ -156,12 +176,30 @@ export async function closeDesktopApp() {
   window.close();
 }
 
-export async function openDesktopSlideshowWindow() {
+export async function openDesktopSlideshowWindow(projectPath) {
   if (!isDesktopApp()) {
     throw new Error("Desktop APIs are not available.");
   }
 
-  return invokeDesktop("open_slideshow_window");
+  return invokeDesktop("open_slideshow_process", { projectPath });
+}
+
+export async function listActiveDesktopSlideshows() {
+  if (!isDesktopApp()) {
+    return [];
+  }
+
+  return invokeDesktop("list_active_slideshows");
+}
+
+export async function closeExternalDesktopSlideshows(projectPath = "") {
+  if (!isDesktopApp()) {
+    return;
+  }
+
+  await invokeDesktop("close_external_slideshows", {
+    projectPath: typeof projectPath === "string" && projectPath.trim() ? projectPath : null
+  });
 }
 
 export async function openDesktopDirectory(directoryPath = "") {

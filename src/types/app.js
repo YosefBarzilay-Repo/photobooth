@@ -97,6 +97,10 @@
  *   logoScale: number,
  *   logoRotation: number,
  *   logoPosition: Vector2,
+ *   mainWindowMonitorId: string,
+ *   mainWindowFullscreen: boolean,
+ *   slideshowMonitorId: string,
+ *   slideshowFullscreen: boolean,
  *   videoInputId: string,
  *   audioInputId: string
  * }} AppState

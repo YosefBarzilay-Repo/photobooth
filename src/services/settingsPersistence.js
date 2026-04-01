@@ -8,20 +8,9 @@ import { createLogoOverlay, createTextOverlay, syncActiveOverlayState } from "..
 
 const STORAGE_KEY = "photobooth.appData.v2";
 const LEGACY_STORAGE_KEY = "photobooth.operatorSettings.v1";
-const PROJECT_METADATA_FILENAME = "project.json";
-const LEGACY_PROJECT_METADATA_FILENAMES = ["booking.json"];
 const APP_DATA_FILENAME = "app-data.json";
 const APP_DATA_VERSION = 2;
 let desktopAppDataDirectoryPromise = null;
-
-function normalizePathSegment(value) {
-  return String(value || "")
-    .trim()
-    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, "_")
-    .replace(/\s+/g, " ")
-    .replace(/[. ]+$/g, "")
-    .slice(0, 120);
-}
 
 async function getDesktopAppDataDirectoryPath() {
   if (!isDesktopApp()) {
@@ -176,6 +165,18 @@ export function applyPersistedSettings(state, defaults, savedSettings) {
   state.slideshowFadeDurationMs = Number.isFinite(savedSettings.slideshowFadeDurationMs)
     ? Math.max(0, savedSettings.slideshowFadeDurationMs)
     : defaults.slideshowFadeDurationMs;
+  state.mainWindowMonitorId = typeof savedSettings.mainWindowMonitorId === "string"
+    ? savedSettings.mainWindowMonitorId
+    : defaults.mainWindowMonitorId;
+  state.mainWindowFullscreen = typeof savedSettings.mainWindowFullscreen === "boolean"
+    ? savedSettings.mainWindowFullscreen
+    : defaults.mainWindowFullscreen;
+  state.slideshowMonitorId = typeof savedSettings.slideshowMonitorId === "string"
+    ? savedSettings.slideshowMonitorId
+    : defaults.slideshowMonitorId;
+  state.slideshowFullscreen = typeof savedSettings.slideshowFullscreen === "boolean"
+    ? savedSettings.slideshowFullscreen
+    : defaults.slideshowFullscreen;
   state.saveDirectoryPath = typeof savedSettings.saveDirectoryPath === "string" ? savedSettings.saveDirectoryPath : "";
   state.saveDirectoryName = typeof savedSettings.saveDirectoryName === "string" && savedSettings.saveDirectoryName.trim()
     ? savedSettings.saveDirectoryName
@@ -230,6 +231,10 @@ export function persistSettings(state) {
       slideshowMode: state.slideshowMode,
       slideshowFadeEnabled: state.slideshowFadeEnabled,
       slideshowFadeDurationMs: state.slideshowFadeDurationMs,
+      mainWindowMonitorId: state.mainWindowMonitorId,
+      mainWindowFullscreen: state.mainWindowFullscreen,
+      slideshowMonitorId: state.slideshowMonitorId,
+      slideshowFullscreen: state.slideshowFullscreen,
       saveDirectoryPath: state.saveDirectoryPath,
       saveDirectoryName: state.saveDirectoryName,
       videoInputId: state.videoInputId,
@@ -279,60 +284,18 @@ function normalizeProjectMetadata(payload = {}) {
   };
 }
 
-function getProjectMetadataPath(projectPath) {
-  const normalizedProjectPath = String(projectPath || "").trim().replace(/[\\/]+$/, "");
-  if (!normalizedProjectPath) {
-    return "";
-  }
-
-  return `${normalizedProjectPath}\\${PROJECT_METADATA_FILENAME}`;
-}
-
-async function getLegacyDesktopProjectMetadataPath(projectPath) {
-  const normalizedProjectPath = String(projectPath || "").trim().replace(/[\\/]+$/, "");
-  if (!normalizedProjectPath) {
-    return "";
-  }
-
-  const directoryPath = await getDesktopAppDataDirectoryPath();
-  if (!directoryPath) {
-    return "";
-  }
-
-  const projectDirectoryName = normalizePathSegment(normalizedProjectPath);
-  return `${directoryPath}\\Projects\\${projectDirectoryName}\\booking.json`;
-}
-
 function getProjectMetadataStorageKey(projectPath) {
   return `photobooth.projectMetadata.${String(projectPath || "").trim().toLowerCase()}`;
 }
 
 export async function loadProjectMetadata(projectPath) {
-  const metadataPath = getProjectMetadataPath(projectPath);
-  if (!metadataPath) {
+  if (!String(projectPath || "").trim()) {
     return normalizeProjectMetadata();
   }
 
   try {
     if (isDesktopApp()) {
-      const metadataPaths = [
-        metadataPath,
-        ...LEGACY_PROJECT_METADATA_FILENAMES.map((filename) => `${String(projectPath || "").trim().replace(/[\\/]+$/, "")}\\${filename}`),
-        await getLegacyDesktopProjectMetadataPath(projectPath)
-      ].filter(Boolean);
-      for (const filePath of metadataPaths) {
-        const raw = await invokeDesktop("read_text_file", { filePath });
-        if (!raw.trim()) {
-          continue;
-        }
-
-        const metadata = normalizeProjectMetadata(JSON.parse(raw));
-        if (filePath !== metadataPath) {
-          await saveProjectMetadata(projectPath, metadata);
-        }
-        return metadata;
-      }
-      return normalizeProjectMetadata();
+      return normalizeProjectMetadata(await invokeDesktop("get_project_metadata", { projectPath }));
     }
 
     const raw = window.localStorage.getItem(getProjectMetadataStorageKey(projectPath));
@@ -340,7 +303,6 @@ export async function loadProjectMetadata(projectPath) {
   } catch (error) {
     void logger.warn("Project metadata load failed. Falling back to defaults.", {
       projectPath,
-      metadataPath,
       error: error instanceof Error ? error.message : String(error || "")
     });
     return normalizeProjectMetadata();
@@ -349,22 +311,20 @@ export async function loadProjectMetadata(projectPath) {
 
 export async function saveProjectMetadata(projectPath, metadata) {
   const normalizedMetadata = normalizeProjectMetadata(metadata);
-  const metadataPath = getProjectMetadataPath(projectPath);
-  if (!metadataPath) {
+  if (!String(projectPath || "").trim()) {
     throw new Error("Photobooth could not find the selected project folder.");
   }
 
   const payload = JSON.stringify(normalizedMetadata, null, 2);
 
   if (isDesktopApp()) {
-    await invokeDesktop("write_text_file", { filePath: metadataPath, text: payload });
+    await invokeDesktop("save_project_metadata", { projectPath, metadata: normalizedMetadata });
   } else {
     window.localStorage.setItem(getProjectMetadataStorageKey(projectPath), payload);
   }
 
   void logger.info("Project metadata saved.", {
     projectPath,
-    metadataPath,
     hasOrderId: Boolean(normalizedMetadata.orderId),
     hasClientName: Boolean(normalizedMetadata.clientName)
   });

@@ -13,7 +13,9 @@
 <body>
   <div class="app-shell">
     <div class="app-titlebar">
-      <div class="brand app-brand-title">Photobooth</div>
+      <button class="brand app-brand-title" id="appBrandButton" type="button" aria-label="Open preview">
+        Photobooth
+      </button>
     </div>
 
     <main class="layout">
@@ -55,11 +57,6 @@
 
         <div class="console" id="console">
           <div class="console-shell">
-            <button class="console-button hidden" id="openPreviewButton" type="button" aria-label="Open preview view">
-              <span class="material-symbols-outlined">play_circle</span>
-              Open Preview
-            </button>
-
             <div class="record-control hidden" id="recordControl">
               <button class="shutter-button" id="snapButton" type="button" aria-label="Start recording">
                 <span class="shutter-core">
@@ -213,6 +210,19 @@
                 <option value="__none__">Audio Off</option>
               </select>
             </label>
+            <label class="field field-inline">
+              <span class="field-label">Main App Window</span>
+              <select id="mainWindowFullscreenSelect">
+                <option value="true">Fullscreen</option>
+                <option value="false">Windowed</option>
+              </select>
+            </label>
+            <label class="field field-inline">
+              <span class="field-label">Main App Monitor</span>
+              <select id="mainWindowMonitorSelect">
+                <option value="">Current Monitor</option>
+              </select>
+            </label>
             <button class="console-button secondary-button settings-spaced-action" id="saveFolderButton" type="button">
               <span class="material-symbols-outlined">folder_open</span>
               Choose Folder
@@ -233,12 +243,32 @@
               </select>
             </label>
             <label class="field field-inline">
+              <span class="field-label">Slideshow Window</span>
+              <select id="slideshowFullscreenSelect">
+                <option value="true">Fullscreen</option>
+                <option value="false">Windowed</option>
+              </select>
+            </label>
+            <label class="field field-inline">
+              <span class="field-label">Slideshow Monitor</span>
+              <select id="slideshowMonitorSelect">
+                <option value="">Current Monitor</option>
+              </select>
+            </label>
+            <label class="field field-inline">
               <span class="field-label">Fade Transition</span>
               <select id="slideshowFadeEnabledSelect">
                 <option value="true">On</option>
                 <option value="false">Off</option>
               </select>
             </label>
+            <div class="field">
+              <p class="settings-note">Use external window mode when the slideshow should run on a different monitor than the main app.</p>
+            </div>
+            <button class="console-button secondary-button settings-spaced-action" id="closeSlideshowButton" type="button">
+              <span class="material-symbols-outlined">close</span>
+              Close All Slideshows
+            </button>
             <label class="field field-inline">
               <span class="field-label">Fade Time (ms)</span>
               <div class="stepper-control">
@@ -299,7 +329,7 @@
             </button>
             <button class="secondary-button gallery-footer-action hidden" id="gallerySlideshowButton" type="button">
               <span class="material-symbols-outlined">slideshow</span>
-              <span>Start Slideshow</span>
+              <span id="gallerySlideshowLabel">Start Slideshow</span>
             </button>
             <button class="secondary-button gallery-footer-action" id="galleryOpenFolderButton" type="button">
               <span class="material-symbols-outlined">folder_open</span>

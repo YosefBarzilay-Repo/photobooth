@@ -23,3 +23,5 @@ log = "0.4"
 tauri = { version = "2.10.3", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-log = "2"
+url = "2"
+urlencoding = "2"

@@ -202,9 +202,11 @@ export default function createGalleryScreen(dom, state, handlers) {
     dom.galleryTabProjects.classList.toggle("is-active", !isVideosView);
     dom.galleryTabProjects.setAttribute("aria-selected", String(!isVideosView));
     dom.galleryOpenFolderLabel.textContent = isVideosView ? "Open Folder" : "Open Projects Folder";
+    dom.gallerySlideshowButton.classList.toggle("hidden", isVideosView);
+    dom.gallerySlideshowButton.disabled = isVideosView || !state.saveDirectoryPath;
     dom.galleryFooterLabel.textContent = isVideosView
       ? `Current project: ${state.saveDirectoryName || APP_STRINGS.saveFolderDefault}`
-      : "";
+      : `Current project: ${state.saveDirectoryName || APP_STRINGS.saveFolderDefault}`;
   }
 
   function renderLoadingState(message) {
@@ -447,6 +449,13 @@ export default function createGalleryScreen(dom, state, handlers) {
       renameButton.dataset.index = String(index);
       renameButton.innerHTML = '<span class="material-symbols-outlined">edit</span><span>Rename</span>';
 
+      const metadataButton = document.createElement("button");
+      metadataButton.type = "button";
+      metadataButton.className = "gallery-delete-button";
+      metadataButton.dataset.action = "project-booking";
+      metadataButton.dataset.index = String(index);
+      metadataButton.innerHTML = '<span class="material-symbols-outlined">badge</span><span>Booking</span>';
+
       const deleteButton = document.createElement("button");
       deleteButton.type = "button";
       deleteButton.className = "gallery-delete-button";
@@ -460,7 +469,7 @@ export default function createGalleryScreen(dom, state, handlers) {
       }
 
       heading.append(name, size);
-      actions.append(chooseButton, openFolderButton, renameButton, deleteButton);
+      actions.append(chooseButton, openFolderButton, renameButton, metadataButton, deleteButton);
       details.append(heading, meta, path, actions);
       card.append(thumb, details);
       dom.galleryList.appendChild(card);
@@ -516,6 +525,11 @@ export default function createGalleryScreen(dom, state, handlers) {
       if (actionElement.dataset.action === "rename-project") {
         await handlers.renameProject(project);
         await refreshGallery();
+        return;
+      }
+
+      if (actionElement.dataset.action === "project-booking") {
+        await handlers.openProjectMetadata(project);
         return;
       }
 
@@ -613,6 +627,10 @@ export default function createGalleryScreen(dom, state, handlers) {
 
   dom.galleryList.addEventListener("click", (event) => {
     void handleListClick(event);
+  });
+
+  dom.gallerySlideshowButton.addEventListener("click", () => {
+    void handlers.startProjectSlideshow();
   });
 
 

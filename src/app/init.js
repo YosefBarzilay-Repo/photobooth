@@ -26,7 +26,6 @@ import {
   getFullscreenState,
   isDesktopApp,
   listDesktopProjects,
-  openDesktopSlideshowWindow,
   openDesktopDirectory,
   renameDesktopProjectDirectory,
   setFullscreenState
@@ -34,7 +33,9 @@ import {
 import {
   applyPersistedSettings,
   loadPersistedSettings,
-  persistSettings
+  loadProjectMetadata,
+  persistSettings,
+  saveProjectMetadata
 } from "../services/settingsPersistence.js";
 import {
   buildAudioInputOptions,
@@ -350,6 +351,10 @@ export default function initApp() {
   let dialogIsConfirmation = false;
   let projectDialogMode = "create";
   let projectDialogProject = null;
+  let projectMetadataProject = null;
+  let slideshowEntries = [];
+  let slideshowIndex = -1;
+  let slideshowStartedAt = 0;
 
   function syncModeUi() {
     cameraScreen.syncModeUi();
@@ -442,6 +447,36 @@ export default function initApp() {
     }, 0);
   }
 
+  function hideProjectMetadataDialog() {
+    dom.projectMetadataOverlay.classList.add("hidden");
+    dom.projectMetadataError.textContent = "";
+    dom.projectMetadataError.classList.add("hidden");
+    projectMetadataProject = null;
+  }
+
+  function setProjectMetadataError(message) {
+    dom.projectMetadataError.textContent = message;
+    dom.projectMetadataError.classList.remove("hidden");
+  }
+
+  async function showProjectMetadataDialog(project) {
+    projectMetadataProject = project;
+    dom.projectMetadataTitle.textContent = `${project.name} Booking`;
+    dom.projectMetadataMessage.textContent = "Save client details for this project folder.";
+    dom.projectMetadataError.textContent = "";
+    dom.projectMetadataError.classList.add("hidden");
+
+    const metadata = await loadProjectMetadata(project.path);
+    dom.projectOrderInput.value = metadata.orderId;
+    dom.projectClientNameInput.value = metadata.clientName;
+    dom.projectPhoneInput.value = metadata.phone;
+    dom.projectEmailInput.value = metadata.email;
+    dom.projectAddressInput.value = metadata.address;
+    dom.projectNotesInput.value = metadata.notes;
+    dom.projectMetadataOverlay.classList.remove("hidden");
+    window.setTimeout(() => dom.projectOrderInput.focus(), 0);
+  }
+
   function hasUnsavedRecording() {
     if (!state.recordingBlob || !state.recordingFilename) {
       return false;
@@ -456,12 +491,34 @@ export default function initApp() {
       return true;
     }
 
-    return requestConfirmation({
+    const shouldSave = await requestConfirmation({
       title: "Unsaved Video",
-      message: `You have an unsaved video. Discard it and ${actionLabel}?`,
+      message: `Save video before ${actionLabel}?`,
       confirmLabel: "Yes",
       cancelLabel: "No"
     });
+
+    if (!shouldSave) {
+      discardCurrentRecording();
+      return true;
+    }
+
+    return saveCurrentRecording();
+  }
+
+  function discardCurrentRecording() {
+    stopRecordingTimer();
+    composedRecorder?.stop();
+    composedRecorder = null;
+    resetCaptureState();
+    state.recordingChunks = [];
+    state.recordingBlob = null;
+    state.recordingUrl = "";
+    state.recordingFilename = "";
+    state.recordingPath = "";
+    editorScreen.resetResultVideo();
+    dom.snapButton.disabled = false;
+    dom.recordingTimer.textContent = "00:00";
   }
 
   async function refreshMediaDeviceOptions() {
@@ -589,19 +646,102 @@ export default function initApp() {
     }
   }
 
-  async function openSlideshowWindow() {
+  async function openProjectMetadata(project) {
     try {
-      if (!state.isDesktopApp) {
-        showAppDialog("Desktop only", "The slideshow window is available in the installed desktop app.");
+      await showProjectMetadataDialog(project);
+    } catch (error) {
+      showErrorDialog("Booking unavailable", error, "Photobooth could not load the project booking details.");
+    }
+  }
+
+  function updateSlideshowEmptyState(isEmpty, message = "No saved videos yet in this project.") {
+    dom.slideshowEmptyState.classList.toggle("hidden", !isEmpty);
+    dom.slideshowVideo.classList.toggle("hidden", isEmpty);
+    dom.slideshowMeta.classList.toggle("hidden", isEmpty);
+    dom.slideshowEmptyText.textContent = message;
+  }
+
+  function stopSlideshowPlayback() {
+    dom.slideshowVideo.pause();
+    dom.slideshowVideo.removeAttribute("src");
+    dom.slideshowVideo.load();
+    slideshowEntries = [];
+    slideshowIndex = -1;
+  }
+
+  function exitSlideshow() {
+    if (state.mode !== "slideshow") {
+      return;
+    }
+
+    stopSlideshowPlayback();
+    state.mode = "editor";
+    syncModeUi();
+    editorScreen.showResult();
+  }
+
+  async function playSlideshowEntry(index) {
+    if (!slideshowEntries.length) {
+      updateSlideshowEmptyState(true);
+      return;
+    }
+
+    slideshowIndex = ((index % slideshowEntries.length) + slideshowEntries.length) % slideshowEntries.length;
+    const entry = slideshowEntries[slideshowIndex];
+    await ensureRecordingEntryUrl(entry);
+
+    dom.slideshowFilename.textContent = entry.filename;
+    dom.slideshowCounter.textContent = `${slideshowIndex + 1} / ${slideshowEntries.length}`;
+    updateSlideshowEmptyState(false);
+    dom.slideshowVideo.pause();
+    dom.slideshowVideo.src = entry.url;
+    dom.slideshowVideo.currentTime = 0;
+    dom.slideshowVideo.load();
+
+    try {
+      await dom.slideshowVideo.play();
+    } catch (error) {
+      void logger.warn("Slideshow playback failed. Advancing to next video.", {
+        filename: entry.filename,
+        error: error instanceof Error ? error.message : String(error || "")
+      });
+
+      if (slideshowEntries.length > 1) {
+        await playSlideshowEntry(slideshowIndex + 1);
+      } else {
+        updateSlideshowEmptyState(true, "This project has a video, but it could not be played.");
+      }
+    }
+  }
+
+  async function startProjectSlideshow() {
+    const canProceed = await confirmDiscardIfNeeded("starting the slideshow");
+    if (!canProceed) {
+      return;
+    }
+
+    if (!state.saveDirectoryPath) {
+      showAppDialog("Slideshow unavailable", "Choose a project first.");
+      return;
+    }
+
+    try {
+      stopStream();
+      closeGalleryPanel();
+      dom.resultVideo.pause();
+      slideshowEntries = await loadSavedRecordingsFromDirectory(state.saveDirectoryPath);
+      state.mode = "slideshow";
+      slideshowStartedAt = Date.now();
+      syncModeUi();
+
+      if (!slideshowEntries.length) {
+        updateSlideshowEmptyState(true);
         return;
       }
 
-      await logger.audit("Open slideshow window requested.", { saveDirectoryPath: state.saveDirectoryPath });
-      await openDesktopSlideshowWindow();
-      hideAppDialog();
-      void logger.info("Slideshow window opened.");
+      await playSlideshowEntry(0);
     } catch (error) {
-      showErrorDialog("Slideshow unavailable", error, "Photobooth could not open the slideshow screen.");
+      showErrorDialog("Slideshow unavailable", error, "Photobooth could not open the slideshow.");
     }
   }
   const galleryScreen = createGalleryScreen(dom, state, {
@@ -627,7 +767,9 @@ export default function initApp() {
     openProject,
     openProjectFolder,
     renameProject,
-    deleteProject
+    deleteProject,
+    openProjectMetadata,
+    startProjectSlideshow
   });
 
   async function loadAppVersion() {
@@ -674,14 +816,14 @@ export default function initApp() {
   }
 
   async function closeApp() {
-    const confirmed = await requestConfirmation({
-      title: "Close App",
-      message: hasUnsavedRecording()
-        ? "You have an unsaved video. Close the app and discard it?"
-        : "Are you sure you want to close the app?",
-      confirmLabel: "Yes",
-      cancelLabel: "No"
-    });
+    const confirmed = hasUnsavedRecording()
+      ? await confirmDiscardIfNeeded("closing the app")
+      : await requestConfirmation({
+        title: "Close App",
+        message: "Are you sure you want to close the app?",
+        confirmLabel: "Yes",
+        cancelLabel: "No"
+      });
 
     if (!confirmed) {
       return;
@@ -888,7 +1030,7 @@ export default function initApp() {
   async function saveCurrentRecording() {
     if (!state.recordingBlob || !state.recordingFilename) {
       void logger.warn("Save requested without an active recording.");
-      return;
+      return false;
     }
 
     void logger.audit("Save current recording requested.", { filename: state.recordingFilename });
@@ -904,7 +1046,7 @@ export default function initApp() {
       );
 
       if (!savedPath) {
-        return;
+        return false;
       }
 
       state.recordingPath = typeof savedPath === "string" ? savedPath : state.recordingPath;
@@ -919,8 +1061,10 @@ export default function initApp() {
         filename: state.recordingFilename,
         savedPath: state.recordingPath
       });
+      return true;
     } catch (error) {
       showErrorDialog("Save failed", error, "Photobooth could not save the recording.");
+      return false;
     } finally {
       state.isSaving = false;
       syncModeUi();
@@ -1038,19 +1182,7 @@ export default function initApp() {
       return;
     }
 
-    stopRecordingTimer();
-    composedRecorder?.stop();
-    composedRecorder = null;
-    resetCaptureState();
-    state.recordingChunks = [];
-    state.recordingBlob = null;
-    state.recordingUrl = "";
-    state.recordingFilename = "";
-    state.recordingPath = "";
-
-    editorScreen.resetResultVideo();
-    dom.snapButton.disabled = false;
-    dom.recordingTimer.textContent = "00:00";
+    discardCurrentRecording();
     state.mode = "camera";
     hideAppDialog();
     closeGalleryPanel();
@@ -1195,6 +1327,37 @@ export default function initApp() {
   dom.audioInputSelect.addEventListener("change", () => {
     void handleMediaInputChange();
   });
+  dom.projectMetadataCloseButton.addEventListener("click", hideProjectMetadataDialog);
+  dom.projectMetadataCancelButton.addEventListener("click", hideProjectMetadataDialog);
+  dom.projectMetadataSaveButton.addEventListener("click", async () => {
+    if (!projectMetadataProject) {
+      return;
+    }
+
+    try {
+      await saveProjectMetadata(projectMetadataProject.path, {
+        orderId: dom.projectOrderInput.value,
+        clientName: dom.projectClientNameInput.value,
+        phone: dom.projectPhoneInput.value,
+        email: dom.projectEmailInput.value,
+        address: dom.projectAddressInput.value,
+        notes: dom.projectNotesInput.value
+      });
+      hideProjectMetadataDialog();
+    } catch (error) {
+      setProjectMetadataError(formatErrorMessage(error, "Photobooth could not save the booking details."));
+    }
+  });
+  dom.slideshowVideo.addEventListener("ended", () => {
+    if (state.mode === "slideshow" && slideshowEntries.length > 0) {
+      void playSlideshowEntry(slideshowIndex + 1);
+    }
+  });
+  dom.slideshowVideo.addEventListener("error", () => {
+    if (state.mode === "slideshow" && slideshowEntries.length > 0) {
+      void playSlideshowEntry(slideshowIndex + 1);
+    }
+  });
   navigator.mediaDevices?.addEventListener?.("devicechange", () => {
     void refreshMediaDeviceOptions();
   });
@@ -1261,6 +1424,26 @@ export default function initApp() {
       }
     }
   });
+  window.addEventListener("pointermove", (event) => {
+    if (state.mode !== "slideshow") {
+      return;
+    }
+
+    if (Date.now() - slideshowStartedAt < 400) {
+      return;
+    }
+
+    if (Math.abs(event.movementX) < 1 && Math.abs(event.movementY) < 1) {
+      return;
+    }
+
+    exitSlideshow();
+  });
+  window.addEventListener("keydown", (event) => {
+    if (state.mode === "slideshow" && event.key === "Escape") {
+      exitSlideshow();
+    }
+  });
   wireEvents(dom, state, {
     captureVideo,
     closeGalleryPanel,
@@ -1274,7 +1457,7 @@ export default function initApp() {
     openSettingsView,
     pickSaveFolder,
     saveCurrentRecording,
-    openSlideshowWindow,
+    openSlideshowWindow: startProjectSlideshow,
     closeApp,
     operatorScreen,
     editorScreen,

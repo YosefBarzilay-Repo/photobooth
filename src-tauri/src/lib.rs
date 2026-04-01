@@ -316,6 +316,17 @@ fn write_binary_file(file_path: String, bytes: Vec<u8>) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn write_text_file(file_path: String, text: String) -> Result<(), String> {
+  let path = PathBuf::from(file_path);
+
+  if let Some(parent) = path.parent() {
+    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+  }
+
+  fs::write(path, text).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn save_recording_to_directory(directory_path: String, file_name: String, bytes: Vec<u8>) -> Result<String, String> {
   let mut path = PathBuf::from(directory_path);
   fs::create_dir_all(&path).map_err(|error| error.to_string())?;
@@ -438,6 +449,16 @@ fn read_recording_file(file_path: String) -> Result<Vec<u8>, String> {
 }
 
 #[tauri::command]
+fn read_text_file(file_path: String) -> Result<String, String> {
+  let path = PathBuf::from(file_path);
+  if !path.exists() {
+    return Ok(String::new());
+  }
+
+  fs::read_to_string(path).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn list_saved_recordings(directory_path: String) -> Result<Vec<SavedRecording>, String> {
   let directory = PathBuf::from(directory_path);
   if !directory.exists() {
@@ -545,6 +566,7 @@ pub fn run() {
     })
     .invoke_handler(tauri::generate_handler![
       write_binary_file,
+      write_text_file,
       save_recording_to_directory,
       save_recording_to_default_directory,
       get_default_recordings_directory,
@@ -554,6 +576,7 @@ pub fn run() {
       delete_project_directory,
       delete_recording_file,
       read_recording_file,
+      read_text_file,
       list_saved_recordings,
       get_app_version,
       append_app_log,

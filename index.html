@@ -253,10 +253,16 @@
 
         <div class="operator-dialog-footer gallery-dialog-footer">
           <p class="operator-version-label" id="galleryFooterLabel">Open a saved video to load it into preview.</p>
-          <button class="secondary-button gallery-footer-action" id="galleryOpenFolderButton" type="button">
-            <span class="material-symbols-outlined">folder_open</span>
-            <span id="galleryOpenFolderLabel">Open Folder</span>
-          </button>
+          <div class="gallery-footer-actions">
+            <button class="secondary-button gallery-footer-action hidden" id="gallerySlideshowButton" type="button">
+              <span class="material-symbols-outlined">slideshow</span>
+              <span>Start Slideshow</span>
+            </button>
+            <button class="secondary-button gallery-footer-action" id="galleryOpenFolderButton" type="button">
+              <span class="material-symbols-outlined">folder_open</span>
+              <span id="galleryOpenFolderLabel">Open Folder</span>
+            </button>
+          </div>
         </div>
 
         <button class="operator-dialog-resize" id="galleryDialogResize" type="button" aria-label="Resize gallery dialog"></button>
@@ -285,6 +291,49 @@
       </div>
     </section>
 
+    <section class="app-dialog-overlay hidden" id="projectMetadataOverlay" aria-modal="true" role="dialog" aria-labelledby="projectMetadataTitle">
+      <div class="app-dialog-card project-metadata-card">
+        <header class="app-dialog-header">
+          <h2 class="panel-title panel-title-small" id="projectMetadataTitle">Project Booking</h2>
+          <button class="icon-button" id="projectMetadataCloseButton" type="button" aria-label="Close project booking">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </header>
+        <p class="app-dialog-message project-dialog-message" id="projectMetadataMessage">Save booking details for this project folder.</p>
+        <div class="project-metadata-grid">
+          <label class="field">
+            <span class="field-label">Order</span>
+            <input id="projectOrderInput" type="text" maxlength="80" placeholder="Order number" autocomplete="off">
+          </label>
+          <label class="field">
+            <span class="field-label">Name</span>
+            <input id="projectClientNameInput" type="text" maxlength="120" placeholder="Client name" autocomplete="off">
+          </label>
+          <label class="field">
+            <span class="field-label">Phone</span>
+            <input id="projectPhoneInput" type="text" maxlength="40" placeholder="Phone number" autocomplete="off">
+          </label>
+          <label class="field">
+            <span class="field-label">Email</span>
+            <input id="projectEmailInput" type="email" maxlength="120" placeholder="Email address" autocomplete="off">
+          </label>
+          <label class="field">
+            <span class="field-label">Address</span>
+            <input id="projectAddressInput" type="text" maxlength="200" placeholder="Address" autocomplete="off">
+          </label>
+          <label class="field field-span-full">
+            <span class="field-label">Notes</span>
+            <textarea id="projectNotesInput" rows="4" maxlength="1200" placeholder="Notes"></textarea>
+          </label>
+        </div>
+        <p class="dialog-error hidden" id="projectMetadataError"></p>
+        <div class="app-dialog-actions">
+          <button class="secondary-button" id="projectMetadataCancelButton" type="button">Cancel</button>
+          <button class="primary-button" id="projectMetadataSaveButton" type="button">Save Booking</button>
+        </div>
+      </div>
+    </section>
+
     <section class="app-dialog-overlay hidden" id="appDialogOverlay" aria-modal="true" role="dialog" aria-labelledby="appDialogTitle">
       <div class="app-dialog-card">
         <header class="app-dialog-header">
@@ -298,6 +347,26 @@
           <button class="secondary-button" id="appDialogCancelButton" type="button">No</button>
           <button class="primary-button" id="appDialogConfirmButton" type="button">Yes</button>
         </div>
+      </div>
+    </section>
+
+    <section class="slideshow-overlay hidden" id="slideshowOverlay" aria-label="Project slideshow">
+      <div class="slideshow-shell slideshow-shell-in-app">
+        <main class="slideshow-stage">
+          <video class="slideshow-video hidden" id="slideshowVideo" playsinline muted autoplay></video>
+          <section class="library-empty" id="slideshowEmptyState">
+            <span class="material-symbols-outlined">slideshow</span>
+            <div>
+              <h2>Slideshow</h2>
+              <p id="slideshowEmptyText">No saved videos yet in this project.</p>
+            </div>
+          </section>
+          <div class="slideshow-meta hidden" id="slideshowMeta">
+            <span id="slideshowFilename"></span>
+            <span id="slideshowCounter"></span>
+          </div>
+          <div class="slideshow-exit-hint" id="slideshowExitHint">Move the mouse to exit</div>
+        </main>
       </div>
     </section>
   </div>

@@ -10,12 +10,13 @@ export default function createCameraScreen(dom, state) {
     document.body.dataset.mode = state.mode;
     const cameraMode = state.mode === "camera";
     const editorVisible = state.mode === "editor";
+    const slideshowVisible = state.mode === "slideshow";
     const countdownActive = state.countdownValue !== null;
     const showResultActions = state.mode === "editor";
-    const hideConsole = state.operatorPanelOpen || state.galleryPanelOpen;
+    const hideConsole = state.operatorPanelOpen || state.galleryPanelOpen || slideshowVisible;
     const resultActionsDisabled = state.isSaving;
 
-    dom.cameraStage.classList.toggle("hidden", editorVisible);
+    dom.cameraStage.classList.toggle("hidden", !cameraMode);
     dom.editorStage.classList.toggle("hidden", !editorVisible);
     dom.console.classList.toggle("hidden", hideConsole);
     dom.recordControl.classList.toggle("hidden", !cameraMode);
@@ -53,13 +54,14 @@ export default function createCameraScreen(dom, state) {
     dom.resultPlayButton.disabled = !state.recordingUrl || resultActionsDisabled;
     dom.resultGalleryButton.classList.toggle("hidden", !showResultActions);
     dom.resultGalleryButton.disabled = resultActionsDisabled;
-    dom.previewSeparatorSecondary.classList.toggle("hidden", !showResultActions);
-    dom.resultSlideshowButton.classList.toggle("hidden", !showResultActions);
+    dom.previewSeparatorSecondary.classList.add("hidden");
+    dom.resultSlideshowButton.classList.add("hidden");
     dom.resultSlideshowButton.disabled = resultActionsDisabled;
     dom.previewSeparatorTertiary.classList.toggle("hidden", !showResultActions);
     dom.resultSettingsButton.classList.toggle("hidden", !showResultActions);
     dom.resultSettingsButton.disabled = resultActionsDisabled;
     dom.resultNewButton.disabled = resultActionsDisabled;
+    dom.slideshowOverlay.classList.toggle("hidden", !slideshowVisible);
   }
 
   function showError(message) {

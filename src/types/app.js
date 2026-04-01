@@ -1,5 +1,5 @@
 /**
- * @typedef {"camera" | "editor"} AppMode
+ * @typedef {"camera" | "editor" | "slideshow"} AppMode
  */
 
 /**

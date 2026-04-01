@@ -168,6 +168,22 @@ export async function openDesktopDirectory(directoryPath = "") {
   return invokeDesktop("open_directory_in_file_manager", { directoryPath: targetPath });
 }
 
+export async function readDesktopTextFile(filePath) {
+  if (!isDesktopApp()) {
+    throw new Error("Desktop APIs are not available.");
+  }
+
+  return invokeDesktop("read_text_file", { filePath });
+}
+
+export async function writeDesktopTextFile(filePath, text) {
+  if (!isDesktopApp()) {
+    throw new Error("Desktop APIs are not available.");
+  }
+
+  return invokeDesktop("write_text_file", { filePath, text });
+}
+
 export async function pickDesktopDirectory(defaultPath = "") {
   if (!isDesktopApp()) {
     return null;

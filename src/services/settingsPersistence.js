@@ -6,8 +6,9 @@ import { getDesktopAppDataDirectory, invokeDesktop, isDesktopApp } from "./deskt
 import { logger } from "./logger.js";
 import { createLogoOverlay, createTextOverlay, syncActiveOverlayState } from "../utils/overlayState.js";
 
-const STORAGE_KEY = "photobooth.appData.v2";
-const LEGACY_STORAGE_KEY = "photobooth.operatorSettings.v1";
+const STORAGE_KEY = "echo.appData.v2";
+const LEGACY_STORAGE_KEY = "photobooth.appData.v2";
+const EARLY_LEGACY_STORAGE_KEY = "photobooth.operatorSettings.v1";
 const APP_DATA_FILENAME = "project-settings.json";
 const LEGACY_APP_DATA_FILENAME = "app-data.json";
 const LEGACY_PROJECT_STORAGE_KEY_PREFIX = "photobooth.projectSettings";
@@ -341,6 +342,7 @@ export function loadPersistedSettings(projectPath = "") {
     const normalizedProjectPath = String(projectPath || "").trim();
     const parsedPayload = readLocalPayload(STORAGE_KEY)
       || readLocalPayload(LEGACY_STORAGE_KEY)
+      || readLocalPayload(EARLY_LEGACY_STORAGE_KEY)
       || (normalizedProjectPath ? readLocalPayload(getLegacyProjectSettingsStorageKey(normalizedProjectPath)) : null);
 
     if (!parsedPayload) {
@@ -507,7 +509,10 @@ export function applyPersistedSettings(state, defaults, savedSettings) {
 
 export function persistSettings(state) {
   try {
-    const localPayload = createPayloadFromState(state, readLocalPayload(STORAGE_KEY) || readLocalPayload(LEGACY_STORAGE_KEY));
+    const localPayload = createPayloadFromState(
+      state,
+      readLocalPayload(STORAGE_KEY) || readLocalPayload(LEGACY_STORAGE_KEY) || readLocalPayload(EARLY_LEGACY_STORAGE_KEY)
+    );
     writeLocalPayload(STORAGE_KEY, localPayload);
 
     if (isDesktopApp()) {
@@ -548,6 +553,10 @@ function normalizeProjectMetadata(payload = {}) {
 }
 
 function getProjectMetadataStorageKey(projectPath) {
+  return `echo.projectMetadata.${String(projectPath || "").trim().toLowerCase()}`;
+}
+
+function getLegacyProjectMetadataStorageKey(projectPath) {
   return `photobooth.projectMetadata.${String(projectPath || "").trim().toLowerCase()}`;
 }
 
@@ -561,7 +570,8 @@ export async function loadProjectMetadata(projectPath) {
       return normalizeProjectMetadata(await invokeDesktop("get_project_metadata", { projectPath }));
     }
 
-    const raw = window.localStorage.getItem(getProjectMetadataStorageKey(projectPath));
+    const raw = window.localStorage.getItem(getProjectMetadataStorageKey(projectPath))
+      || window.localStorage.getItem(getLegacyProjectMetadataStorageKey(projectPath));
     return raw ? normalizeProjectMetadata(JSON.parse(raw)) : normalizeProjectMetadata();
   } catch (error) {
     void logger.warn("Project metadata load failed. Falling back to defaults.", {
@@ -575,7 +585,7 @@ export async function loadProjectMetadata(projectPath) {
 export async function saveProjectMetadata(projectPath, metadata) {
   const normalizedMetadata = normalizeProjectMetadata(metadata);
   if (!String(projectPath || "").trim()) {
-    throw new Error("Photobooth could not find the selected project folder.");
+    throw new Error("Echo could not find the selected project folder.");
   }
 
   const payload = JSON.stringify(normalizedMetadata, null, 2);

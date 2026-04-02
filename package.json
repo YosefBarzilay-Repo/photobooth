@@ -1,8 +1,8 @@
 {
-  "name": "photobooth",
+  "name": "echo",
   "version": "1.0.0",
   "private": true,
-  "description": "Photobooth Windows desktop app powered by Tauri",
+  "description": "Echo Windows desktop app powered by Tauri",
   "scripts": {
     "build": "powershell -ExecutionPolicy Bypass -File scripts/build-tauri.ps1",
     "build:static": "powershell -ExecutionPolicy Bypass -File scripts/build-static.ps1",

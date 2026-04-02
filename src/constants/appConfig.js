@@ -1,5 +1,5 @@
 export const APP_STRINGS = {
-  brandName: "PHOTOBOOTH",
+  brandName: "ECHO",
   cameraUnsupported: "This browser does not support camera access.",
   secureContextRequired:
     "Camera access requires a secure page. Open this app from http://localhost instead of the file directly.",
@@ -7,13 +7,13 @@ export const APP_STRINGS = {
   previewLoadTimeout: "Timed out while waiting for the camera preview to become ready.",
   cameraAccessDenied: "Camera access was denied or is unavailable.",
   recordingFailed: "Unable to record video.",
-  folderUnsupported: "Photobooth could not open the save-folder picker on this device.",
+  folderUnsupported: "Echo could not open the save-folder picker on this device.",
   saveFolderDefault: "Default save location",
   projectNameRequired: "Enter a project name to create a new folder.",
   projectNameInvalid: "Use only letters, numbers, spaces, periods, and hyphens in the project name.",
   projectNameExists: "A project folder with that name already exists. Choose a different name.",
-  projectCreateFailed: "Photobooth could not create the project folder.",
-  openFolderUnavailable: "Photobooth could not open the gallery folder from this device.",
+  projectCreateFailed: "Echo could not create the project folder.",
+  openFolderUnavailable: "Echo could not open the gallery folder from this device.",
   noMediaDevices: "No media input devices were found on this machine."
 };
 

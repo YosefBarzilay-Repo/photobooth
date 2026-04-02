@@ -10,8 +10,8 @@ fn main() {
     .filter(|value| !value.is_empty())
     .unwrap_or_else(|| "0".to_string());
 
-  println!("cargo:rustc-env=PHOTOBOOTH_BUILD_NUMBER={build_number}");
-  println!("cargo:rustc-env=PHOTOBOOTH_DISPLAY_VERSION={}.0_{}", env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "1.0.0".to_string()), build_number);
+  println!("cargo:rustc-env=ECHO_BUILD_NUMBER={build_number}");
+  println!("cargo:rustc-env=ECHO_DISPLAY_VERSION={}.0_{}", env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "1.0.0".to_string()), build_number);
 
   tauri_build::build()
 }

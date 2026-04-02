@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Photobooth",
+  "productName": "Echo",
   "version": "1.0.0",
-  "identifier": "com.photobooth.app",
+  "identifier": "com.sivyor.echo",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Photobooth Main",
+        "title": "Echo Main",
         "width": 1280,
         "height": 720,
         "resizable": true,

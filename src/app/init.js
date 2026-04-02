@@ -38,7 +38,7 @@ function createAppDependencies() {
 }
 
 /**
- * Initializes the Photobooth application.
+ * Initializes the Echo application.
  *
  * @returns {void}
  */
@@ -46,7 +46,7 @@ export default function initApp() {
   // PHASE 1: create state and restore persisted settings
   const dependencies = createAppDependencies();
 
-  void logger.info("Photobooth app initialization started.", {
+  void logger.info("Echo app initialization started.", {
     isDesktopApp: dependencies.state.isDesktopApp,
     saveDirectoryPath: dependencies.state.saveDirectoryPath,
     saveDirectoryName: dependencies.state.saveDirectoryName

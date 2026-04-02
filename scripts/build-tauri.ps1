@@ -51,7 +51,7 @@ try {
     throw "Bundle directory not found: $bundleDir"
   }
 
-  $installer = Get-ChildItem -LiteralPath $bundleDir -Filter 'Photobooth_*_x64-setup.exe' |
+  $installer = Get-ChildItem -LiteralPath $bundleDir -Filter 'Echo_*_x64-setup.exe' |
     Sort-Object LastWriteTimeUtc -Descending |
     Select-Object -First 1
 
@@ -59,7 +59,7 @@ try {
     throw "Installer not found in $bundleDir."
   }
 
-  $targetName = "Photobooth_$displayVersion`_x64-setup.exe"
+  $targetName = "Echo_$displayVersion`_x64-setup.exe"
   $targetPath = Join-Path $bundleDir $targetName
 
   if ($installer.FullName -ne $targetPath) {

@@ -960,7 +960,7 @@ export default function createAppRuntime({
       hideAppDialog();
       syncModeUi();
     } catch (error) {
-      showErrorDialog("Delete failed", error, "Photobooth could not delete the selected project.");
+      showErrorDialog("Delete failed", error, "Echo could not delete the selected project.");
     }
   }
 
@@ -968,7 +968,7 @@ export default function createAppRuntime({
     try {
       await showProjectMetadataDialog(project);
     } catch (error) {
-      showErrorDialog("Booking unavailable", error, "Photobooth could not load the project booking details.");
+      showErrorDialog("Booking unavailable", error, "Echo could not load the project booking details.");
     }
   }
 
@@ -1048,7 +1048,7 @@ export default function createAppRuntime({
       if (state.galleryPanelOpen) {
         await galleryScreen.syncSlideshowButton(true);
       }
-      showErrorDialog("Slideshow unavailable", error, "Photobooth could not open the slideshow.");
+      showErrorDialog("Slideshow unavailable", error, "Echo could not open the slideshow.");
       return false;
     }
   }
@@ -1095,7 +1095,7 @@ export default function createAppRuntime({
         await deleteGalleryEntry(entry);
         return true;
       } catch (error) {
-        showErrorDialog("Delete failed", error, "Photobooth could not delete the selected video.");
+        showErrorDialog("Delete failed", error, "Echo could not delete the selected video.");
         return false;
       }
     },
@@ -1172,15 +1172,15 @@ export default function createAppRuntime({
     }
 
     try {
-      showLaunchOverlay("Closing Photobooth", "Closing slideshows...");
+      showLaunchOverlay("Closing Echo", "Closing slideshows...");
       await closeAllSlideshows();
-      showLaunchOverlay("Closing Photobooth", "Saving current state...");
+      showLaunchOverlay("Closing Echo", "Saving current state...");
       persistSettings(state);
-      showLaunchOverlay("Closing Photobooth", "Closing app window...");
+      showLaunchOverlay("Closing Echo", "Closing app window...");
       await closeDesktopApp();
     } catch (error) {
       hideLaunchOverlay();
-      showErrorDialog("Unable to close app", error, "Photobooth could not close right now.");
+      showErrorDialog("Unable to close app", error, "Echo could not close right now.");
     }
   }
 
@@ -1188,11 +1188,11 @@ export default function createAppRuntime({
     try {
       hideAppDialog();
       void galleryScreen.openGalleryPanel(initialView).catch((error) => {
-        showErrorDialog("Gallery unavailable", error, "Photobooth could not open the gallery.");
+        showErrorDialog("Gallery unavailable", error, "Echo could not open the gallery.");
       });
       syncModeUi();
     } catch (error) {
-      showErrorDialog("Gallery unavailable", error, "Photobooth could not open the gallery.");
+      showErrorDialog("Gallery unavailable", error, "Echo could not open the gallery.");
     }
   }
 
@@ -1421,7 +1421,7 @@ export default function createAppRuntime({
       });
       return true;
     } catch (error) {
-      showErrorDialog("Save failed", error, "Photobooth could not save the recording.");
+      showErrorDialog("Save failed", error, "Echo could not save the recording.");
       return false;
     } finally {
       state.isSaving = false;
@@ -1450,7 +1450,7 @@ export default function createAppRuntime({
       });
       discardCurrentRecording();
       state.mode = "camera";
-      showErrorDialog("Recording error", error, "Photobooth blocked the recording because it was not exported as MP4.");
+      showErrorDialog("Recording error", error, "Echo blocked the recording because it was not exported as MP4.");
       void startCamera();
     } finally {
       stopRecordingTimer();
@@ -1645,7 +1645,7 @@ export default function createAppRuntime({
       });
     } catch (error) {
       const fallbackMessage = projectDialogMode === "rename"
-        ? "Photobooth could not rename the selected project."
+        ? "Echo could not rename the selected project."
         : APP_STRINGS.projectCreateFailed;
       void logger.exception(projectDialogMode === "rename" ? "Project rename failed." : "Project creation failed.", error, {
         projectName,
@@ -1659,7 +1659,7 @@ export default function createAppRuntime({
     editorScreen.showResult();
     syncModeUi();
     void logger.info("Bootstrap sequence started.");
-    showLaunchOverlay("Starting Photobooth", "Loading app...");
+    showLaunchOverlay("Starting Echo", "Loading app...");
 
     try {
       const desktopSettings = await loadDesktopPersistedSettings();
@@ -1790,7 +1790,7 @@ export default function createAppRuntime({
         await galleryScreen.refreshGallery();
       }
     } catch (error) {
-      setProjectMetadataError(formatErrorMessage(error, "Photobooth could not save the booking details."));
+      setProjectMetadataError(formatErrorMessage(error, "Echo could not save the booking details."));
     }
   });
   dom.projectMetadataDeleteButton.addEventListener("click", async () => {
@@ -1806,7 +1806,7 @@ export default function createAppRuntime({
         await galleryScreen.refreshGallery();
       }
     } catch (error) {
-      showErrorDialog("Delete failed", error, "Photobooth could not delete the selected project.");
+      showErrorDialog("Delete failed", error, "Echo could not delete the selected project.");
     }
   });
   navigator.mediaDevices?.addEventListener?.("devicechange", () => {
@@ -1821,12 +1821,12 @@ export default function createAppRuntime({
     void logger.exception("Unhandled window error.", event.error || event.message, {
       message: event.message || ""
     });
-    showErrorDialog("Photobooth", event.error || event.message, "An unexpected error occurred.");
+    showErrorDialog("Echo", event.error || event.message, "An unexpected error occurred.");
   });
 
   window.addEventListener("unhandledrejection", (event) => {
     void logger.exception("Unhandled promise rejection.", event.reason);
-    showErrorDialog("Photobooth", event.reason, "An unexpected error occurred.");
+    showErrorDialog("Echo", event.reason, "An unexpected error occurred.");
   });
 
   window.addEventListener("beforeunload", (event) => {

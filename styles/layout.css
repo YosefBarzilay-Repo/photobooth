@@ -268,10 +268,10 @@ body[data-mode="editor"] .stage-card.stage-card-portrait {
 
 
 .console-button.is-busy .material-symbols-outlined {
-  animation: photobooth-spin 900ms linear infinite;
+  animation: echo-spin 900ms linear infinite;
 }
 
-@keyframes photobooth-spin {
+@keyframes echo-spin {
   from {
     transform: rotate(0deg);
   }

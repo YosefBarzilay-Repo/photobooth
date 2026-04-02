@@ -8,7 +8,7 @@ Date: 2026-04-01
 - Read `scripts/test-external-slideshow-cdp.mjs` before starting changes.
 - Ran `node scripts/test-external-slideshow.mjs`: PASS
 - Ran `node scripts/test-external-slideshow-cdp.mjs`: FAIL
-  Failure detail: the script exits before app launch because `Get-Process photobooth -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue` returns a non-zero exit code in its PowerShell helper.
+  Failure detail: the script exits before app launch because `Get-Process echo -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue` returns a non-zero exit code in its PowerShell helper.
 
 ## Stage 1: Build Pipeline
 
@@ -30,7 +30,7 @@ Date: 2026-04-01
 
 ## Stage 3: Test Harness Hardening
 
-- Updated `scripts/test-external-slideshow-cdp.mjs` so cleanup tolerates a missing `photobooth` process.
+- Updated `scripts/test-external-slideshow-cdp.mjs` so cleanup tolerates a missing `echo` process.
 - Updated `scripts/test-external-slideshow-cdp.mjs` so log-tail collection tolerates a missing desktop log file.
 - Ran `node scripts/test-external-slideshow.mjs`: PASS
 - Ran `node scripts/test-external-slideshow-cdp.mjs`: PASS

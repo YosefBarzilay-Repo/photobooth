@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "enables the Photobooth desktop window capabilities",
+  "description": "enables the Echo desktop window capabilities",
   "windows": [
     "main",
     "slideshow",

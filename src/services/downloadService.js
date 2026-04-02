@@ -108,7 +108,7 @@ export async function saveRecording(blob, filename, saveDirectory = null) {
   const normalizedFilename = String(filename || "").trim();
   const blobMimeType = String(blob?.type || "").toLowerCase();
   if (!normalizedFilename.toLowerCase().endsWith(".mp4") || (blobMimeType && !blobMimeType.startsWith("video/mp4"))) {
-    throw new Error(`Photobooth blocked saving a non-MP4 recording (${normalizedFilename || "missing filename"}, ${blobMimeType || "unknown type"}).`);
+    throw new Error(`Echo blocked saving a non-MP4 recording (${normalizedFilename || "missing filename"}, ${blobMimeType || "unknown type"}).`);
   }
 
   void logger.audit("Saving recording requested.", {
@@ -170,7 +170,7 @@ export async function deleteSavedRecording(entry, saveDirectory = null) {
   if (isDesktopApp()) {
     if (!entry?.path) {
       void logger.error("Delete recording failed because no file path was available.", { filename: entry?.filename || "" });
-      throw new Error("Photobooth could not find the file to delete.");
+      throw new Error("Echo could not find the file to delete.");
     }
 
     await invokeDesktop("delete_recording_file", {
@@ -194,7 +194,7 @@ export async function deleteSavedRecording(entry, saveDirectory = null) {
   void logger.error("Delete recording failed because the environment does not support directory deletion.", {
     filename: entry?.filename || ""
   });
-  throw new Error("Photobooth could not delete the selected recording.");
+  throw new Error("Echo could not delete the selected recording.");
 }
 
 export async function loadSavedRecordingsFromDirectory(directoryHandle) {

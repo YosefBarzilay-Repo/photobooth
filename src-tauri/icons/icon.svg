@@ -1,20 +1,57 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1d3557" />
-      <stop offset="100%" stop-color="#457b9d" />
+    <linearGradient id="outerMetal" x1="18%" y1="10%" x2="84%" y2="88%">
+      <stop offset="0%" stop-color="#fafbfd" />
+      <stop offset="22%" stop-color="#d8dde4" />
+      <stop offset="52%" stop-color="#a9b0ba" />
+      <stop offset="76%" stop-color="#7f8791" />
+      <stop offset="100%" stop-color="#d7dce2" />
     </linearGradient>
-    <linearGradient id="lens" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f1faee" />
-      <stop offset="100%" stop-color="#a8dadc" />
+    <linearGradient id="innerMetal" x1="26%" y1="18%" x2="76%" y2="88%">
+      <stop offset="0%" stop-color="#d5dae1" />
+      <stop offset="45%" stop-color="#8f97a1" />
+      <stop offset="100%" stop-color="#6a727c" />
     </linearGradient>
+    <linearGradient id="ringLight" x1="24%" y1="14%" x2="76%" y2="86%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.98" />
+      <stop offset="100%" stop-color="#d8dde4" stop-opacity="0.92" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="20" stdDeviation="20" flood-color="#44505c" flood-opacity="0.22" />
+    </filter>
   </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bg)" />
-  <rect x="92" y="160" width="328" height="216" rx="44" fill="#0f172a" />
-  <rect x="136" y="132" width="92" height="44" rx="18" fill="#e63946" />
-  <circle cx="256" cy="268" r="86" fill="url(#lens)" />
-  <circle cx="256" cy="268" r="50" fill="#1d3557" />
-  <circle cx="288" cy="236" r="18" fill="#ffffff" fill-opacity="0.85" />
-  <circle cx="362" cy="202" r="18" fill="#ffd166" />
-  <text x="256" y="446" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="54" font-weight="700" fill="#f1faee">PB</text>
+  <g filter="url(#shadow)">
+    <path
+      d="M256 44C227 88 128 170 128 292C128 389 186 468 256 468C326 468 384 389 384 292C384 170 285 88 256 44Z"
+      fill="url(#outerMetal)"
+    />
+    <path
+      d="M256 72C233 108 156 179 156 286C156 367 202 433 256 433C310 433 356 367 356 286C356 179 279 108 256 72Z"
+      fill="none"
+      stroke="url(#ringLight)"
+      stroke-width="24"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M256 140C237 172 190 225 190 309C190 372 228 418 256 418C284 418 322 372 322 309C322 225 275 172 256 140Z"
+      fill="url(#innerMetal)"
+    />
+    <path
+      d="M224 132C208 155 180 191 172 246"
+      fill="none"
+      stroke="#ffffff"
+      stroke-opacity="0.72"
+      stroke-width="12"
+      stroke-linecap="round"
+    />
+    <path
+      d="M247 173C231 198 214 232 214 275"
+      fill="none"
+      stroke="#ffffff"
+      stroke-opacity="0.18"
+      stroke-width="10"
+      stroke-linecap="round"
+    />
+  </g>
 </svg>

@@ -31,7 +31,7 @@ export function getRecordingExtension(mimeType = "") {
 export function createMediaRecorder(stream, options = {}) {
   const mimeType = getSupportedRecordingMimeType(options);
   if (!mimeType) {
-    throw new Error("Photobooth requires MP4 recording support, but this runtime only exposed non-MP4 encoders.");
+    throw new Error("Echo requires MP4 recording support, but this runtime only exposed non-MP4 encoders.");
   }
   void logger.debug("Creating media recorder.", { mimeType, preferStableCanvas: options.preferStableCanvas === true });
   return new MediaRecorder(stream, { mimeType });
@@ -40,7 +40,7 @@ export function createMediaRecorder(stream, options = {}) {
 export function createRecordingBlob(chunks, recorder) {
   const mimeType = recorder?.mimeType || getSupportedRecordingMimeType();
   if (getMimeBase(mimeType) !== "video/mp4") {
-    throw new Error(`Photobooth blocked a non-MP4 recording blob (${mimeType || "unknown"}).`);
+    throw new Error(`Echo blocked a non-MP4 recording blob (${mimeType || "unknown"}).`);
   }
   void logger.debug("Creating recording blob.", { mimeType, chunkCount: chunks.length });
   return new Blob(chunks, { type: mimeType });

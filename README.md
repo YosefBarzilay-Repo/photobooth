@@ -1,6 +1,6 @@
-# Photobooth Desktop App
+# Echo Desktop App
 
-Photobooth is packaged as a Windows desktop application using Tauri.
+Echo is packaged as a Windows desktop application using Tauri.
 
 ## Current local build
 
@@ -10,13 +10,13 @@ The repo is currently staged at build `21` via `build-info.json`.
 
 The main outputs are:
 
-- Release exe: `src-tauri\target\release\photobooth.exe`
-- Windows installer: `src-tauri\target\release\bundle\nsis\Photobooth_1.0.0_x64-setup.exe`
-- Installed app: `C:\Users\Admin\AppData\Local\Photobooth\photobooth.exe`
+- Release exe: `src-tauri\target\release\echo.exe`
+- Windows installer: `src-tauri\target\release\bundle\nsis\Echo_1.0.0_x64-setup.exe`
+- Installed app: `C:\Users\Admin\AppData\Local\Echo\echo.exe`
 
 ## Upgrade the app yourself
 
-From `C:\Projects\photobooth`:
+From the project root:
 
 ```powershell
 npm.cmd run build
@@ -33,13 +33,13 @@ What that does:
 After the build finishes, install the new version with:
 
 ```powershell
-Start-Process -FilePath .\src-tauri\target\release\bundle\nsis\Photobooth_1.0.0_x64-setup.exe -ArgumentList '/S' -Wait
+Start-Process -FilePath .\src-tauri\target\release\bundle\nsis\Echo_1.0.0_x64-setup.exe -ArgumentList '/S' -Wait
 ```
 
 Then launch the installed app:
 
 ```powershell
-Start-Process -FilePath $env:LOCALAPPDATA\Photobooth\photobooth.exe
+Start-Process -FilePath $env:LOCALAPPDATA\Echo\echo.exe
 ```
 
 ## Fast checks after upgrading
@@ -69,7 +69,7 @@ That does not update the installed app by itself. You still need `npm.cmd run bu
 
 ## Local build requirements
 
-Photobooth was built with:
+Echo was built with:
 
 - Node.js
 - Rust via `rustup`

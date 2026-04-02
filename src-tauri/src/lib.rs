@@ -18,6 +18,13 @@ use tauri::{
 };
 use url::Url;
 
+const APP_DIR_NAME: &str = "Echo";
+const LEGACY_APP_DIR_NAME: &str = "Photobooth";
+const APP_LOG_FILENAME: &str = "echo.log";
+const APP_LOCK_FILENAME: &str = "echo.lock";
+const APP_EXECUTABLE_NAME: &str = "echo.exe";
+const LEGACY_APP_EXECUTABLE_NAME: &str = "photobooth.exe";
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SavedRecording {
@@ -106,24 +113,57 @@ fn is_supported_video_file(path: &Path) -> bool {
     .unwrap_or(false)
 }
 
-fn get_default_recordings_directory_path() -> Result<PathBuf, String> {
+fn resolve_brand_root_directory(base_path: PathBuf) -> Result<PathBuf, String> {
+  let preferred_root = base_path.join(APP_DIR_NAME);
+  if preferred_root.exists() {
+    return Ok(preferred_root);
+  }
+
+  let legacy_root = base_path.join(LEGACY_APP_DIR_NAME);
+  if legacy_root.exists() {
+    fs::rename(&legacy_root, &preferred_root).or_else(|_| {
+      fs::create_dir_all(&preferred_root)?;
+      for child in fs::read_dir(&legacy_root)? {
+        let child = child?;
+        let from = child.path();
+        let to = preferred_root.join(child.file_name());
+        if !to.exists() {
+          fs::rename(&from, &to)?;
+        }
+      }
+      Ok::<(), io::Error>(())
+    }).map_err(|error| error.to_string())?;
+  }
+
+  Ok(preferred_root)
+}
+
+fn get_brand_root_directory_path() -> Result<PathBuf, String> {
   if let Some(local_app_data) = env::var_os("LOCALAPPDATA") {
-    return Ok(PathBuf::from(local_app_data).join("Photobooth").join("Recordings"));
+    return resolve_brand_root_directory(PathBuf::from(local_app_data));
   }
 
   env::current_dir()
-    .map(|path| path.join("Photobooth").join("Recordings"))
+    .map_err(|error| error.to_string())
+    .and_then(resolve_brand_root_directory)
+}
+
+fn get_legacy_app_data_root_directory_path() -> Result<PathBuf, String> {
+  if let Some(local_app_data) = env::var_os("LOCALAPPDATA") {
+    return Ok(PathBuf::from(local_app_data).join(LEGACY_APP_DIR_NAME).join("Data"));
+  }
+
+  env::current_dir()
+    .map(|path| path.join(LEGACY_APP_DIR_NAME).join("Data"))
     .map_err(|error| error.to_string())
 }
 
-fn get_app_data_root_directory_path() -> Result<PathBuf, String> {
-  if let Some(local_app_data) = env::var_os("LOCALAPPDATA") {
-    return Ok(PathBuf::from(local_app_data).join("Photobooth").join("Data"));
-  }
+fn get_default_recordings_directory_path() -> Result<PathBuf, String> {
+  get_brand_root_directory_path().map(|path| path.join("Recordings"))
+}
 
-  env::current_dir()
-    .map(|path| path.join("Photobooth").join("Data"))
-    .map_err(|error| error.to_string())
+fn get_app_data_root_directory_path() -> Result<PathBuf, String> {
+  get_brand_root_directory_path().map(|path| path.join("Data"))
 }
 
 fn get_app_database_directory_path() -> Result<PathBuf, String> {
@@ -131,7 +171,7 @@ fn get_app_database_directory_path() -> Result<PathBuf, String> {
 }
 
 fn get_app_log_path() -> Result<PathBuf, String> {
-  get_app_data_root_directory_path().map(|path| path.join("Logs").join("photobooth.log"))
+  get_app_data_root_directory_path().map(|path| path.join("Logs").join(APP_LOG_FILENAME))
 }
 
 fn get_project_registry_path() -> Result<PathBuf, String> {
@@ -139,7 +179,7 @@ fn get_project_registry_path() -> Result<PathBuf, String> {
 }
 
 fn get_legacy_project_registry_path() -> Result<PathBuf, String> {
-  get_app_data_root_directory_path().map(|path| path.join("projects.json"))
+  get_legacy_app_data_root_directory_path().map(|path| path.join("projects.json"))
 }
 
 fn get_active_slideshows_path() -> Result<PathBuf, String> {
@@ -147,7 +187,7 @@ fn get_active_slideshows_path() -> Result<PathBuf, String> {
 }
 
 fn get_app_lock_path() -> Result<PathBuf, String> {
-  get_app_database_directory_path().map(|path| path.join("photobooth.lock"))
+  get_app_database_directory_path().map(|path| path.join(APP_LOCK_FILENAME))
 }
 
 fn sanitize_log_text(value: &str) -> String {
@@ -238,7 +278,7 @@ fn read_text_file_with_retry(path: &Path) -> Result<String, String> {
     }
   }
 
-  Err(last_error.unwrap_or_else(|| "Photobooth could not read the file.".to_string()))
+  Err(last_error.unwrap_or_else(|| "Echo could not read the file.".to_string()))
 }
 
 fn write_text_file_atomic(path: &Path, text: &str) -> Result<(), String> {
@@ -274,7 +314,7 @@ fn write_text_file_atomic(path: &Path, text: &str) -> Result<(), String> {
   }
 
   let _ = fs::remove_file(&temp_path);
-  Err(last_error.unwrap_or_else(|| "Photobooth could not write the file.".to_string()))
+  Err(last_error.unwrap_or_else(|| "Echo could not write the file.".to_string()))
 }
 
 fn parse_project_metadata(raw_entry: &Value) -> ProjectMetadata {
@@ -418,7 +458,11 @@ fn read_active_slideshows() -> Result<Vec<ActiveSlideshow>, String> {
   }
 
   let entries = serde_json::from_str::<Vec<ActiveSlideshow>>(&text).map_err(|error| error.to_string())?;
-  let running_ids = collect_running_process_ids("photobooth.exe");
+  let mut running_ids = collect_running_process_ids(APP_EXECUTABLE_NAME).unwrap_or_default();
+  if let Some(legacy_running_ids) = collect_running_process_ids(LEGACY_APP_EXECUTABLE_NAME) {
+    running_ids.extend(legacy_running_ids);
+  }
+  let running_ids = (!running_ids.is_empty()).then_some(running_ids);
   let active_entries = entries
     .into_iter()
     .filter(|entry| {
@@ -545,7 +589,7 @@ fn save_project_metadata_for_path(project_path: &str, metadata: ProjectMetadata)
   let project = projects
     .iter_mut()
     .find(|entry| entry.path.eq_ignore_ascii_case(project_path))
-    .ok_or_else(|| "Photobooth could not find the selected project folder.".to_string())?;
+    .ok_or_else(|| "Echo could not find the selected project folder.".to_string())?;
   project.order_id = metadata.order_id;
   project.client_name = metadata.client_name;
   project.project_date = metadata.project_date;
@@ -956,10 +1000,10 @@ fn rename_project_directory(project_path: String, project_name: String) -> Resul
 
   let current_path = PathBuf::from(project_path);
   if !current_path.exists() || !current_path.is_dir() {
-    return Err("Photobooth could not find the selected project folder.".to_string());
+    return Err("Echo could not find the selected project folder.".to_string());
   }
 
-  let parent_directory = current_path.parent().ok_or_else(|| "Photobooth could not rename the selected project folder.".to_string())?;
+  let parent_directory = current_path.parent().ok_or_else(|| "Echo could not rename the selected project folder.".to_string())?;
   let renamed_path = parent_directory.join(&normalized_name);
   if renamed_path.exists() && renamed_path != current_path {
     return Err("A project folder with that name already exists. Choose a different name.".to_string());
@@ -1066,8 +1110,8 @@ fn list_saved_recordings(directory_path: String) -> Result<Vec<SavedRecording>, 
 fn get_app_version() -> AppVersionInfo {
   AppVersionInfo {
     version: env!("CARGO_PKG_VERSION").to_string(),
-    build_number: env!("PHOTOBOOTH_BUILD_NUMBER").to_string(),
-    display_version: env!("PHOTOBOOTH_DISPLAY_VERSION").to_string(),
+    build_number: env!("ECHO_BUILD_NUMBER").to_string(),
+    display_version: env!("ECHO_DISPLAY_VERSION").to_string(),
   }
 }
 
@@ -1101,7 +1145,7 @@ fn append_app_log(level: String, message: String, context: Option<String>) -> Re
 
 #[tauri::command]
 fn open_slideshow_window(app: AppHandle) -> Result<(), String> {
-  recreate_window(&app, "slideshow", "Photobooth Slideshow", "slideshow.html", 1440.0, 900.0)
+  recreate_window(&app, "slideshow", "Echo Slideshow", "slideshow.html", 1440.0, 900.0)
 }
 
 #[tauri::command]
@@ -1119,7 +1163,7 @@ fn open_slideshow_process(project_path: String) -> Result<(), String> {
 
 #[tauri::command]
 fn open_gallery_window(app: AppHandle) -> Result<(), String> {
-  show_or_create_window(&app, "gallery", "Photobooth Library", "gallery.html", 1320.0, 860.0)
+  show_or_create_window(&app, "gallery", "Echo Library", "gallery.html", 1320.0, 860.0)
 }
 
 #[tauri::command]
@@ -1165,9 +1209,9 @@ pub fn run() {
 
         let main_window = app
           .get_webview_window("main")
-          .ok_or_else(|| "Photobooth could not find the external slideshow window.".to_string())?;
+          .ok_or_else(|| "Echo could not find the external slideshow window.".to_string())?;
         main_window
-          .set_title("Photobooth Slideshow")
+          .set_title("Echo Slideshow")
           .map_err(|error| error.to_string())?;
         main_window
           .set_fullscreen(false)

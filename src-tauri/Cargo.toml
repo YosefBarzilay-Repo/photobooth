@@ -1,15 +1,15 @@
 [package]
-name = "photobooth"
+name = "echo"
 version = "1.0.0"
-description = "Photobooth desktop application"
-authors = ["Photobooth"]
+description = "Echo desktop application"
+authors = ["Sivyor"]
 license = ""
 repository = ""
 edition = "2021"
 rust-version = "1.77.2"
 
 [lib]
-name = "photobooth_lib"
+name = "echo_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

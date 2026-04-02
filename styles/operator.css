@@ -609,7 +609,7 @@ body[data-mode="slideshow"] .app-shell {
 }
 
 .gallery-empty.is-loading .material-symbols-outlined {
-  animation: photobooth-spin 900ms linear infinite;
+  animation: echo-spin 900ms linear infinite;
 }
 
 @media (max-width: 640px) {

@@ -153,5 +153,5 @@ if ($missingFiles.Count -gt 0) {
   throw "Static build validation failed. Missing files: $($missingFiles -join ', ')"
 }
 
-Write-Host "Photobooth build number: $buildNumber"
+Write-Host "Echo build number: $buildNumber"
 Write-Host "Copied $copiedRootFiles root file(s) and $copiedDirectoryFiles mirrored file(s)."

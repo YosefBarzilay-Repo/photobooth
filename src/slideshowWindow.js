@@ -256,7 +256,7 @@ async function playSlideshowEntry(index, reason = "play") {
     });
 
     if (consecutivePlaybackFailures >= PLAYBACK_FATAL_RETRY_LIMIT) {
-      updateEmptyState(true, "Photobooth could not play the external slideshow.");
+      updateEmptyState(true, "Echo could not play the external slideshow.");
       window.setTimeout(() => {
         window.close();
       }, 1200);
@@ -340,7 +340,7 @@ async function bootstrapExternalSlideshow() {
       projectDirectoryPath: getProjectDirectoryPath()
     });
     clearVideoSource();
-    updateEmptyState(true, "Photobooth could not open the external slideshow.");
+    updateEmptyState(true, "Echo could not open the external slideshow.");
   }
 
   stopRefreshLoop();
@@ -359,7 +359,7 @@ window.addEventListener("error", (event) => {
     message: event.message || ""
   });
   clearVideoSource();
-  updateEmptyState(true, "Photobooth hit an error while opening the external slideshow.");
+  updateEmptyState(true, "Echo hit an error while opening the external slideshow.");
 });
 
 document.addEventListener("contextmenu", (event) => {

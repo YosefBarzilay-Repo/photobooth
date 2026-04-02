@@ -242,13 +242,6 @@
               </select>
             </label>
             <label class="field field-inline">
-              <span class="field-label">Fade Transition</span>
-              <select id="slideshowFadeEnabledSelect">
-                <option value="true">On</option>
-                <option value="false">Off</option>
-              </select>
-            </label>
-            <label class="field field-inline">
               <span class="field-label">Fade Time (ms)</span>
               <div class="stepper-control">
                 <button class="stepper-button" id="slideshowFadeDurationMinusButton" type="button" aria-label="Decrease fade time">
@@ -337,6 +330,8 @@
 
     <section class="launch-overlay" id="launchOverlay" aria-hidden="true">
       <div class="launch-overlay-brand">Photobooth</div>
+      <p class="launch-overlay-title" id="launchOverlayTitle">Starting Photobooth</p>
+      <p class="launch-overlay-message" id="launchOverlayMessage">Loading app...</p>
     </section>
 
     <section class="app-dialog-overlay hidden" id="projectDialogOverlay" aria-modal="true" role="dialog" aria-labelledby="projectDialogTitle">

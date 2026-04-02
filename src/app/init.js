@@ -14,11 +14,13 @@ function createAppDependencies() {
   const state = createAppStore();
   state.isDesktopApp = isDesktopApp();
 
-  applyPersistedSettings(
-    state,
-    { ...APP_DEFAULTS, saveFolderDefault: APP_STRINGS.saveFolderDefault },
-    loadPersistedSettings()
-  );
+  if (!state.isDesktopApp) {
+    applyPersistedSettings(
+      state,
+      { ...APP_DEFAULTS, saveFolderDefault: APP_STRINGS.saveFolderDefault },
+      loadPersistedSettings()
+    );
+  }
   syncActiveOverlayState(state);
 
   const dom = createDomRefs();

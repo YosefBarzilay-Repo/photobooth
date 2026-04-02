@@ -1124,6 +1124,7 @@ fn open_gallery_window(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn exit_app(app: tauri::AppHandle) {
+  let _ = close_external_slideshows(None);
   app.exit(0);
 }
 
@@ -1191,6 +1192,7 @@ pub fn run() {
         });
       } else {
         app.handle().listen("tauri://destroyed", move |_| {
+          let _ = close_external_slideshows(None);
           if let Ok(lock_path) = get_app_lock_path() {
             let _ = fs::remove_file(lock_path);
           }

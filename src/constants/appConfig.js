@@ -39,7 +39,6 @@ export const APP_DEFAULTS = {
   logoPosition: { x: 50, y: 20 },
   slideshowSoundEnabled: false,
   slideshowAudioOutputId: "",
-  slideshowFadeEnabled: true,
   slideshowFadeDurationMs: 600,
   mainWindowMonitorId: "",
   mainWindowFullscreen: true,

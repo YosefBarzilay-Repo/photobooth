@@ -87,12 +87,16 @@
   position: absolute;
   z-index: 8;
   transform-origin: center;
+  width: max-content;
+  height: max-content;
 }
 
 .overlay-item-body {
+  display: inline-flex;
   cursor: grab;
   user-select: none;
   touch-action: none;
+  transform-origin: top left;
 }
 
 .overlay-item-body:active {
@@ -100,11 +104,13 @@
 }
 
 .overlay-caption {
+  display: inline-block;
   text-align: center;
   font-weight: 800;
   line-height: 1;
   text-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
   white-space: nowrap;
+  transform-origin: top left;
 }
 
 .overlay-logo-body {
@@ -117,6 +123,7 @@
   display: block;
   width: 160px;
   height: auto;
+  transform-origin: top left;
 }
 
 .overlay-toolbar-wrap {
@@ -124,10 +131,6 @@
   left: 50%;
   bottom: calc(100% + 0.85rem);
   transform: translateX(-50%);
-}
-
-.overlay-item-logo .overlay-toolbar-wrap {
-  transform: translateX(-50%) scale(var(--overlay-ui-scale, 1));
 }
 
 .overlay-toolbar {
@@ -184,15 +187,11 @@
 
 .overlay-resize-handle {
   position: absolute;
-  right: -1rem;
-  bottom: -1rem;
+  right: 0;
+  bottom: 0;
+  transform: translate(55%, 55%);
   cursor: nwse-resize;
   touch-action: none;
-}
-
-.overlay-item-logo .overlay-resize-handle {
-  transform: scale(var(--overlay-ui-scale, 1));
-  transform-origin: bottom right;
 }
 
 .overlay-tool-button .material-symbols-outlined,

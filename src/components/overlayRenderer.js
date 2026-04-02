@@ -58,12 +58,14 @@ export function renderOverlayLayer(target, state, options = {}) {
   getOverlays(state).forEach((overlay) => {
     const selected = state.activeOverlayId === overlay.id;
     if (overlay.type === "logo" && overlay.dataUrl) {
+      const scaleX = Number.isFinite(overlay.scaleX) ? overlay.scaleX : 1;
+      const scaleY = Number.isFinite(overlay.scaleY) ? overlay.scaleY : 1;
     items.push(`
       <div class="overlay-item overlay-item-logo${getSelectedClass("logo", interactive, selected)}" data-overlay-id="${overlay.id}" data-overlay-type="logo"
-        style="left:${overlay.position.x}%; top:${overlay.position.y}%; --overlay-ui-scale:${1 / Math.max(overlay.scale || 1, 0.001)}; transform: translate(-50%, -50%) rotate(${overlay.rotation}deg) scale(${overlay.scale});">
+        style="left:${overlay.position.x}%; top:${overlay.position.y}%; transform: translate(-50%, -50%) rotate(${overlay.rotation}deg);">
         ${interactive && selected ? buildToolbar(overlay, false) : ""}
         <div class="overlay-item-body overlay-logo-body" data-overlay-id="${overlay.id}" data-overlay-type="logo">
-          <img class="overlay-logo-image" src="${overlay.dataUrl}" alt="Logo overlay">
+          <img class="overlay-logo-image" src="${overlay.dataUrl}" alt="Logo overlay" style="transform: scale(${scaleX}, ${scaleY});">
         </div>
         ${interactive && selected ? `<button type="button" class="overlay-resize-handle" data-overlay-handle="resize" data-overlay-id="${overlay.id}" data-overlay-type="logo" aria-label="Resize logo"><span class="material-symbols-outlined">open_in_full</span></button>` : ""}
       </div>
@@ -72,12 +74,14 @@ export function renderOverlayLayer(target, state, options = {}) {
     }
 
     if (overlay.type === "text" && overlay.text) {
+      const scaleX = Number.isFinite(overlay.scaleX) ? overlay.scaleX : 1;
+      const scaleY = Number.isFinite(overlay.scaleY) ? overlay.scaleY : 1;
     items.push(`
       <div class="overlay-item overlay-item-text${getSelectedClass("text", interactive, selected)}" data-overlay-id="${overlay.id}" data-overlay-type="text"
         style="left:${overlay.position.x}%; top:${overlay.position.y}%; transform: translate(-50%, -50%) rotate(${overlay.rotation}deg);">
         ${interactive && selected ? buildToolbar(overlay, state.showTextColorPalette) : ""}
         <div class="overlay-item-body overlay-caption" data-overlay-id="${overlay.id}" data-overlay-type="text"
-          style="color:${overlay.color}; font-family:&quot;${overlay.font}&quot;, sans-serif; font-size:${overlay.size}px;">
+          style="color:${overlay.color}; font-family:&quot;${overlay.font}&quot;, sans-serif; font-size:${overlay.size}px; transform: scale(${scaleX}, ${scaleY});">
           ${escapeHtml(overlay.text)}
         </div>
         ${interactive && selected ? `<button type="button" class="overlay-resize-handle" data-overlay-handle="resize" data-overlay-id="${overlay.id}" data-overlay-type="text" aria-label="Resize text"><span class="material-symbols-outlined">open_in_full</span></button>` : ""}

@@ -49,10 +49,7 @@ function getProjectDirectoryPath() {
 
 function getFadeSettings() {
   const settings = getPersistedSettingsSnapshot(getProjectDirectoryPath());
-  return {
-    enabled: settings.slideshowFadeEnabled !== false,
-    durationMs: Number.isFinite(settings.slideshowFadeDurationMs) ? Math.max(0, settings.slideshowFadeDurationMs) : 600
-  };
+  return Number.isFinite(settings.slideshowFadeDurationMs) ? Math.max(0, settings.slideshowFadeDurationMs) : 600;
 }
 
 function getSlideshowSoundEnabled() {
@@ -154,12 +151,12 @@ function normalizeIndex(index, length) {
 }
 
 async function transitionVideo(video, callback) {
-  const fade = getFadeSettings();
-  video.style.transitionDuration = `${fade.enabled ? fade.durationMs : 0}ms`;
+  const fadeDurationMs = getFadeSettings();
+  video.style.transitionDuration = `${fadeDurationMs}ms`;
 
-  if (fade.enabled && fade.durationMs > 0) {
+  if (fadeDurationMs > 0) {
     video.classList.add("is-fading");
-    await new Promise((resolve) => window.setTimeout(resolve, fade.durationMs));
+    await new Promise((resolve) => window.setTimeout(resolve, fadeDurationMs));
   }
 
   await callback();

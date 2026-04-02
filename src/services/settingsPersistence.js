@@ -86,6 +86,8 @@ function normalizeOverlayList(overlays) {
           id: overlay.id,
           dataUrl: overlay.dataUrl,
           scale: overlay.scale,
+          scaleX: overlay.scaleX,
+          scaleY: overlay.scaleY,
           position: overlay.position,
           rotation: overlay.rotation
         });
@@ -98,6 +100,8 @@ function normalizeOverlayList(overlays) {
           font: overlay.font,
           color: overlay.color,
           size: overlay.size,
+          scaleX: overlay.scaleX,
+          scaleY: overlay.scaleY,
           position: overlay.position,
           rotation: overlay.rotation
         });
@@ -137,9 +141,6 @@ function normalizePersistedSettings(savedSettings, defaults) {
     slideshowAudioOutputId: typeof savedSettings.slideshowAudioOutputId === "string"
       ? savedSettings.slideshowAudioOutputId
       : defaults.slideshowAudioOutputId,
-    slideshowFadeEnabled: typeof savedSettings.slideshowFadeEnabled === "boolean"
-      ? savedSettings.slideshowFadeEnabled
-      : defaults.slideshowFadeEnabled,
     slideshowFadeDurationMs: Number.isFinite(savedSettings.slideshowFadeDurationMs)
       ? Math.max(0, savedSettings.slideshowFadeDurationMs)
       : defaults.slideshowFadeDurationMs,
@@ -235,7 +236,6 @@ function serializeStateSettings(state) {
     logoPosition: state.logoPosition,
     slideshowSoundEnabled: state.slideshowSoundEnabled,
     slideshowAudioOutputId: state.slideshowAudioOutputId,
-    slideshowFadeEnabled: state.slideshowFadeEnabled,
     slideshowFadeDurationMs: state.slideshowFadeDurationMs,
     mainWindowMonitorId: state.mainWindowMonitorId,
     mainWindowFullscreen: state.mainWindowFullscreen,
@@ -469,7 +469,6 @@ export function applyPersistedSettings(state, defaults, savedSettings) {
   state.logoPosition = normalizedSettings.logoPosition;
   state.slideshowSoundEnabled = normalizedSettings.slideshowSoundEnabled;
   state.slideshowAudioOutputId = normalizedSettings.slideshowAudioOutputId;
-  state.slideshowFadeEnabled = normalizedSettings.slideshowFadeEnabled;
   state.slideshowFadeDurationMs = normalizedSettings.slideshowFadeDurationMs;
   state.mainWindowMonitorId = normalizedSettings.mainWindowMonitorId;
   state.mainWindowFullscreen = normalizedSettings.mainWindowFullscreen;

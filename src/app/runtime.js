@@ -134,6 +134,7 @@ function drawOverlayText(ctx, overlay, width, height, metrics = null) {
   ctx.save();
   ctx.translate((overlay.position.x / 100) * width, (overlay.position.y / 100) * height);
   ctx.rotate((overlay.rotation * Math.PI) / 180);
+  ctx.scale(metrics.scaleX, metrics.scaleY);
   ctx.fillStyle = overlay.color;
   ctx.font = `800 ${metrics.fontSize}px "${overlay.font}", sans-serif`;
   ctx.textAlign = "center";
@@ -233,8 +234,8 @@ function getCompositionSize(stageElement, captureOrientation = "landscape") {
 }
 
 function getOverlayMetrics(dom, state, compositionSize) {
-  const scaleX = compositionSize.width / compositionSize.stageWidth;
-  const scaleY = compositionSize.height / compositionSize.stageHeight;
+  const stageScaleX = compositionSize.width / compositionSize.stageWidth;
+  const stageScaleY = compositionSize.height / compositionSize.stageHeight;
   const metrics = new Map();
 
   dom.cameraText.querySelectorAll(".overlay-item").forEach((overlayElement) => {
@@ -252,16 +253,22 @@ function getOverlayMetrics(dom, state, compositionSize) {
       const textElement = overlayElement.querySelector(".overlay-caption");
       if (textElement instanceof HTMLElement) {
         const fontSize = Number.parseFloat(window.getComputedStyle(textElement).fontSize) || overlay.size;
-        metrics.set(overlay.id, { fontSize: Math.max(1, fontSize * scaleY) });
+        metrics.set(overlay.id, {
+          fontSize: Math.max(1, fontSize * stageScaleY),
+          scaleX: Number.isFinite(overlay.scaleX) ? overlay.scaleX : 1,
+          scaleY: Number.isFinite(overlay.scaleY) ? overlay.scaleY : 1
+        });
       }
       return;
     }
 
     const logoElement = overlayElement.querySelector(".overlay-logo-image");
     if (logoElement instanceof HTMLImageElement) {
+      const overlayScaleX = Number.isFinite(overlay.scaleX) ? overlay.scaleX : 1;
+      const overlayScaleY = Number.isFinite(overlay.scaleY) ? overlay.scaleY : 1;
       metrics.set(overlay.id, {
-        width: Math.max(1, logoElement.offsetWidth * overlay.scale * scaleX),
-        height: Math.max(1, logoElement.offsetHeight * overlay.scale * scaleY)
+        width: Math.max(1, logoElement.offsetWidth * overlayScaleX * stageScaleX),
+        height: Math.max(1, logoElement.offsetHeight * overlayScaleY * stageScaleY)
       });
     }
   });
@@ -439,6 +446,16 @@ export default function createAppRuntime({
   let pendingSlideshowProjectPath = "";
   const ACTIVE_SLIDESHOW_CACHE_MS = 30000;
 
+  function showLaunchOverlay(title, message) {
+    dom.launchOverlayTitle.textContent = title;
+    dom.launchOverlayMessage.textContent = message;
+    dom.launchOverlay.classList.remove("hidden");
+  }
+
+  function hideLaunchOverlay() {
+    dom.launchOverlay.classList.add("hidden");
+  }
+
   function normalizeProjectPath(projectPath) {
     return String(projectPath || "").trim().toLowerCase();
   }
@@ -522,6 +539,28 @@ export default function createAppRuntime({
 
   function syncModeUi() {
     cameraScreen.syncModeUi();
+  }
+
+  async function validateActiveProjectSelection() {
+    if (!state.isDesktopApp) {
+      return;
+    }
+
+    const defaultDirectory = await getDefaultRecordingsDirectory();
+    const projects = await listDesktopProjects();
+    const activeProjectPath = String(state.activeProjectPath || "").trim();
+    const hasActiveProject = activeProjectPath
+      && projects.some((project) => project.path?.toLowerCase() === activeProjectPath.toLowerCase());
+
+    if (hasActiveProject) {
+      return;
+    }
+
+    state.activeProjectPath = "";
+    state.saveDirectoryHandle = null;
+    state.saveDirectoryPath = defaultDirectory;
+    state.saveDirectoryName = APP_STRINGS.saveFolderDefault;
+    persistSettings(state);
   }
 
   function resetDialogState() {
@@ -839,8 +878,9 @@ export default function createAppRuntime({
       return;
     }
 
-    const projectSettings = await loadDesktopPersistedSettings(normalizedProjectPath)
-      || loadPersistedSettings(normalizedProjectPath);
+    const projectSettings = state.isDesktopApp
+      ? await loadDesktopPersistedSettings(normalizedProjectPath)
+      : loadPersistedSettings(normalizedProjectPath);
 
     applyPersistedSettings(state, { ...APP_DEFAULTS, saveFolderDefault: APP_STRINGS.saveFolderDefault }, projectSettings);
     state.saveDirectoryPath = normalizedProjectPath;
@@ -864,6 +904,9 @@ export default function createAppRuntime({
     setActiveProject(project.path, project.name, false);
     await loadProjectConfiguration(project.path);
     persistSettings(state);
+    if (state.galleryPanelOpen) {
+      await galleryScreen.refreshGallery();
+    }
     hideAppDialog();
     syncModeUi();
   }
@@ -1129,8 +1172,14 @@ export default function createAppRuntime({
     }
 
     try {
+      showLaunchOverlay("Closing Photobooth", "Closing slideshows...");
+      await closeAllSlideshows();
+      showLaunchOverlay("Closing Photobooth", "Saving current state...");
+      persistSettings(state);
+      showLaunchOverlay("Closing Photobooth", "Closing app window...");
       await closeDesktopApp();
     } catch (error) {
+      hideLaunchOverlay();
       showErrorDialog("Unable to close app", error, "Photobooth could not close right now.");
     }
   }
@@ -1187,6 +1236,7 @@ export default function createAppRuntime({
     state.logoRotation = APP_DEFAULTS.logoRotation;
     state.logoPosition = { ...APP_DEFAULTS.logoPosition };
     state.slideshowSoundEnabled = APP_DEFAULTS.slideshowSoundEnabled;
+    state.slideshowFadeDurationMs = APP_DEFAULTS.slideshowFadeDurationMs;
     state.draggingOverlayTarget = null;
     state.draggingOverlayId = null;
     state.dragStartRotation = 0;
@@ -1197,8 +1247,7 @@ export default function createAppRuntime({
     state.dragStartPointer = null;
     state.dragSurfaceSize = null;
     state.dragStartPosition = null;
-    state.dragStartScale = APP_DEFAULTS.logoScale;
-    state.dragStartTextSize = APP_DEFAULTS.overlaySize;
+    state.dragStartOverlayScale = { x: 1, y: 1 };
     dom.logoInput.value = "";
     operatorScreen.syncControlsFromState();
     operatorScreen.renderFrameTray();
@@ -1586,10 +1635,8 @@ export default function createAppRuntime({
       resetProjectDesignState();
       persistSettings(state);
       hideProjectDialog();
-      if (state.galleryPanelOpen && state.galleryView === "projects") {
+      if (state.galleryPanelOpen) {
         void galleryScreen.refreshGallery();
-      } else if (state.galleryPanelOpen) {
-        void galleryScreen.syncSlideshowButton();
       }
       void logger.info("Project created successfully.", {
         projectName,
@@ -1612,6 +1659,7 @@ export default function createAppRuntime({
     editorScreen.showResult();
     syncModeUi();
     void logger.info("Bootstrap sequence started.");
+    showLaunchOverlay("Starting Photobooth", "Loading app...");
 
     try {
       const desktopSettings = await loadDesktopPersistedSettings();
@@ -1619,6 +1667,7 @@ export default function createAppRuntime({
         applyPersistedSettings(state, { ...APP_DEFAULTS, saveFolderDefault: APP_STRINGS.saveFolderDefault }, desktopSettings);
         syncActiveOverlayState(state);
       }
+      await validateActiveProjectSelection();
 
       await operatorScreen.loadMonitorOptions();
       operatorScreen.syncControlsFromState();
@@ -1635,7 +1684,7 @@ export default function createAppRuntime({
       ]);
     } finally {
       await sleep(600);
-      dom.launchOverlay.classList.add("hidden");
+      hideLaunchOverlay();
       await showProjectDialog();
       void logger.info("Bootstrap sequence completed.");
     }
@@ -1737,7 +1786,7 @@ export default function createAppRuntime({
 
       await saveProjectMetadata(nextProjectPath, metadata);
       hideProjectMetadataDialog();
-      if (state.galleryPanelOpen && state.galleryView === "projects") {
+      if (state.galleryPanelOpen) {
         await galleryScreen.refreshGallery();
       }
     } catch (error) {

@@ -184,6 +184,7 @@ export default function createGalleryScreen(dom, state, handlers) {
   let isLoading = false;
   let refreshToken = 0;
   let slideshowToggleInFlight = false;
+  let slideshowSyncToken = 0;
   const metadataCache = new Map();
   const metadataPromiseCache = new Map();
   let activeMetadataLoads = 0;
@@ -245,17 +246,22 @@ export default function createGalleryScreen(dom, state, handlers) {
   }
 
   async function syncSlideshowButton(forceRefresh = false) {
+    const syncToken = ++slideshowSyncToken;
     if (state.galleryView !== "videos") {
       dom.gallerySlideshowLabel.textContent = "Start Slideshow";
       dom.gallerySlideshowButton.disabled = true;
       return;
     }
 
-    const hasActiveSlideshow = state.activeProjectPath
-      ? await handlers.hasActiveSlideshowForProject(state.activeProjectPath, forceRefresh)
+    const activeProjectPath = String(state.activeProjectPath || "").trim();
+    const hasActiveSlideshow = activeProjectPath
+      ? await handlers.hasActiveSlideshowForProject(activeProjectPath, forceRefresh)
       : false;
+    if (syncToken !== slideshowSyncToken || state.galleryView !== "videos" || String(state.activeProjectPath || "").trim() !== activeProjectPath) {
+      return;
+    }
     dom.gallerySlideshowLabel.textContent = hasActiveSlideshow ? "Stop Slideshow" : "Start Slideshow";
-    dom.gallerySlideshowButton.disabled = slideshowToggleInFlight || !state.activeProjectPath;
+    dom.gallerySlideshowButton.disabled = slideshowToggleInFlight || !activeProjectPath;
   }
 
   function renderLoadingState(message) {

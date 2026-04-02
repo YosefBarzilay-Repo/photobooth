@@ -3,6 +3,7 @@ function createOverlayId() {
 }
 
 export function createTextOverlay(partial = {}) {
+  const legacyScaleY = Number.isFinite(partial.scaleY) ? partial.scaleY : 1;
   return {
     id: partial.id || createOverlayId(),
     type: "text",
@@ -10,6 +11,8 @@ export function createTextOverlay(partial = {}) {
     font: typeof partial.font === "string" ? partial.font : "Space Grotesk",
     color: typeof partial.color === "string" ? partial.color : "#ff88b5",
     size: Number.isFinite(partial.size) ? partial.size : 44,
+    scaleX: Number.isFinite(partial.scaleX) ? partial.scaleX : 1,
+    scaleY: legacyScaleY,
     position: partial.position && Number.isFinite(partial.position.x) && Number.isFinite(partial.position.y)
       ? { x: partial.position.x, y: partial.position.y }
       : { x: 50, y: 84 },
@@ -18,11 +21,13 @@ export function createTextOverlay(partial = {}) {
 }
 
 export function createLogoOverlay(partial = {}) {
+  const legacyScale = Number.isFinite(partial.scale) ? partial.scale : 1;
   return {
     id: partial.id || createOverlayId(),
     type: "logo",
     dataUrl: typeof partial.dataUrl === "string" ? partial.dataUrl : "",
-    scale: Number.isFinite(partial.scale) ? partial.scale : 1,
+    scaleX: Number.isFinite(partial.scaleX) ? partial.scaleX : legacyScale,
+    scaleY: Number.isFinite(partial.scaleY) ? partial.scaleY : legacyScale,
     position: partial.position && Number.isFinite(partial.position.x) && Number.isFinite(partial.position.y)
       ? { x: partial.position.x, y: partial.position.y }
       : { x: 50, y: 20 },

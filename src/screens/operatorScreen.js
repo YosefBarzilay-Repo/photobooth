@@ -128,6 +128,29 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     syncDialogRect();
   }
 
+  function getOverlayDragBounds(overlayId) {
+    const fallback = {
+      minX: APP_THRESHOLDS.minOverlayX,
+      maxX: APP_THRESHOLDS.maxOverlayX,
+      minY: APP_THRESHOLDS.minOverlayY,
+      maxY: APP_THRESHOLDS.maxOverlayY
+    };
+    const element = dom.cameraText.querySelector(`.overlay-item-body[data-overlay-id="${overlayId}"]`);
+    if (!(element instanceof HTMLElement) || !state.dragSurfaceSize) {
+      return fallback;
+    }
+
+    const rect = element.getBoundingClientRect();
+    const halfWidthPercent = (rect.width / 2 / state.dragSurfaceSize.x) * 100;
+    const halfHeightPercent = (rect.height / 2 / state.dragSurfaceSize.y) * 100;
+    return {
+      minX: Math.max(0, halfWidthPercent),
+      maxX: Math.min(100, 100 - halfWidthPercent),
+      minY: Math.max(0, halfHeightPercent),
+      maxY: Math.min(100, 100 - halfHeightPercent)
+    };
+  }
+
   function syncSelectedOverlayElement() {
     const overlay = state.draggingOverlayId ? getOverlayById(state, state.draggingOverlayId) : null;
     if (!overlay) {
@@ -135,25 +158,32 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     }
 
     const element = dom.cameraText.querySelector(`[data-overlay-id="${overlay.id}"]`);
-    if (!(element instanceof HTMLElement)) {
+    const overlayElement = element instanceof HTMLElement ? element.closest(".overlay-item") : null;
+    if (!(overlayElement instanceof HTMLElement)) {
       return;
     }
 
-    element.style.left = `${overlay.position.x}%`;
-    element.style.top = `${overlay.position.y}%`;
+    overlayElement.style.left = `${overlay.position.x}%`;
+    overlayElement.style.top = `${overlay.position.y}%`;
 
     if (overlay.type === "logo") {
-      element.style.setProperty("--overlay-ui-scale", String(1 / Math.max(overlay.scale || 1, 0.001)));
-      element.style.transform = `translate(-50%, -50%) rotate(${overlay.rotation}deg) scale(${overlay.scale})`;
+      const scaleX = Number.isFinite(overlay.scaleX) ? overlay.scaleX : 1;
+      const scaleY = Number.isFinite(overlay.scaleY) ? overlay.scaleY : 1;
+      overlayElement.style.transform = `translate(-50%, -50%) rotate(${overlay.rotation}deg)`;
+      const image = overlayElement.querySelector(".overlay-logo-image");
+      if (image instanceof HTMLElement) {
+        image.style.transform = `scale(${scaleX}, ${scaleY})`;
+      }
       return;
     }
 
-    element.style.transform = `translate(-50%, -50%) rotate(${overlay.rotation}deg)`;
-    const caption = element.querySelector(".overlay-caption");
+    overlayElement.style.transform = `translate(-50%, -50%) rotate(${overlay.rotation}deg)`;
+    const caption = overlayElement.querySelector(".overlay-caption");
     if (caption instanceof HTMLElement) {
       caption.style.fontSize = `${overlay.size}px`;
       caption.style.color = overlay.color;
       caption.style.fontFamily = `"${overlay.font}", sans-serif`;
+      caption.style.transform = `scale(${Number.isFinite(overlay.scaleX) ? overlay.scaleX : 1}, ${Number.isFinite(overlay.scaleY) ? overlay.scaleY : 1})`;
     }
   }
 
@@ -206,7 +236,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   function syncSlideshowFadeDurationFromControl() {
     const fadeDurationValue = clampSlideshowFadeDuration(Number(dom.slideshowFadeDurationInput.value) || 0);
     state.slideshowFadeDurationMs = fadeDurationValue;
-    dom.slideshowFadeDurationInput.value = String(fadeDurationValue);
+    syncOffField(dom.slideshowFadeDurationInput, fadeDurationValue);
     notifySettingsChanged();
   }
 
@@ -223,9 +253,8 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     state.slideshowMonitorId = dom.slideshowMonitorSelect.value;
     state.slideshowAudioOutputId = dom.slideshowAudioOutputSelect.value;
     state.slideshowSoundEnabled = dom.slideshowSoundEnabledSelect.value === "true";
-    state.slideshowFadeEnabled = dom.slideshowFadeEnabledSelect.value === "true";
     state.slideshowFadeDurationMs = clampSlideshowFadeDuration(Number(dom.slideshowFadeDurationInput.value) || 0);
-    dom.slideshowFadeDurationInput.value = String(state.slideshowFadeDurationMs);
+    syncOffField(dom.slideshowFadeDurationInput, state.slideshowFadeDurationMs);
     const activeOverlay = getActiveOverlayOrSync();
 
     if (activeOverlay?.type === "text") {
@@ -300,8 +329,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     replaceSelectOptions(dom.slideshowMonitorSelect, monitorOptions, state.slideshowMonitorId);
     replaceSelectOptions(dom.slideshowAudioOutputSelect, audioOutputOptions, state.slideshowAudioOutputId);
     dom.slideshowSoundEnabledSelect.value = String(state.slideshowSoundEnabled);
-    dom.slideshowFadeEnabledSelect.value = String(state.slideshowFadeEnabled);
-    dom.slideshowFadeDurationInput.value = String(clampSlideshowFadeDuration(state.slideshowFadeDurationMs));
+    syncOffField(dom.slideshowFadeDurationInput, clampSlideshowFadeDuration(state.slideshowFadeDurationMs));
     dom.cameraInputSelect.value = state.videoInputId;
     dom.audioInputSelect.value = state.audioInputId || DISABLED_AUDIO_INPUT_ID;
     dialogRect.width = APP_THRESHOLDS.dialogDefaultWidth;
@@ -383,7 +411,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     state.overlays = [...getOverlays(state), logoOverlay];
 
     state.logoDataUrl = logoOverlay.dataUrl;
-    state.logoScale = logoOverlay.scale;
+    state.logoScale = logoOverlay.scaleX;
     state.logoRotation = logoOverlay.rotation;
     state.logoPosition = { ...logoOverlay.position };
     setActiveOverlay(logoOverlay.id);
@@ -466,14 +494,30 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     state.dragSurfaceSize = { x: rect.width, y: rect.height };
     state.dragStartPosition = { ...overlay.position };
     state.dragStartRotation = overlay.rotation;
-    state.dragStartScale = overlay.type === "logo" ? overlay.scale : state.dragStartScale;
-    state.dragStartTextSize = overlay.type === "text" ? overlay.size : state.dragStartTextSize;
+    state.dragStartOverlayScale = {
+      x: Number.isFinite(overlay.scaleX) ? overlay.scaleX : 1,
+      y: Number.isFinite(overlay.scaleY) ? overlay.scaleY : 1
+    };
     state.dragStartPointerAngle = null;
     state.dragRotationCenter = null;
+    const bodyElement = overlayElement instanceof HTMLElement
+      ? overlayElement
+      : handle?.closest(".overlay-item")?.querySelector(".overlay-item-body");
+    if (bodyElement instanceof HTMLElement) {
+      const bodyRect = bodyElement.getBoundingClientRect();
+      state.dragStartOverlayRect = {
+        left: ((bodyRect.left - rect.left) / rect.width) * 100,
+        top: ((bodyRect.top - rect.top) / rect.height) * 100,
+        width: (bodyRect.width / rect.width) * 100,
+        height: (bodyRect.height / rect.height) * 100
+      };
+    } else {
+      state.dragStartOverlayRect = null;
+    }
     if (state.overlayInteraction === "rotate") {
-      const bodyElement = handle?.closest(".overlay-item") ?? overlayElement?.closest(".overlay-item");
-      if (bodyElement instanceof HTMLElement) {
-        const overlayRect = bodyElement.getBoundingClientRect();
+      const selectedOverlayElement = handle?.closest(".overlay-item") ?? overlayElement?.closest(".overlay-item");
+      if (selectedOverlayElement instanceof HTMLElement) {
+        const overlayRect = selectedOverlayElement.getBoundingClientRect();
         const centerX = overlayRect.left + (overlayRect.width / 2);
         const centerY = overlayRect.top + (overlayRect.height / 2);
         state.dragRotationCenter = { x: centerX, y: centerY };
@@ -495,9 +539,10 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     const dyPercent = ((event.clientY - state.dragStartPointer.y) / state.dragSurfaceSize.y) * 100;
 
     if (state.overlayInteraction === "move") {
+      const bounds = getOverlayDragBounds(overlay.id);
       overlay.position = {
-        x: clamp(state.dragStartPosition.x + dxPercent, APP_THRESHOLDS.minOverlayX, APP_THRESHOLDS.maxOverlayX),
-        y: clamp(state.dragStartPosition.y + dyPercent, APP_THRESHOLDS.minOverlayY, APP_THRESHOLDS.maxOverlayY)
+        x: clamp(state.dragStartPosition.x + dxPercent, bounds.minX, bounds.maxX),
+        y: clamp(state.dragStartPosition.y + dyPercent, bounds.minY, bounds.maxY)
       };
     } else if (state.overlayInteraction === "rotate") {
       const rotationCenter = state.dragRotationCenter;
@@ -505,10 +550,19 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
         const currentAngle = Math.atan2(event.clientY - rotationCenter.y, event.clientX - rotationCenter.x) * (180 / Math.PI);
         overlay.rotation = Math.round((state.dragStartRotation + currentAngle - state.dragStartPointerAngle) * 10) / 10;
       }
-    } else if (overlay.type === "logo") {
-      overlay.scale = Math.max(APP_THRESHOLDS.minLogoScale, state.dragStartScale + ((dxPercent + dyPercent) / 10));
     } else {
-      overlay.size = Math.max(APP_THRESHOLDS.minTextSize, state.dragStartTextSize + ((dxPercent + dyPercent) * 2.4));
+      const nextScaleX = Math.max(APP_THRESHOLDS.minLogoScale, state.dragStartOverlayScale.x + (dxPercent / 10));
+      const nextScaleY = Math.max(APP_THRESHOLDS.minLogoScale, state.dragStartOverlayScale.y + (dyPercent / 10));
+      overlay.scaleX = nextScaleX;
+      overlay.scaleY = nextScaleY;
+      if (state.dragStartOverlayRect) {
+        const nextWidth = state.dragStartOverlayRect.width * (nextScaleX / Math.max(state.dragStartOverlayScale.x, 0.001));
+        const nextHeight = state.dragStartOverlayRect.height * (nextScaleY / Math.max(state.dragStartOverlayScale.y, 0.001));
+        overlay.position = {
+          x: clamp(state.dragStartOverlayRect.left + (nextWidth / 2), nextWidth / 2, 100 - (nextWidth / 2)),
+          y: clamp(state.dragStartOverlayRect.top + (nextHeight / 2), nextHeight / 2, 100 - (nextHeight / 2))
+        };
+      }
     }
 
     syncSelectedOverlayElement();
@@ -531,9 +585,11 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     state.dragStartPointer = null;
     state.dragSurfaceSize = null;
     state.dragStartPosition = null;
+    state.dragStartOverlayRect = null;
     state.dragStartRotation = 0;
     state.dragStartPointerAngle = null;
     state.dragRotationCenter = null;
+    state.dragStartOverlayScale = { x: 1, y: 1 };
     syncControlsFromState();
     renderPreview();
     notifySettingsChanged();

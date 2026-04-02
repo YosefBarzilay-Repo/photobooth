@@ -7,6 +7,7 @@ import {
 import { logger } from "./logger.js";
 
 const desktopRecordingUrlCache = new Map();
+const DESKTOP_RECORDINGS_LIST_TIMEOUT_MS = 15000;
 
 function pad(value) {
   return String(value).padStart(2, "0");
@@ -200,7 +201,9 @@ export async function loadSavedRecordingsFromDirectory(directoryHandle) {
   if (isDesktopApp()) {
     const directoryPath = directoryHandle || await invokeDesktop("get_default_recordings_directory");
     void logger.debug("Loading saved recordings from desktop directory.", { directoryPath });
-    const entries = await invokeDesktop("list_saved_recordings", { directoryPath });
+    const entries = await invokeDesktop("list_saved_recordings", { directoryPath }, {
+      timeoutMs: DESKTOP_RECORDINGS_LIST_TIMEOUT_MS
+    });
     const recordings = entries.map((entry) => ({
       filename: entry.filename,
       path: entry.path,

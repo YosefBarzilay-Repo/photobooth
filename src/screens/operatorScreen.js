@@ -143,6 +143,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     element.style.top = `${overlay.position.y}%`;
 
     if (overlay.type === "logo") {
+      element.style.setProperty("--overlay-ui-scale", String(1 / Math.max(overlay.scale || 1, 0.001)));
       element.style.transform = `translate(-50%, -50%) rotate(${overlay.rotation}deg) scale(${overlay.scale})`;
       return;
     }

@@ -506,7 +506,7 @@ export default function createAppRuntime({
     }
   }
 
-  async function hasActiveSlideshowForProject(projectPath) {
+  async function hasActiveSlideshowForProject(projectPath, forceRefresh = false) {
     const normalizedProjectPath = normalizeProjectPath(projectPath);
     if (!normalizedProjectPath) {
       return false;
@@ -516,7 +516,7 @@ export default function createAppRuntime({
       return true;
     }
 
-    const activeSlideshows = await getActiveSlideshows();
+    const activeSlideshows = await getActiveSlideshows(forceRefresh);
     return activeSlideshows.some((entry) => normalizeProjectPath(entry.projectPath) === normalizedProjectPath);
   }
 
@@ -759,6 +759,13 @@ export default function createAppRuntime({
     persistSettings(state);
   }
 
+  async function refreshHardwareOptions() {
+    await Promise.allSettled([
+      refreshMediaDeviceOptions(),
+      operatorScreen.loadMonitorOptions()
+    ]);
+  }
+
   function showErrorDialog(title, error, fallbackMessage) {
     void logger.exception("Error dialog shown.", error, { title, fallbackMessage });
     showAppDialog(title, formatErrorMessage(error, fallbackMessage));
@@ -819,7 +826,7 @@ export default function createAppRuntime({
   function setActiveProject(projectPath, projectName, persistSelection = true) {
     state.saveDirectoryHandle = null;
     state.saveDirectoryPath = projectPath;
-    state.saveDirectoryName = projectName;
+    state.saveDirectoryName = projectName || String(projectPath || "").split(/[\\/]/).filter(Boolean).pop() || APP_STRINGS.saveFolderDefault;
     state.activeProjectPath = projectPath;
     if (persistSelection) {
       persistSettings(state);
@@ -832,12 +839,14 @@ export default function createAppRuntime({
       return;
     }
 
-    const projectSettings = await loadDesktopPersistedSettings()
-      || loadPersistedSettings();
+    const projectSettings = await loadDesktopPersistedSettings(normalizedProjectPath)
+      || loadPersistedSettings(normalizedProjectPath);
 
     applyPersistedSettings(state, { ...APP_DEFAULTS, saveFolderDefault: APP_STRINGS.saveFolderDefault }, projectSettings);
     state.saveDirectoryPath = normalizedProjectPath;
-    state.saveDirectoryName = state.saveDirectoryName || projectSettings?.saveDirectoryName || APP_STRINGS.saveFolderDefault;
+    state.saveDirectoryName = projectSettings?.saveDirectoryName
+      || String(normalizedProjectPath).split(/[\\/]/).filter(Boolean).pop()
+      || APP_STRINGS.saveFolderDefault;
     state.activeProjectPath = normalizedProjectPath;
     operatorScreen.syncControlsFromState();
     operatorScreen.renderFrameTray();
@@ -932,10 +941,11 @@ export default function createAppRuntime({
       if (normalizeProjectPath(pendingSlideshowProjectPath) === normalizeProjectPath(normalizedProjectPath)) {
         pendingSlideshowProjectPath = "";
       }
+      await getActiveSlideshows(true);
     }
 
     if (state.galleryPanelOpen) {
-      await galleryScreen.syncSlideshowButton();
+      await galleryScreen.syncSlideshowButton(true);
     }
   }
 
@@ -970,9 +980,9 @@ export default function createAppRuntime({
         return false;
       }
 
-      if (await hasActiveSlideshowForProject(state.activeProjectPath)) {
+      if (await hasActiveSlideshowForProject(state.activeProjectPath, true)) {
         if (state.galleryPanelOpen) {
-          await galleryScreen.syncSlideshowButton();
+          await galleryScreen.syncSlideshowButton(true);
         }
         return true;
       }
@@ -986,14 +996,14 @@ export default function createAppRuntime({
       markProjectSlideshowActive(state.activeProjectPath);
       pendingSlideshowProjectPath = "";
       if (state.galleryPanelOpen) {
-        await galleryScreen.syncSlideshowButton();
+        await galleryScreen.syncSlideshowButton(true);
       }
       return true;
     } catch (error) {
       pendingSlideshowProjectPath = "";
       invalidateActiveSlideshowsCache();
       if (state.galleryPanelOpen) {
-        await galleryScreen.syncSlideshowButton();
+        await galleryScreen.syncSlideshowButton(true);
       }
       showErrorDialog("Slideshow unavailable", error, "Photobooth could not open the slideshow.");
       return false;
@@ -1001,7 +1011,7 @@ export default function createAppRuntime({
   }
 
   async function toggleCurrentProjectSlideshow() {
-    if (state.activeProjectPath && await hasActiveSlideshowForProject(state.activeProjectPath)) {
+    if (state.activeProjectPath && await hasActiveSlideshowForProject(state.activeProjectPath, true)) {
       await closeProjectSlideshow(state.activeProjectPath);
       return;
     }
@@ -1620,7 +1630,7 @@ export default function createAppRuntime({
 
       await Promise.all([
         loadAppVersion(),
-        refreshMediaDeviceOptions(),
+        refreshHardwareOptions(),
         applyMainWindowDisplaySettings()
       ]);
     } finally {
@@ -1751,7 +1761,7 @@ export default function createAppRuntime({
     }
   });
   navigator.mediaDevices?.addEventListener?.("devicechange", () => {
-    void refreshMediaDeviceOptions();
+    void refreshHardwareOptions();
   });
 
   window.addEventListener("error", (event) => {
@@ -1807,15 +1817,17 @@ export default function createAppRuntime({
   }, { once: true });
   window.addEventListener("focus", () => {
     void applyMainWindowDisplaySettings();
+    void refreshHardwareOptions();
     if (state.galleryPanelOpen) {
-      void galleryScreen.syncSlideshowButton();
+      void galleryScreen.syncSlideshowButton(true);
     }
   });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
       void applyMainWindowDisplaySettings();
+      void refreshHardwareOptions();
       if (state.galleryPanelOpen) {
-        void galleryScreen.syncSlideshowButton();
+        void galleryScreen.syncSlideshowButton(true);
       }
     }
   });
@@ -1835,6 +1847,7 @@ export default function createAppRuntime({
     openSettingsView,
     saveCurrentRecording,
     openSlideshowWindow: toggleCurrentProjectSlideshow,
+    refreshHardwareOptions,
     closeApp,
     operatorScreen,
     editorScreen,

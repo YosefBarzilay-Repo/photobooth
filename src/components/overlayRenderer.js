@@ -60,7 +60,7 @@ export function renderOverlayLayer(target, state, options = {}) {
     if (overlay.type === "logo" && overlay.dataUrl) {
     items.push(`
       <div class="overlay-item overlay-item-logo${getSelectedClass("logo", interactive, selected)}" data-overlay-id="${overlay.id}" data-overlay-type="logo"
-        style="left:${overlay.position.x}%; top:${overlay.position.y}%; transform: translate(-50%, -50%) rotate(${overlay.rotation}deg) scale(${overlay.scale});">
+        style="left:${overlay.position.x}%; top:${overlay.position.y}%; --overlay-ui-scale:${1 / Math.max(overlay.scale || 1, 0.001)}; transform: translate(-50%, -50%) rotate(${overlay.rotation}deg) scale(${overlay.scale});">
         ${interactive && selected ? buildToolbar(overlay, false) : ""}
         <div class="overlay-item-body overlay-logo-body" data-overlay-id="${overlay.id}" data-overlay-type="logo">
           <img class="overlay-logo-image" src="${overlay.dataUrl}" alt="Logo overlay">

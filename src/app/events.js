@@ -62,10 +62,12 @@ export default function wireEvents(dom, state, handlers) {
 
   dom.settingsTabInputs.addEventListener("click", () => {
     void logger.audit("Settings recordings tab clicked.");
+    void handlers.refreshHardwareOptions?.();
     handlers.operatorScreen.switchSection("inputs");
   });
   dom.settingsTabSlideshow.addEventListener("click", () => {
     void logger.audit("Settings slideshow tab clicked.");
+    void handlers.refreshHardwareOptions?.();
     handlers.operatorScreen.switchSection("slideshow");
   });
 

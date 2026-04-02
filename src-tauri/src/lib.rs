@@ -1,12 +1,15 @@
-use chrono::Local;
+use chrono::{Local, TimeZone};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
   env,
   fs::{self, OpenOptions},
+  io,
   io::Write,
   path::{Path, PathBuf},
   process::Command,
+  thread,
+  time::Duration,
   time::UNIX_EPOCH,
 };
 use tauri::{
@@ -29,6 +32,7 @@ struct SavedProject {
   name: String,
   path: String,
   created_at: u128,
+  created_at_text: String,
   video_count: usize,
   total_size_bytes: u64,
   order_id: String,
@@ -142,6 +146,10 @@ fn get_active_slideshows_path() -> Result<PathBuf, String> {
   get_app_database_directory_path().map(|path| path.join("active-slideshows.json"))
 }
 
+fn get_app_lock_path() -> Result<PathBuf, String> {
+  get_app_database_directory_path().map(|path| path.join("photobooth.lock"))
+}
+
 fn sanitize_log_text(value: &str) -> String {
   value
     .replace('\r', " ")
@@ -201,6 +209,74 @@ fn get_path_created_at(path: &Path) -> u128 {
     .unwrap_or(0)
 }
 
+fn format_timestamp_for_display(timestamp_ms: u128) -> String {
+  if timestamp_ms == 0 {
+    return String::new();
+  }
+
+  match Local.timestamp_millis_opt(timestamp_ms as i64).single() {
+    Some(timestamp) => timestamp.format("%d%m%Y%H%M%S").to_string(),
+    None => String::new(),
+  }
+}
+
+fn is_sharing_violation(error: &io::Error) -> bool {
+  matches!(error.raw_os_error(), Some(32 | 33))
+}
+
+fn read_text_file_with_retry(path: &Path) -> Result<String, String> {
+  let mut last_error = None;
+
+  for attempt in 0..4 {
+    match fs::read_to_string(path) {
+      Ok(text) => return Ok(text),
+      Err(error) if is_sharing_violation(&error) && attempt < 3 => {
+        last_error = Some(error.to_string());
+        thread::sleep(Duration::from_millis(120));
+      }
+      Err(error) => return Err(error.to_string()),
+    }
+  }
+
+  Err(last_error.unwrap_or_else(|| "Photobooth could not read the file.".to_string()))
+}
+
+fn write_text_file_atomic(path: &Path, text: &str) -> Result<(), String> {
+  if let Some(parent) = path.parent() {
+    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+  }
+
+  let temp_path = path.with_extension(format!(
+    "{}.tmp",
+    path.extension().and_then(|value| value.to_str()).unwrap_or("json")
+  ));
+
+  let mut last_error = None;
+  for attempt in 0..4 {
+    match fs::write(&temp_path, text) {
+      Ok(_) => match fs::rename(&temp_path, path) {
+        Ok(_) => return Ok(()),
+        Err(error) if is_sharing_violation(&error) && attempt < 3 => {
+          last_error = Some(error.to_string());
+          thread::sleep(Duration::from_millis(120));
+        }
+        Err(error) => {
+          let _ = fs::remove_file(&temp_path);
+          return Err(error.to_string());
+        }
+      },
+      Err(error) if is_sharing_violation(&error) && attempt < 3 => {
+        last_error = Some(error.to_string());
+        thread::sleep(Duration::from_millis(120));
+      }
+      Err(error) => return Err(error.to_string()),
+    }
+  }
+
+  let _ = fs::remove_file(&temp_path);
+  Err(last_error.unwrap_or_else(|| "Photobooth could not write the file.".to_string()))
+}
+
 fn parse_project_metadata(raw_entry: &Value) -> ProjectMetadata {
   let metadata = raw_entry.get("metadata").and_then(Value::as_object);
   let get_value = |camel_key: &str, snake_key: &str| -> String {
@@ -238,7 +314,7 @@ fn read_project_registry() -> Result<Vec<SavedProject>, String> {
     return Ok(Vec::new());
   };
 
-  let registry_text = fs::read_to_string(source_path).map_err(|error| error.to_string())?;
+  let registry_text = read_text_file_with_retry(&source_path)?;
   if registry_text.trim().is_empty() {
     return Ok(Vec::new());
   }
@@ -258,6 +334,13 @@ fn read_project_registry() -> Result<Vec<SavedProject>, String> {
       .and_then(Value::as_u64)
       .map(u128::from)
       .unwrap_or_else(|| get_path_created_at(Path::new(&path)));
+    let created_at_text = raw_entry
+      .get("createdAtText")
+      .or_else(|| raw_entry.get("created_at_text"))
+      .and_then(Value::as_str)
+      .map(|value| value.trim().to_string())
+      .filter(|value| !value.is_empty())
+      .unwrap_or_else(|| format_timestamp_for_display(created_at));
     let video_count = raw_entry
       .get("videoCount")
       .or_else(|| raw_entry.get("video_count"))
@@ -275,6 +358,7 @@ fn read_project_registry() -> Result<Vec<SavedProject>, String> {
       name,
       path,
       created_at,
+      created_at_text,
       video_count,
       total_size_bytes,
       order_id: metadata.order_id,
@@ -298,7 +382,7 @@ fn write_project_registry(projects: &[SavedProject]) -> Result<(), String> {
   }
 
   let payload = serde_json::to_string_pretty(projects).map_err(|error| error.to_string())?;
-  fs::write(registry_path, payload).map_err(|error| error.to_string())
+  write_text_file_atomic(&registry_path, &payload)
 }
 
 fn collect_running_process_ids(image_name: &str) -> Option<std::collections::HashSet<u32>> {
@@ -328,7 +412,7 @@ fn read_active_slideshows() -> Result<Vec<ActiveSlideshow>, String> {
     return Ok(Vec::new());
   }
 
-  let text = fs::read_to_string(path).map_err(|error| error.to_string())?;
+  let text = read_text_file_with_retry(&path)?;
   if text.trim().is_empty() {
     return Ok(Vec::new());
   }
@@ -357,7 +441,7 @@ fn write_active_slideshows(entries: &[ActiveSlideshow]) -> Result<(), String> {
   }
 
   let payload = serde_json::to_string_pretty(entries).map_err(|error| error.to_string())?;
-  fs::write(path, payload).map_err(|error| error.to_string())
+  write_text_file_atomic(&path, &payload)
 }
 
 fn read_legacy_project_metadata(project_path: &Path) -> Result<Option<ProjectMetadata>, String> {
@@ -490,6 +574,7 @@ fn upsert_project_registry_entry(project_path: &Path, project_name: &str) -> Res
       name: project_name.to_string(),
       path: project_path_string,
       created_at,
+      created_at_text: format_timestamp_for_display(created_at),
       video_count,
       total_size_bytes,
       order_id: metadata.order_id,
@@ -535,6 +620,7 @@ fn build_saved_projects() -> Result<Vec<SavedProject>, String> {
         name: fallback_name,
         path: path_string,
         created_at: get_path_created_at(&path),
+        created_at_text: format_timestamp_for_display(get_path_created_at(&path)),
         video_count: 0,
         total_size_bytes: 0,
         order_id: String::new(),
@@ -562,6 +648,9 @@ fn build_saved_projects() -> Result<Vec<SavedProject>, String> {
     }
     if project.created_at == 0 {
       project.created_at = get_path_created_at(&path);
+    }
+    if project.created_at_text.trim().is_empty() {
+      project.created_at_text = format_timestamp_for_display(project.created_at);
     }
   });
 
@@ -718,12 +807,7 @@ fn write_binary_file(file_path: String, bytes: Vec<u8>) -> Result<(), String> {
 #[tauri::command]
 fn write_text_file(file_path: String, text: String) -> Result<(), String> {
   let path = PathBuf::from(file_path);
-
-  if let Some(parent) = path.parent() {
-    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-  }
-
-  fs::write(path, text).map_err(|error| error.to_string())
+  write_text_file_atomic(&path, &text)
 }
 
 #[tauri::command]
@@ -935,7 +1019,7 @@ fn read_text_file(file_path: String) -> Result<String, String> {
     return Ok(String::new());
   }
 
-  fs::read_to_string(path).map_err(|error| error.to_string())
+  read_text_file_with_retry(&path)
 }
 
 #[tauri::command]
@@ -1058,6 +1142,16 @@ pub fn run() {
         )?;
       }
 
+      if !run_external_slideshow {
+        let lock_path = get_app_lock_path()?;
+        let lock_payload = serde_json::json!({
+          "pid": std::process::id(),
+          "startedAt": Local::now().format("%d%m%Y%H%M%S").to_string(),
+          "mode": "main-app"
+        });
+        write_text_file_atomic(&lock_path, &lock_payload.to_string())?;
+      }
+
       if run_external_slideshow {
         let current_pid = std::process::id();
         let mut slideshows = read_active_slideshows().unwrap_or_default();
@@ -1094,6 +1188,12 @@ pub fn run() {
           let mut slideshows = read_active_slideshows().unwrap_or_default();
           slideshows.retain(|entry| !(entry.pid == current_pid && entry.project_path.eq_ignore_ascii_case(&project_path)));
           let _ = write_active_slideshows(&slideshows);
+        });
+      } else {
+        app.handle().listen("tauri://destroyed", move |_| {
+          if let Ok(lock_path) = get_app_lock_path() {
+            let _ = fs::remove_file(lock_path);
+          }
         });
       }
       Ok(())

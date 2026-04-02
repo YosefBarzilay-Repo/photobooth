@@ -8,10 +8,11 @@ import { createLogoOverlay, createTextOverlay, syncActiveOverlayState } from "..
 
 const STORAGE_KEY = "photobooth.appData.v2";
 const LEGACY_STORAGE_KEY = "photobooth.operatorSettings.v1";
-const APP_DATA_FILENAME = "app-data.json";
+const APP_DATA_FILENAME = "project-settings.json";
+const LEGACY_APP_DATA_FILENAME = "app-data.json";
 const LEGACY_PROJECT_STORAGE_KEY_PREFIX = "photobooth.projectSettings";
 const LEGACY_PROJECT_APP_DATA_FILENAME = ".photobooth-project-settings.json";
-const APP_DATA_VERSION = 2;
+const APP_DATA_VERSION = 3;
 let desktopAppDataDirectoryPromise = null;
 
 async function getDesktopAppDataDirectoryPath() {
@@ -34,6 +35,11 @@ async function getDesktopAppDataFilePath() {
   return directoryPath ? `${directoryPath}\\${APP_DATA_FILENAME}` : "";
 }
 
+async function getLegacyDesktopAppDataFilePath() {
+  const directoryPath = await getDesktopAppDataDirectoryPath();
+  return directoryPath ? `${directoryPath}\\${LEGACY_APP_DATA_FILENAME}` : "";
+}
+
 function getLegacyProjectSettingsStorageKey(projectPath) {
   return `${LEGACY_PROJECT_STORAGE_KEY_PREFIX}.${String(projectPath || "").trim().toLowerCase()}`;
 }
@@ -41,6 +47,10 @@ function getLegacyProjectSettingsStorageKey(projectPath) {
 function getLegacyProjectAppDataFilePath(projectPath) {
   const normalizedProjectPath = String(projectPath || "").trim().replace(/[\\/]+$/, "");
   return normalizedProjectPath ? `${normalizedProjectPath}\\${LEGACY_PROJECT_APP_DATA_FILENAME}` : "";
+}
+
+function normalizeProjectPathKey(projectPath) {
+  return String(projectPath || "").trim().replace(/[\\/]+$/, "").toLowerCase();
 }
 
 function isObject(value) {
@@ -166,13 +176,43 @@ function parsePayload(raw) {
     return null;
   }
 
+  const projects = {};
+  if (isObject(parsed.projects)) {
+    Object.entries(parsed.projects).forEach(([projectPath, projectEntry]) => {
+      if (!isObject(projectEntry)) {
+        return;
+      }
+
+      const projectSettings = isObject(projectEntry.settings) ? projectEntry.settings : projectEntry;
+      if (!isObject(projectSettings)) {
+        return;
+      }
+
+      const normalizedKey = normalizeProjectPathKey(projectPath || projectEntry.projectPath);
+      if (!normalizedKey) {
+        return;
+      }
+
+      projects[normalizedKey] = {
+        settings: projectSettings,
+        activeProjectPath: typeof projectEntry.activeProjectPath === "string" ? projectEntry.activeProjectPath : projectPath,
+        saveDirectoryPath: typeof projectEntry.saveDirectoryPath === "string"
+          ? projectEntry.saveDirectoryPath
+          : (typeof projectEntry.projectPath === "string" ? projectEntry.projectPath : projectPath),
+        saveDirectoryName: typeof projectEntry.saveDirectoryName === "string" ? projectEntry.saveDirectoryName : "",
+        projectPath: typeof projectEntry.projectPath === "string" ? projectEntry.projectPath : projectPath
+      };
+    });
+  }
+
   return {
     version: parsed.version,
     settings,
     activeProjectPath: typeof parsed.activeProjectPath === "string" ? parsed.activeProjectPath : settings.activeProjectPath,
     saveDirectoryPath: typeof parsed.saveDirectoryPath === "string" ? parsed.saveDirectoryPath : settings.saveDirectoryPath,
     saveDirectoryName: typeof parsed.saveDirectoryName === "string" ? parsed.saveDirectoryName : settings.saveDirectoryName,
-    projectPath: typeof parsed.projectPath === "string" ? parsed.projectPath : ""
+    projectPath: typeof parsed.projectPath === "string" ? parsed.projectPath : "",
+    projects
   };
 }
 
@@ -239,6 +279,39 @@ function writeLocalPayload(storageKey, payload) {
   window.localStorage.setItem(storageKey, JSON.stringify(payload));
 }
 
+function createPayloadFromState(state, existingPayload = null) {
+  const settings = serializeStateSettings(state);
+  const activeProjectPath = String(state.activeProjectPath || "").trim();
+  const normalizedProjectKey = normalizeProjectPathKey(activeProjectPath);
+  const projects = isObject(existingPayload?.projects) ? { ...existingPayload.projects } : {};
+
+  if (normalizedProjectKey) {
+    projects[normalizedProjectKey] = {
+      settings,
+      activeProjectPath,
+      saveDirectoryPath: state.saveDirectoryPath,
+      saveDirectoryName: state.saveDirectoryName,
+      projectPath: activeProjectPath
+    };
+  }
+
+  return buildSnapshot(settings, {
+    activeProjectPath,
+    saveDirectoryPath: state.saveDirectoryPath,
+    saveDirectoryName: state.saveDirectoryName,
+    projects
+  });
+}
+
+function getProjectPayload(parsedPayload, projectPath) {
+  const normalizedProjectKey = normalizeProjectPathKey(projectPath);
+  if (!normalizedProjectKey || !isObject(parsedPayload?.projects)) {
+    return null;
+  }
+
+  return parsedPayload.projects[normalizedProjectKey] || null;
+}
+
 async function readDesktopPayload(filePath) {
   if (!filePath) {
     return null;
@@ -275,7 +348,8 @@ export function loadPersistedSettings(projectPath = "") {
       return null;
     }
 
-    const loadedSettings = applyLoadedSelection(parsedPayload.settings, parsedPayload);
+    const projectPayload = getProjectPayload(parsedPayload, normalizedProjectPath);
+    const loadedSettings = applyLoadedSelection(projectPayload?.settings || parsedPayload.settings, projectPayload || parsedPayload);
     void logger.info("Loaded persisted operator settings.", {
       projectPath: normalizedProjectPath,
       hasSaveDirectoryPath: typeof loadedSettings.saveDirectoryPath === "string" && loadedSettings.saveDirectoryPath.length > 0
@@ -296,28 +370,71 @@ export async function loadDesktopPersistedSettings(projectPath = "") {
 
   try {
     const globalFilePath = await getDesktopAppDataFilePath();
+    const legacyGlobalFilePath = await getLegacyDesktopAppDataFilePath();
     let parsedPayload = await readDesktopPayload(globalFilePath);
+    if (!parsedPayload) {
+      parsedPayload = await readDesktopPayload(legacyGlobalFilePath);
+    }
     if (!parsedPayload && normalizedProjectPath) {
       parsedPayload = await readDesktopPayload(getLegacyProjectAppDataFilePath(normalizedProjectPath));
       if (parsedPayload) {
-        await writeDesktopPayload(globalFilePath, buildSnapshot(parsedPayload.settings, {
+        const migratedPayload = buildSnapshot(parsedPayload.settings, {
           activeProjectPath: parsedPayload.activeProjectPath,
           saveDirectoryPath: parsedPayload.saveDirectoryPath,
           saveDirectoryName: parsedPayload.saveDirectoryName,
-          projectPath: parsedPayload.projectPath
-        }));
+          projectPath: parsedPayload.projectPath,
+          projects: {
+            [normalizeProjectPathKey(normalizedProjectPath)]: {
+              settings: parsedPayload.settings,
+              activeProjectPath: normalizedProjectPath,
+              saveDirectoryPath: normalizedProjectPath,
+              saveDirectoryName: parsedPayload.saveDirectoryName,
+              projectPath: normalizedProjectPath
+            }
+          }
+        });
+        parsedPayload = migratedPayload;
+        await writeDesktopPayload(globalFilePath, migratedPayload);
+        await invokeDesktop("delete_recording_file", { filePath: getLegacyProjectAppDataFilePath(normalizedProjectPath) }, { fallbackValue: undefined });
       }
     }
     if (!parsedPayload) {
       return null;
     }
 
-    const loadedSettings = applyLoadedSelection(parsedPayload.settings, parsedPayload);
+    let projectPayload = getProjectPayload(parsedPayload, normalizedProjectPath);
+    if (!projectPayload && normalizedProjectPath) {
+      const legacyProjectPayload = await readDesktopPayload(getLegacyProjectAppDataFilePath(normalizedProjectPath));
+      if (legacyProjectPayload) {
+        const projects = isObject(parsedPayload.projects) ? { ...parsedPayload.projects } : {};
+        const normalizedProjectKey = normalizeProjectPathKey(normalizedProjectPath);
+        projects[normalizedProjectKey] = {
+          settings: legacyProjectPayload.settings,
+          activeProjectPath: normalizedProjectPath,
+          saveDirectoryPath: normalizedProjectPath,
+          saveDirectoryName: legacyProjectPayload.saveDirectoryName,
+          projectPath: normalizedProjectPath
+        };
+        parsedPayload = buildSnapshot(parsedPayload.settings, {
+          activeProjectPath: parsedPayload.activeProjectPath,
+          saveDirectoryPath: parsedPayload.saveDirectoryPath,
+          saveDirectoryName: parsedPayload.saveDirectoryName,
+          projectPath: parsedPayload.projectPath,
+          projects
+        });
+        await writeDesktopPayload(globalFilePath, parsedPayload);
+        await invokeDesktop("delete_recording_file", { filePath: getLegacyProjectAppDataFilePath(normalizedProjectPath) }, { fallbackValue: undefined });
+        projectPayload = projects[normalizedProjectKey];
+      }
+    }
+
+    const loadedSettings = applyLoadedSelection(projectPayload?.settings || parsedPayload.settings, projectPayload || parsedPayload);
     writeLocalPayload(STORAGE_KEY, buildSnapshot(parsedPayload.settings, {
       activeProjectPath: parsedPayload.activeProjectPath,
       saveDirectoryPath: parsedPayload.saveDirectoryPath,
       saveDirectoryName: parsedPayload.saveDirectoryName,
-      projectPath: parsedPayload.projectPath
+      projectPath: parsedPayload.projectPath,
+      projects: parsedPayload.projects
     }));
     return loadedSettings;
   } catch (error) {
@@ -390,20 +507,16 @@ export function applyPersistedSettings(state, defaults, savedSettings) {
 }
 
 export function persistSettings(state) {
-  const settings = serializeStateSettings(state);
-  const globalPayload = buildSnapshot(settings, {
-    activeProjectPath: state.activeProjectPath,
-    saveDirectoryPath: state.saveDirectoryPath,
-    saveDirectoryName: state.saveDirectoryName
-  });
-
   try {
-    writeLocalPayload(STORAGE_KEY, globalPayload);
+    const localPayload = createPayloadFromState(state, readLocalPayload(STORAGE_KEY) || readLocalPayload(LEGACY_STORAGE_KEY));
+    writeLocalPayload(STORAGE_KEY, localPayload);
 
     if (isDesktopApp()) {
       void (async () => {
         const globalFilePath = await getDesktopAppDataFilePath();
-        await writeDesktopPayload(globalFilePath, globalPayload);
+        const existingPayload = await readDesktopPayload(globalFilePath)
+          || await readDesktopPayload(await getLegacyDesktopAppDataFilePath());
+        await writeDesktopPayload(globalFilePath, createPayloadFromState(state, existingPayload));
       })().catch((error) => {
         void logger.warn("Desktop persisted settings save failed.", {
           activeProjectPath: state.activeProjectPath,

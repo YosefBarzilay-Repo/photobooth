@@ -126,6 +126,10 @@
   transform: translateX(-50%);
 }
 
+.overlay-item-logo .overlay-toolbar-wrap {
+  transform: translateX(-50%) scale(var(--overlay-ui-scale, 1));
+}
+
 .overlay-toolbar {
   display: flex;
   gap: 0.35rem;
@@ -184,6 +188,11 @@
   bottom: -1rem;
   cursor: nwse-resize;
   touch-action: none;
+}
+
+.overlay-item-logo .overlay-resize-handle {
+  transform: scale(var(--overlay-ui-scale, 1));
+  transform-origin: bottom right;
 }
 
 .overlay-tool-button .material-symbols-outlined,

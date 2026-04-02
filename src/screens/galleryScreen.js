@@ -12,6 +12,14 @@ function scheduleBackgroundTask(callback) {
   window.setTimeout(callback, 32);
 }
 
+function yieldToBrowser() {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.setTimeout(resolve, 0);
+    });
+  });
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -191,6 +199,11 @@ export default function createGalleryScreen(dom, state, handlers) {
   let dialogStartPointer = null;
   let dialogStartRect = null;
 
+  function getCurrentProjectLabel() {
+    const projectPath = String(state.activeProjectPath || state.saveDirectoryPath || "").trim();
+    return projectPath.split(/[\\/]/).filter(Boolean).pop() || state.saveDirectoryName || APP_STRINGS.saveFolderDefault;
+  }
+
   function syncDialogRect() {
     const limits = getViewportLimits();
     const maxWidth = Math.max(APP_THRESHOLDS.dialogMinWidth, window.innerWidth - APP_THRESHOLDS.dialogEdgeMargin * 2);
@@ -228,12 +241,10 @@ export default function createGalleryScreen(dom, state, handlers) {
     dom.galleryNewProjectButton.classList.toggle("hidden", isVideosView);
     dom.gallerySlideshowButton.classList.toggle("hidden", !isVideosView);
     dom.gallerySlideshowButton.disabled = !isVideosView || !state.activeProjectPath;
-    dom.galleryFooterLabel.textContent = isVideosView
-      ? `Current project: ${state.saveDirectoryName || APP_STRINGS.saveFolderDefault}`
-      : `Current project: ${state.saveDirectoryName || APP_STRINGS.saveFolderDefault}`;
+    dom.galleryFooterLabel.textContent = `Current project: ${getCurrentProjectLabel()}`;
   }
 
-  async function syncSlideshowButton() {
+  async function syncSlideshowButton(forceRefresh = false) {
     if (state.galleryView !== "videos") {
       dom.gallerySlideshowLabel.textContent = "Start Slideshow";
       dom.gallerySlideshowButton.disabled = true;
@@ -241,7 +252,7 @@ export default function createGalleryScreen(dom, state, handlers) {
     }
 
     const hasActiveSlideshow = state.activeProjectPath
-      ? await handlers.hasActiveSlideshowForProject(state.activeProjectPath)
+      ? await handlers.hasActiveSlideshowForProject(state.activeProjectPath, forceRefresh)
       : false;
     dom.gallerySlideshowLabel.textContent = hasActiveSlideshow ? "Stop Slideshow" : "Start Slideshow";
     dom.gallerySlideshowButton.disabled = slideshowToggleInFlight || !state.activeProjectPath;
@@ -299,9 +310,14 @@ export default function createGalleryScreen(dom, state, handlers) {
           return;
         }
 
-        await handlers.ensureEntryReady(entry);
-        const metadata = await loadMetadata(entry.url);
-        metadataCache.set(metadataKey, metadata);
+        let metadata = { thumbnail: "", duration: NaN };
+        try {
+          await handlers.ensureEntryReady(entry);
+          metadata = await loadMetadata(entry.url);
+          metadataCache.set(metadataKey, metadata);
+        } catch {
+          metadataCache.set(metadataKey, metadata);
+        }
         metadataPromiseCache.delete(metadataKey);
         resolve(metadata);
       });
@@ -340,11 +356,18 @@ export default function createGalleryScreen(dom, state, handlers) {
       thumbImage.alt = `${entry.filename} thumbnail`;
       thumbImage.loading = "lazy";
 
+      const thumbVideo = document.createElement("video");
+      thumbVideo.className = "gallery-row-thumb-video hidden";
+      thumbVideo.muted = true;
+      thumbVideo.loop = true;
+      thumbVideo.playsInline = true;
+      thumbVideo.preload = "metadata";
+
       const thumbFallback = document.createElement("div");
       thumbFallback.className = "gallery-row-thumb-fallback";
       thumbFallback.innerHTML = '<span class="material-symbols-outlined">movie</span>';
 
-      thumb.append(thumbImage, thumbFallback);
+      thumb.append(thumbImage, thumbVideo, thumbFallback);
 
       const details = document.createElement("div");
       details.className = "gallery-row-details";
@@ -376,11 +399,24 @@ export default function createGalleryScreen(dom, state, handlers) {
         }
 
         meta.textContent = `Length ${formatDuration(metadata.duration)}`;
+        if (entry.url) {
+          thumbVideo.src = entry.url;
+          thumbVideo.classList.remove("hidden");
+          thumb.addEventListener("pointerenter", () => {
+            thumbVideo.currentTime = 0;
+            void thumbVideo.play().catch(() => {});
+          });
+          thumb.addEventListener("pointerleave", () => {
+            thumbVideo.pause();
+            thumbVideo.currentTime = 0;
+          });
+        }
         if (metadata.thumbnail) {
           thumbImage.src = metadata.thumbnail;
           thumbImage.classList.remove("hidden");
-          thumbFallback.classList.add("hidden");
+          thumbVideo.poster = metadata.thumbnail;
         }
+        thumbFallback.classList.add("hidden");
       });
     });
 
@@ -413,7 +449,7 @@ export default function createGalleryScreen(dom, state, handlers) {
     const currentRefreshToken = ++refreshToken;
     isLoading = true;
     renderLoadingState(state.galleryView === "projects" ? "Loading project folders..." : "Loading saved videos...");
-    await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+    await yieldToBrowser();
 
     if (state.galleryView === "projects") {
       try {
@@ -531,8 +567,11 @@ export default function createGalleryScreen(dom, state, handlers) {
     state.galleryView = initialView === "projects" ? "projects" : "videos";
     syncViewUi();
     setGalleryPanelOpen(true);
-    await syncSlideshowButton();
-    void refreshGallery();
+    renderLoadingState(state.galleryView === "projects" ? "Loading project folders..." : "Loading saved videos...");
+    void syncSlideshowButton(true);
+    window.setTimeout(() => {
+      void refreshGallery();
+    }, 0);
   }
 
   async function handleListClick(event) {

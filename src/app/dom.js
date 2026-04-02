@@ -108,6 +108,8 @@ export default function createDomRefs() {
     countdownMinusButton: getRequiredElement("countdownMinusButton"),
     countdownPlusButton: getRequiredElement("countdownPlusButton"),
     addTextOverlayButton: getRequiredElement("addTextOverlayButton"),
+    editorCameraToggleButton: getRequiredElement("editorCameraToggleButton"),
+    editorCameraToggleLabel: getRequiredElement("editorCameraToggleLabel"),
     recordingTimeoutInput: getRequiredElement("recordingTimeoutInput"),
     recordingTimeoutMinusButton: getRequiredElement("recordingTimeoutMinusButton"),
     recordingTimeoutPlusButton: getRequiredElement("recordingTimeoutPlusButton"),

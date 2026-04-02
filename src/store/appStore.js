@@ -22,6 +22,7 @@ export default function createAppStore() {
     isDesktopApp: false,
     isFullscreen: false,
     stream: null,
+    settingsCameraEnabled: false,
     recorder: null,
     recordingBlob: null,
     recordingUrl: "",

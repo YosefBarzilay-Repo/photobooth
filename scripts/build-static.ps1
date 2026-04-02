@@ -2,12 +2,12 @@ $root = Split-Path -Parent $PSScriptRoot
 $dist = Join-Path $root 'dist'
 $buildDir = Join-Path $root 'build'
 $buildNumberFile = Join-Path $buildDir 'build-number.txt'
+$buildInfoFile = Join-Path $buildDir 'build-info.json'
 $rootFilesToCopy = @(
   'index.html',
   'gallery.html',
   'slideshow.html',
-  'styles.css',
-  'build-info.json'
+  'styles.css'
 )
 $directoriesToMirror = @(
   @{ Source = (Join-Path $root 'src'); Destination = (Join-Path $dist 'src') },
@@ -124,7 +124,7 @@ $buildInfoJson = @{
   version = '1.0.0'
   displayVersion = "1.0.0.0_$buildNumber"
 } | ConvertTo-Json
-Set-Content -LiteralPath (Join-Path $root 'build-info.json') -Value $buildInfoJson
+Set-Content -LiteralPath $buildInfoFile -Value $buildInfoJson
 
 Ensure-Directory -Path $dist
 
@@ -135,6 +135,10 @@ foreach ($relativePath in $rootFilesToCopy) {
   if (Copy-FileIfChanged -Source $sourcePath -Destination $destinationPath) {
     $copiedRootFiles += 1
   }
+}
+
+if (Copy-FileIfChanged -Source $buildInfoFile -Destination (Join-Path $dist 'build-info.json')) {
+  $copiedRootFiles += 1
 }
 
 $copiedDirectoryFiles = 0

@@ -96,6 +96,8 @@
  *   countdownMinusButton: HTMLButtonElement,
  *   countdownPlusButton: HTMLButtonElement,
  *   addTextOverlayButton: HTMLButtonElement,
+ *   editorCameraToggleButton: HTMLButtonElement,
+ *   editorCameraToggleLabel: HTMLElement,
  *   recordingTimeoutInput: HTMLInputElement,
  *   recordingTimeoutMinusButton: HTMLButtonElement,
  *   recordingTimeoutPlusButton: HTMLButtonElement,

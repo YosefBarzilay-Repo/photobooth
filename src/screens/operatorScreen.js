@@ -56,6 +56,16 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   let monitorOptions = [{ value: "", label: "Current Monitor" }];
   let audioOutputOptions = [{ value: "", label: "System Default Output" }];
 
+  function syncCameraToggleButton() {
+    const isOn = state.settingsCameraEnabled === true;
+    const icon = dom.editorCameraToggleButton.querySelector(".material-symbols-outlined");
+    if (icon) {
+      icon.textContent = isOn ? "videocam_off" : "videocam";
+    }
+    dom.editorCameraToggleLabel.textContent = isOn ? "Turn Off Camera" : "Turn On Camera";
+    dom.editorCameraToggleButton.setAttribute("aria-pressed", String(isOn));
+  }
+
   function notifySettingsChanged() {
     onSettingsChanged(state);
   }
@@ -165,11 +175,15 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
 
     overlayElement.style.left = `${overlay.position.x}%`;
     overlayElement.style.top = `${overlay.position.y}%`;
+    const overlayShell = overlayElement.querySelector(".overlay-item-shell");
 
     if (overlay.type === "logo") {
       const scaleX = Number.isFinite(overlay.scaleX) ? overlay.scaleX : 1;
       const scaleY = Number.isFinite(overlay.scaleY) ? overlay.scaleY : 1;
-      overlayElement.style.transform = `translate(-50%, -50%) rotate(${overlay.rotation}deg)`;
+      overlayElement.style.transform = "translate(-50%, -50%)";
+      if (overlayShell instanceof HTMLElement) {
+        overlayShell.style.transform = `rotate(${overlay.rotation}deg)`;
+      }
       const image = overlayElement.querySelector(".overlay-logo-image");
       if (image instanceof HTMLElement) {
         image.style.transform = `scale(${scaleX}, ${scaleY})`;
@@ -177,7 +191,10 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
       return;
     }
 
-    overlayElement.style.transform = `translate(-50%, -50%) rotate(${overlay.rotation}deg)`;
+    overlayElement.style.transform = "translate(-50%, -50%)";
+    if (overlayShell instanceof HTMLElement) {
+      overlayShell.style.transform = `rotate(${overlay.rotation}deg)`;
+    }
     const caption = overlayElement.querySelector(".overlay-caption");
     if (caption instanceof HTMLElement) {
       caption.style.fontSize = `${overlay.size}px`;
@@ -336,6 +353,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     dialogRect.height = Math.max(APP_THRESHOLDS.dialogMinHeight, window.innerHeight - APP_THRESHOLDS.dialogEdgeMargin * 2);
     syncCountdownFromControl();
     syncRecordingTimeoutFromControl();
+    syncCameraToggleButton();
     syncDialogRect();
     syncSectionUi();
     renderPreview();
@@ -684,6 +702,14 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     startDialogInteraction,
     updateDialogInteraction,
     stopDialogInteraction,
-    handleWindowResize
+    handleWindowResize,
+    syncCameraToggleButton,
+    setCameraToggleActive(isActive) {
+      state.settingsCameraEnabled = isActive;
+      syncCameraToggleButton();
+    },
+    getActiveSection() {
+      return activeSection;
+    }
   };
 }

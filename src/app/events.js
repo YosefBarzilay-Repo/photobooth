@@ -57,18 +57,18 @@ export default function wireEvents(dom, state, handlers) {
 
   dom.settingsTabEditor.addEventListener("click", () => {
     void logger.audit("Settings video editor tab clicked.");
-    handlers.operatorScreen.switchSection("editor");
+    handlers.switchSettingsSection("editor");
   });
 
   dom.settingsTabInputs.addEventListener("click", () => {
     void logger.audit("Settings recordings tab clicked.");
     void handlers.refreshHardwareOptions?.();
-    handlers.operatorScreen.switchSection("inputs");
+    handlers.switchSettingsSection("inputs");
   });
   dom.settingsTabSlideshow.addEventListener("click", () => {
     void logger.audit("Settings slideshow tab clicked.");
     void handlers.refreshHardwareOptions?.();
-    handlers.operatorScreen.switchSection("slideshow");
+    handlers.switchSettingsSection("slideshow");
   });
 
   dom.resultSaveButton.addEventListener("click", () => {
@@ -118,6 +118,10 @@ export default function wireEvents(dom, state, handlers) {
   dom.addTextOverlayButton.addEventListener("click", () => {
     void logger.audit("Add text overlay button clicked.");
     handlers.operatorScreen.addTextOverlay();
+  });
+  dom.editorCameraToggleButton.addEventListener("click", () => {
+    void logger.audit("Editor camera toggle button clicked.", { enabled: state.settingsCameraEnabled });
+    void handlers.toggleEditorCamera();
   });
   dom.recordingTimeoutInput.addEventListener("input", () => {
     void logger.audit("Recording timeout input changed.", { value: dom.recordingTimeoutInput.value });

@@ -1,6 +1,8 @@
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
+$srcTauriRoot = Join-Path $root 'src-tauri'
+$targetBuildRoot = Join-Path $srcTauriRoot 'target\release\build'
 
 function Get-WindowsRcPath {
   $kitsRoot = 'C:\Program Files (x86)\Windows Kits\10\bin'
@@ -15,8 +17,60 @@ function Get-WindowsRcPath {
   return $candidates | Select-Object -First 1
 }
 
+function Test-StaleTauriBuildArtifacts {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$ProjectRoot,
+    [Parameter(Mandatory = $true)]
+    [string]$BuildRoot
+  )
+
+  if (!(Test-Path -LiteralPath $BuildRoot -PathType Container)) {
+    return $false
+  }
+
+  $normalizedProjectRoot = [System.IO.Path]::GetFullPath($ProjectRoot).TrimEnd('\')
+
+  foreach ($directory in (Get-ChildItem -LiteralPath $BuildRoot -Directory -ErrorAction SilentlyContinue)) {
+    if ($directory.Name -notmatch '^(tauri|photobooth)-') {
+      continue
+    }
+
+    $rootOutputPath = Join-Path $directory.FullName 'root-output'
+    if (!(Test-Path -LiteralPath $rootOutputPath -PathType Leaf)) {
+      continue
+    }
+
+    $recordedRoot = (Get-Content -LiteralPath $rootOutputPath -Raw -ErrorAction SilentlyContinue).Trim()
+    if ([string]::IsNullOrWhiteSpace($recordedRoot)) {
+      continue
+    }
+
+    $resolvedRecordedRoot = try {
+      [System.IO.Path]::GetFullPath($recordedRoot).TrimEnd('\')
+    } catch {
+      $recordedRoot.TrimEnd('\')
+    }
+
+    if ($resolvedRecordedRoot -notlike "$normalizedProjectRoot*") {
+      Write-Host "Detected stale Tauri build cache: $($directory.FullName)"
+      return $true
+    }
+  }
+
+  return $false
+}
+
 Push-Location $root
 try {
+  if (Test-StaleTauriBuildArtifacts -ProjectRoot $srcTauriRoot -BuildRoot $targetBuildRoot) {
+    Write-Host "Running cargo clean to clear stale Tauri build metadata..."
+    & cargo clean --manifest-path (Join-Path $srcTauriRoot 'Cargo.toml')
+    if ($LASTEXITCODE -ne 0) {
+      throw "cargo clean failed with exit code $LASTEXITCODE."
+    }
+  }
+
   $rcExe = Get-WindowsRcPath
   if ($null -eq $rcExe) {
     throw "RC.EXE was not found under the Windows SDK path."
@@ -35,7 +89,7 @@ try {
     throw "Tauri build failed with exit code $LASTEXITCODE."
   }
 
-  $buildInfoPath = Join-Path $root 'build-info.json'
+  $buildInfoPath = Join-Path $root 'build\build-info.json'
   if (!(Test-Path $buildInfoPath)) {
     throw "Missing build info file at $buildInfoPath."
   }

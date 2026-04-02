@@ -86,9 +86,12 @@
 .overlay-item {
   position: absolute;
   z-index: 8;
-  transform-origin: center;
   width: max-content;
   height: max-content;
+}
+
+.overlay-item-shell {
+  transform-origin: center;
 }
 
 .overlay-item-body {
@@ -189,9 +192,10 @@
   position: absolute;
   right: 0;
   bottom: 0;
-  transform: translate(55%, 55%);
+  transform: translate(65%, 65%);
   cursor: nwse-resize;
   touch-action: none;
+  z-index: 1;
 }
 
 .overlay-tool-button .material-symbols-outlined,

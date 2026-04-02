@@ -1172,11 +1172,11 @@ export default function createAppRuntime({
     }
 
     try {
-      showLaunchOverlay("Closing Echo", "Closing slideshows...");
+      showLaunchOverlay("Closing", "Closing slideshows...");
       await closeAllSlideshows();
-      showLaunchOverlay("Closing Echo", "Saving current state...");
+      showLaunchOverlay("Closing", "Saving current state...");
       persistSettings(state);
-      showLaunchOverlay("Closing Echo", "Closing app window...");
+      showLaunchOverlay("Closing", "Closing app window...");
       await closeDesktopApp();
     } catch (error) {
       hideLaunchOverlay();
@@ -1266,8 +1266,11 @@ export default function createAppRuntime({
   async function openSettingsView() {
     hideAppDialog();
     closeGalleryPanel();
+    stopStream();
+    operatorScreen.setCameraToggleActive(false);
     state.operatorReturnMode = state.mode;
     dom.resultVideo.pause();
+    operatorScreen.switchSection("editor");
     state.mode = "camera";
     operatorScreen.setOperatorPanelOpen(true);
     syncModeUi();
@@ -1276,15 +1279,15 @@ export default function createAppRuntime({
     } catch {
       // Ignore device list failures here; startCamera will surface stream errors.
     }
-    void startCamera();
   }
 
   function closeOperatorPanel() {
+    stopStream();
+    operatorScreen.setCameraToggleActive(false);
     operatorScreen.setOperatorPanelOpen(false);
     hideAppDialog();
 
     if (state.operatorReturnMode === "editor") {
-      stopStream();
       editorScreen.showResult();
     } else {
       state.mode = "camera";
@@ -1332,9 +1335,13 @@ export default function createAppRuntime({
     stopCameraStream(state.stream, [dom.cameraPreview]);
     state.stream = null;
     state.captureReady = false;
+    state.settingsCameraEnabled = false;
+    cameraScreen.clearError();
+    dom.emptyCamera.classList.remove("hidden");
   }
 
-  async function startCamera() {
+  async function startCamera(options = {}) {
+    const cameraSource = options.source === "settings" ? "settings" : "default";
     cameraScreen.clearError();
     state.mode = "camera";
     syncModeUi();
@@ -1361,6 +1368,8 @@ export default function createAppRuntime({
 
       state.stream = stream;
       state.captureReady = true;
+      state.settingsCameraEnabled = cameraSource === "settings";
+      operatorScreen.setCameraToggleActive(state.settingsCameraEnabled);
       dom.emptyCamera.classList.add("hidden");
       try {
         await refreshMediaDeviceOptions();
@@ -1374,6 +1383,8 @@ export default function createAppRuntime({
 
       void logger.exception("Camera start failed.", error, { sessionId });
       state.captureReady = false;
+      state.settingsCameraEnabled = false;
+      operatorScreen.setCameraToggleActive(false);
       dom.emptyCamera.classList.add("hidden");
       const cameraErrorMessage = getCameraErrorMessage(error);
       showErrorDialog("Camera unavailable", error, cameraErrorMessage);
@@ -1568,9 +1579,28 @@ export default function createAppRuntime({
 
   async function handleMediaInputChange() {
     operatorScreen.syncMediaInputSelections();
-    if (state.mode === "camera") {
-      await startCamera();
+    if (state.stream) {
+      await startCamera({ source: state.settingsCameraEnabled ? "settings" : "default" });
     }
+  }
+
+  function switchSettingsSection(section) {
+    if (section !== "editor") {
+      stopStream();
+      operatorScreen.setCameraToggleActive(false);
+    }
+    operatorScreen.switchSection(section);
+  }
+
+  async function toggleEditorCamera() {
+    if (state.settingsCameraEnabled) {
+      stopStream();
+      operatorScreen.setCameraToggleActive(false);
+      syncModeUi();
+      return;
+    }
+
+    await startCamera({ source: "settings" });
   }
 
   async function handleCreateProject() {
@@ -1659,7 +1689,7 @@ export default function createAppRuntime({
     editorScreen.showResult();
     syncModeUi();
     void logger.info("Bootstrap sequence started.");
-    showLaunchOverlay("Starting Echo", "Loading app...");
+    showLaunchOverlay("Starting", "Loading app...");
 
     try {
       const desktopSettings = await loadDesktopPersistedSettings();
@@ -1897,6 +1927,8 @@ export default function createAppRuntime({
     saveCurrentRecording,
     openSlideshowWindow: toggleCurrentProjectSlideshow,
     refreshHardwareOptions,
+    switchSettingsSection,
+    toggleEditorCamera,
     closeApp,
     operatorScreen,
     editorScreen,

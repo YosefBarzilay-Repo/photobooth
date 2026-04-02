@@ -56,6 +56,7 @@
  *   isDesktopApp: boolean,
  *   isFullscreen: boolean,
  *   stream: MediaStream | null,
+ *   settingsCameraEnabled: boolean,
  *   recorder: MediaRecorder | null,
  *   recordingBlob: Blob | null,
  *   recordingUrl: string,

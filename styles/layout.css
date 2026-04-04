@@ -147,6 +147,16 @@ body[data-mode="editor"] .stage-card.stage-card-portrait {
   aspect-ratio: 9 / 16;
 }
 
+body[data-mode="camera"] .console-shell {
+  max-width: none;
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  overflow: visible;
+}
+
 .console-button,
 .icon-button,
 .frame-card,

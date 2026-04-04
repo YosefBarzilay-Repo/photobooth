@@ -128,8 +128,8 @@
 
 .shutter-button {
   position: relative;
-  width: 19.6rem;
-  height: 19.6rem;
+  width: min(19.6rem, calc(100vw - 2.5rem), calc(100dvh - 8.5rem));
+  height: min(19.6rem, calc(100vw - 2.5rem), calc(100dvh - 8.5rem));
   border: 2px solid rgba(255, 136, 181, 0.24);
   border-radius: 50%;
   padding: 1.68rem;

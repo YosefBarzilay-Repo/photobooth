@@ -20,8 +20,8 @@
   }
 
   .shutter-button {
-    width: 312px;
-    height: 312px;
+    width: min(312px, calc(100vw - 2rem), calc(100dvh - 7rem));
+    height: min(312px, calc(100vw - 2rem), calc(100dvh - 7rem));
   }
 
   .stepper-control {
@@ -83,8 +83,8 @@
   }
 
   .shutter-button {
-    width: 296px;
-    height: 296px;
+    width: min(296px, calc(100vw - 2rem), calc(100dvh - 6rem));
+    height: min(296px, calc(100vw - 2rem), calc(100dvh - 6rem));
   }
 
   .console-button {

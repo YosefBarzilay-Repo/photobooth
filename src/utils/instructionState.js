@@ -19,7 +19,7 @@ export function createInstructionElement(partial = {}) {
     dataUrl: typeof partial.dataUrl === "string" ? partial.dataUrl : "",
     size: ["small", "medium", "large"].includes(partial.size) ? partial.size : (type === "text" ? "medium" : "large"),
     font: typeof partial.font === "string" ? partial.font : "Space Grotesk",
-    color: typeof partial.color === "string" ? partial.color : "#ff88b5",
+    color: typeof partial.color === "string" ? partial.color : "var(--color-accent)",
     scaleX: Number.isFinite(partial.scaleX) ? partial.scaleX : 1,
     scaleY: Number.isFinite(partial.scaleY) ? partial.scaleY : 1,
     rotation: Number.isFinite(partial.rotation) ? partial.rotation : 0,

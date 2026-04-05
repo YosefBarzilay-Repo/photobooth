@@ -125,6 +125,26 @@ function validateProjectName(projectName) {
   return "";
 }
 
+function resolveThemeColor(tokenName, fallback = "") {
+  const root = document.documentElement;
+  const value = window.getComputedStyle(root).getPropertyValue(tokenName).trim();
+  return value || fallback;
+}
+
+function resolveCanvasColor(value, fallbackToken = "--color-accent") {
+  if (typeof value !== "string" || !value.trim()) {
+    return resolveThemeColor(fallbackToken);
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.startsWith("var(") && trimmed.endsWith(")")) {
+    const tokenName = trimmed.slice(4, -1).trim();
+    return resolveThemeColor(tokenName, resolveThemeColor(fallbackToken));
+  }
+
+  return trimmed;
+}
+
 function drawVideoFrame(ctx, video, width, height, captureOrientation = "landscape") {
   const videoWidth = video.videoWidth || width;
   const videoHeight = video.videoHeight || height;
@@ -138,7 +158,7 @@ function drawVideoFrame(ctx, video, width, height, captureOrientation = "landsca
   const targetY = (height - targetHeight) / 2;
 
   ctx.save();
-  ctx.fillStyle = "#050507";
+  ctx.fillStyle = resolveThemeColor("--color-surface");
   ctx.fillRect(0, 0, width, height);
   ctx.translate(width, 0);
   ctx.scale(-1, 1);
@@ -155,13 +175,13 @@ function drawOverlayText(ctx, overlay, width, height, metrics = null) {
   ctx.translate((overlay.position.x / 100) * width, (overlay.position.y / 100) * height);
   ctx.rotate((overlay.rotation * Math.PI) / 180);
   ctx.scale(metrics.scaleX, metrics.scaleY);
-  ctx.fillStyle = overlay.color;
+  ctx.fillStyle = resolveCanvasColor(overlay.color);
   ctx.font = `800 ${metrics.fontSize}px "${overlay.font}", sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
-  ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+  ctx.shadowColor = resolveThemeColor("--color-shadow-mid");
   ctx.shadowBlur = 20;
   const textMetrics = ctx.measureText(overlay.text);
   const ascent = textMetrics.actualBoundingBoxAscent || metrics.fontSize * 0.8;
@@ -189,23 +209,23 @@ function drawOverlayLogo(ctx, overlay, width, height, logoImage, metrics = null)
 function drawFrameOverlay(ctx, frameId, width, height) {
   switch (frameId) {
     case "classic":
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.94)";
+      ctx.strokeStyle = resolveThemeColor("--color-base");
       ctx.lineWidth = 42;
       ctx.strokeRect(0, 0, width, height);
       return;
     case "polaroid":
-      ctx.fillStyle = "#f7f1ea";
+      ctx.fillStyle = resolveThemeColor("--color-surface");
       ctx.fillRect(0, 0, width, 28);
       ctx.fillRect(0, 0, 28, height);
       ctx.fillRect(width - 28, 0, 28, height);
       ctx.fillRect(0, height - 92, width, 92);
       return;
     case "film": {
-      ctx.fillStyle = "rgba(10, 10, 14, 0.96)";
+      ctx.fillStyle = resolveThemeColor("--color-muted-strong");
       ctx.fillRect(0, 0, width, height);
       const inset = 40;
       ctx.clearRect(inset, inset, width - inset * 2, height - inset * 2);
-      ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
+      ctx.fillStyle = resolveThemeColor("--color-base");
       for (let y = 64; y < height - 64; y += 32) {
         ctx.fillRect(12, y, 18, 16);
         ctx.fillRect(width - 30, y, 18, 16);
@@ -213,26 +233,26 @@ function drawFrameOverlay(ctx, frameId, width, height) {
       return;
     }
     case "neon":
-      ctx.strokeStyle = "rgba(255, 136, 181, 0.82)";
+      ctx.strokeStyle = resolveThemeColor("--color-accent");
       ctx.lineWidth = 18;
-      ctx.shadowColor = "rgba(54, 218, 248, 0.6)";
+      ctx.shadowColor = resolveThemeColor("--shadow-accent");
       ctx.shadowBlur = 18;
       ctx.strokeRect(9, 9, width - 18, height - 18);
       ctx.shadowBlur = 0;
       return;
     case "floral":
-      ctx.strokeStyle = "rgba(18, 8, 16, 0.72)";
+      ctx.strokeStyle = resolveThemeColor("--color-muted-soft");
       ctx.lineWidth = 28;
       ctx.strokeRect(0, 0, width, height);
       [[30, 30], [width - 30, 30], [30, height - 30], [width - 30, height - 30]].forEach(([x, y]) => {
-        ctx.fillStyle = "#ff88b5";
+        ctx.fillStyle = resolveThemeColor("--color-accent");
         ctx.beginPath();
         ctx.arc(x, y, 18, 0, Math.PI * 2);
         ctx.fill();
       });
       return;
     case "minimal":
-      ctx.strokeStyle = "rgba(5, 5, 7, 0.98)";
+      ctx.strokeStyle = resolveThemeColor("--color-surface-strong");
       ctx.lineWidth = 44;
       ctx.strokeRect(0, 0, width, height);
       return;

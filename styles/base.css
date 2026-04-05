@@ -12,11 +12,8 @@ body {
 
 body {
   font-family: "Manrope", sans-serif;
-  color: var(--text);
-  background:
-    radial-gradient(circle at top, rgba(255, 91, 154, 0.18), transparent 28%),
-    radial-gradient(circle at 85% 20%, rgba(54, 218, 248, 0.12), transparent 18%),
-    linear-gradient(180deg, #111114 0%, #09090b 100%);
+  color: var(--color-text-primary);
+  background: var(--color-base);
 }
 
 button,

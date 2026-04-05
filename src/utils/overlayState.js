@@ -9,7 +9,7 @@ export function createTextOverlay(partial = {}) {
     type: "text",
     text: typeof partial.text === "string" ? partial.text : "",
     font: typeof partial.font === "string" ? partial.font : "Space Grotesk",
-    color: typeof partial.color === "string" ? partial.color : "#ff88b5",
+    color: typeof partial.color === "string" ? partial.color : "var(--color-accent)",
     size: Number.isFinite(partial.size) ? partial.size : 44,
     scaleX: Number.isFinite(partial.scaleX) ? partial.scaleX : 1,
     scaleY: legacyScaleY,

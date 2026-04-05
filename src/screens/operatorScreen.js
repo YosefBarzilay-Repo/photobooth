@@ -285,7 +285,10 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
 
   function getInstructionDragBounds(elementId) {
     const fallback = { minX: 6, maxX: 94, minY: 6, maxY: 94 };
-    const element = dom.instructionPagePreview.querySelector(`.overlay-item-body[data-instruction-id="${elementId}"]`);
+    const bodyElement = dom.instructionPagePreview.querySelector(`.overlay-item-body[data-instruction-id="${elementId}"]`);
+    const element = bodyElement instanceof HTMLElement
+      ? bodyElement.closest(".overlay-item-shell") || bodyElement
+      : null;
     if (!(element instanceof HTMLElement) || !instructionDragSurfaceSize) {
       return fallback;
     }
@@ -318,14 +321,10 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     overlayElement.style.transform = "translate(-50%, -50%)";
     const overlayShell = overlayElement.querySelector(".overlay-item-shell");
     if (overlayShell instanceof HTMLElement) {
-      overlayShell.style.transform = `rotate(${element.rotation}deg)`;
+      overlayShell.style.transform = `rotate(${element.rotation}deg) scale(${element.scaleX}, ${element.scaleY})`;
     }
 
     if (element.type === "image") {
-      const image = overlayElement.querySelector(".overlay-logo-image");
-      if (image instanceof HTMLElement) {
-        image.style.transform = `scale(${element.scaleX}, ${element.scaleY})`;
-      }
       return;
     }
 
@@ -333,7 +332,6 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     if (caption instanceof HTMLElement) {
       caption.style.color = element.color;
       caption.style.fontFamily = `"${element.font}", sans-serif`;
-      caption.style.transform = `scale(${element.scaleX}, ${element.scaleY})`;
     }
   }
 
@@ -902,8 +900,11 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     const bodyElement = overlayBody instanceof HTMLElement
       ? overlayBody
       : handle?.closest(".overlay-item")?.querySelector(".overlay-item-body");
-    if (bodyElement instanceof HTMLElement) {
-      const bodyRect = bodyElement.getBoundingClientRect();
+    const measuredElement = bodyElement instanceof HTMLElement
+      ? bodyElement.closest(".overlay-item-shell") || bodyElement
+      : null;
+    if (measuredElement instanceof HTMLElement) {
+      const bodyRect = measuredElement.getBoundingClientRect();
       instructionDragStartRect = {
         left: ((bodyRect.left - previewRect.left) / previewRect.width) * 100,
         top: ((bodyRect.top - previewRect.top) / previewRect.height) * 100,
@@ -914,7 +915,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
       instructionDragStartRect = null;
     }
     if (instructionInteraction === "rotate") {
-      const selectedElement = handle?.closest(".overlay-item") ?? overlayBody?.closest(".overlay-item");
+      const selectedElement = handle?.closest(".overlay-item-shell") ?? overlayBody?.closest(".overlay-item-shell");
       if (selectedElement instanceof HTMLElement) {
         const overlayRect = selectedElement.getBoundingClientRect();
         const centerX = overlayRect.left + (overlayRect.width / 2);

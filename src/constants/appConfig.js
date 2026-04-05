@@ -29,7 +29,7 @@ export const APP_DEFAULTS = {
   showTextColorPalette: false,
   overlayText: "",
   overlayFont: "Space Grotesk",
-  overlayColor: "#ff88b5",
+  overlayColor: "var(--color-accent)",
   overlaySize: 44,
   overlayTextPosition: { x: 50, y: 84 },
   overlayTextRotation: 0,
@@ -108,12 +108,12 @@ export const DOWNLOAD_CONFIG = {
 };
 
 export const TEXT_COLOR_SWATCHES = [
-  "#ffffff",
-  "#ff88b5",
-  "#ffd36e",
-  "#90f4de",
-  "#5ddcff",
-  "#c7b8ff",
-  "#1b2533",
-  "#000000"
+  "var(--color-text-on-accent)",
+  "var(--color-accent)",
+  "var(--color-text-primary)",
+  "var(--color-text-secondary)",
+  "var(--color-text-muted)",
+  "var(--color-base)",
+  "var(--color-surface)",
+  "var(--color-muted)"
 ];

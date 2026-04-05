@@ -71,8 +71,10 @@ export function renderInstructionPage(container, page, options = {}) {
 
   container.innerHTML = page.elements.map((element) => {
     const selected = interactive && selectedId === element.id;
-    const shellStyle = `transform: rotate(${element.rotation || 0}deg);`;
-    const itemClass = `overlay-item instruction-preview-element instruction-preview-element-${element.type}${selected ? " selected is-selected" : ""}`;
+    const scaleX = Number.isFinite(element.scaleX) ? element.scaleX : 1;
+    const scaleY = Number.isFinite(element.scaleY) ? element.scaleY : 1;
+    const shellStyle = `transform: rotate(${element.rotation || 0}deg) scale(${scaleX}, ${scaleY});`;
+    const itemClass = `overlay-item instruction-preview-element instruction-preview-element-${element.type} instruction-size-${element.size || "medium"}${selected ? " selected is-selected" : ""}`;
     const itemStyle = `left:${element.position?.x ?? 50}%; top:${element.position?.y ?? 50}%; transform: translate(-50%, -50%);`;
 
     if (element.type === "image" && element.dataUrl) {
@@ -81,10 +83,10 @@ export function renderInstructionPage(container, page, options = {}) {
           ${selected ? buildToolbar(element, false) : ""}
           <div class="overlay-item-shell" style="${shellStyle}">
             <div class="overlay-item-body overlay-logo-body" data-instruction-id="${element.id}" data-instruction-type="image">
-              <img class="overlay-logo-image instruction-preview-image" src="${element.dataUrl}" alt="${escapeHtml(element.content || page.name || "Instruction media")}" style="transform: scale(${element.scaleX || 1}, ${element.scaleY || 1});">
+              <img class="overlay-logo-image instruction-preview-image" src="${element.dataUrl}" alt="${escapeHtml(element.content || page.name || "Instruction media")}">
             </div>
+            ${selected ? `<button type="button" class="overlay-resize-handle" data-instruction-handle="resize" data-instruction-id="${element.id}" aria-label="Resize media"><span class="material-symbols-outlined">open_in_full</span></button>` : ""}
           </div>
-          ${selected ? `<button type="button" class="overlay-resize-handle" data-instruction-handle="resize" data-instruction-id="${element.id}" aria-label="Resize media"><span class="material-symbols-outlined">open_in_full</span></button>` : ""}
         </div>
       `;
     }
@@ -94,11 +96,11 @@ export function renderInstructionPage(container, page, options = {}) {
         ${selected ? buildToolbar(element, showColorPalette) : ""}
         <div class="overlay-item-shell" style="${shellStyle}">
           <div class="overlay-item-body overlay-caption instruction-preview-text instruction-size-${element.size || "medium"}" data-instruction-id="${element.id}" data-instruction-type="text"
-            style="color:${escapeHtml(element.color || "#ff88b5")}; font-family:&quot;${escapeHtml(element.font || "Space Grotesk")}&quot;, sans-serif; transform: scale(${element.scaleX || 1}, ${element.scaleY || 1});">
+            style="color:${escapeHtml(element.color || "var(--color-accent)")}; font-family:&quot;${escapeHtml(element.font || "Space Grotesk")}&quot;, sans-serif;">
             ${escapeHtml(element.content || "Instruction text")}
           </div>
+          ${selected ? `<button type="button" class="overlay-resize-handle" data-instruction-handle="resize" data-instruction-id="${element.id}" aria-label="Resize text"><span class="material-symbols-outlined">open_in_full</span></button>` : ""}
         </div>
-        ${selected ? `<button type="button" class="overlay-resize-handle" data-instruction-handle="resize" data-instruction-id="${element.id}" aria-label="Resize text"><span class="material-symbols-outlined">open_in_full</span></button>` : ""}
       </div>
     `;
   }).join("");

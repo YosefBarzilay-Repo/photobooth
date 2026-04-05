@@ -23,8 +23,8 @@
   padding: 0.25rem 0.35rem;
   font-size: clamp(1rem, 1.6vw, 1.35rem);
   letter-spacing: 0.28em;
-  color: rgba(255, 245, 250, 0.92);
-  text-shadow: 0 10px 26px rgba(0, 0, 0, 0.34);
+  color: var(--color-text-primary);
+  text-shadow: 0 10px 26px var(--color-shadow-faint);
   pointer-events: auto;
 }
 
@@ -50,8 +50,8 @@
   min-height: 0;
   padding: 0.75rem;
   border-radius: calc(var(--radius-lg) + 0.25rem);
-  background: linear-gradient(180deg, rgba(18, 18, 21, 0.98), rgba(6, 6, 8, 0.98));
-  box-shadow: var(--shadow);
+  background: var(--color-base);
+  box-shadow: 0 20px 60px var(--color-shadow-soft);
   display: grid;
   place-items: center;
 }
@@ -60,7 +60,7 @@
   position: relative;
   overflow: hidden;
   border-radius: 24px;
-  background: #050507;
+  background: var(--color-surface);
   aspect-ratio: 16 / 9;
   width: min(100%, calc((100dvh - 10rem) * 1.75));
   max-height: 100%;
@@ -101,10 +101,10 @@
   max-width: min(96vw, 100rem);
   padding: 1.1rem 1.35rem;
   border-radius: 999px;
-  background: rgba(5, 5, 7, 0.42);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-muted);
   backdrop-filter: blur(16px);
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 20px 45px var(--color-shadow-faint);
   pointer-events: auto;
   overflow-x: auto;
   overflow-y: hidden;
@@ -127,7 +127,7 @@ body[data-mode="camera"] .stage-shell,
 body[data-mode="editor"] .stage-shell {
   padding: 0;
   border-radius: 0;
-  background: #050507;
+  background: var(--color-base);
   box-shadow: none;
 }
 
@@ -163,8 +163,8 @@ body[data-mode="camera"] .console-shell {
 .primary-button,
 .danger-button,
 .secondary-button {
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--color-muted);
+  background: var(--color-surface);
   color: inherit;
   transition: transform 140ms ease, background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
@@ -188,8 +188,8 @@ body[data-mode="camera"] .console-shell {
 .console-button {
   min-width: 10rem;
   min-height: 6.15rem;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
   flex: 0 0 auto;
 }
 
@@ -202,9 +202,9 @@ body[data-mode="camera"] .console-shell {
 .danger-button:hover,
 .secondary-button:hover,
 .icon-button:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 136, 181, 0.42);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  background: var(--color-muted);
+  border-color: var(--color-accent);
+  box-shadow: 0 10px 24px var(--shadow-accent);
 }
 
 .console-button:active:not(:disabled),
@@ -221,7 +221,7 @@ body[data-mode="camera"] .console-shell {
 }
 
 .console-separator {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--color-text-muted);
   font-family: "Space Grotesk", sans-serif;
   font-size: 1.15rem;
   font-weight: 700;
@@ -230,7 +230,23 @@ body[data-mode="camera"] .console-shell {
 }
 
 .secondary-button {
-  color: var(--text);
+  color: var(--color-text-primary);
+  background: var(--color-muted);
+}
+
+.primary-button,
+.danger-button {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-text-on-accent);
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--shadow-accent);
+  outline: none;
 }
 
 .icon-button {
@@ -250,16 +266,16 @@ body[data-mode="camera"] .console-shell {
   display: grid;
   place-items: center;
   padding: 1.5rem;
-  background: rgba(2, 2, 4, 0.54);
+  background: var(--color-base-backdrop);
   backdrop-filter: blur(10px);
 }
 
 .app-dialog-card {
   width: min(100%, 30rem);
   border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: linear-gradient(180deg, rgba(22, 23, 29, 0.96), rgba(11, 12, 16, 0.92));
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+  border: 1px solid var(--color-muted);
+  background: var(--color-surface-strong);
+  box-shadow: 0 30px 90px var(--color-shadow-soft);
   padding: 1.15rem 1.2rem 1.25rem;
 }
 
@@ -272,7 +288,7 @@ body[data-mode="camera"] .console-shell {
 
 .app-dialog-message {
   margin: 1rem 0 0;
-  color: var(--text);
+  color: var(--color-text-primary);
   line-height: 1.6;
 }
 

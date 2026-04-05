@@ -24,6 +24,12 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function resolveThemeColor(tokenName, fallback = "") {
+  const root = document.documentElement;
+  const value = window.getComputedStyle(root).getPropertyValue(tokenName).trim();
+  return value || fallback;
+}
+
 function formatVideoStatus(count, visibleCount) {
   if (count === 0) {
     return "0 saved videos";
@@ -107,7 +113,7 @@ function loadMetadata(url) {
         const drawHeight = sourceHeight * scale;
         const drawX = (canvas.width - drawWidth) / 2;
         const drawY = (canvas.height - drawHeight) / 2;
-        ctx.fillStyle = "#050507";
+        ctx.fillStyle = resolveThemeColor("--color-surface");
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(video, 0, 0, sourceWidth, sourceHeight, drawX, drawY, drawWidth, drawHeight);
         finish({ thumbnail: canvas.toDataURL("image/jpeg", 0.84), duration });

@@ -585,7 +585,27 @@ export default function createAppRuntime({
     return activeSlideshows.some((entry) => normalizeProjectPath(entry.projectPath) === normalizedProjectPath);
   }
 
+  function syncAppChrome() {
+    document.body.dataset.appView = state.appView;
+    document.body.dataset.operatorControlsVisible = state.operatorControlsVisible ? "true" : "false";
+    const navMap = {
+      library: dom.navLibraryButton,
+      instructions: dom.navInstructionsButton,
+      settings: dom.navSettingsButton
+    };
+
+    Object.entries(navMap).forEach(([view, button]) => {
+      const isActive = state.appView === view;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-current", isActive ? "page" : "false");
+      button.classList.toggle("hidden", !state.operatorControlsVisible);
+    });
+
+    dom.navTakeNewButton.classList.toggle("hidden", !state.operatorControlsVisible);
+  }
+
   function syncModeUi() {
+    syncAppChrome();
     cameraScreen.syncModeUi();
   }
 
@@ -726,13 +746,15 @@ export default function createAppRuntime({
   }
 
   function registerPreviewAccessClick() {
-    if (state.mode !== "camera") {
+    if (state.operatorControlsVisible) {
+      openPreviewView();
       return;
     }
 
     previewAccessClickCount += 1;
     if (previewAccessClickCount >= APP_THRESHOLDS.operatorAccessClickCount) {
       resetPreviewAccessClicks();
+      state.operatorControlsVisible = true;
       openPreviewView();
       return;
     }
@@ -881,15 +903,6 @@ export default function createAppRuntime({
     showAppDialog(title, formatErrorMessage(error, fallbackMessage));
   }
 
-  function applyPreviewEntry(entry) {
-    state.recordingBlob = null;
-    state.recordingUrl = entry.url;
-    state.recordingFilename = entry.filename;
-    state.recordingPath = entry.path || "";
-    editorScreen.showResult();
-    syncModeUi();
-  }
-
   async function loadGalleryEntries() {
     const source = state.isDesktopApp ? state.saveDirectoryPath : state.saveDirectoryHandle;
     void logger.debug("Loading gallery entries for main app.", {
@@ -975,12 +988,9 @@ export default function createAppRuntime({
     setActiveProject(project.path, project.name, false);
     await loadProjectConfiguration(project.path);
     persistSettings(state);
-    if (state.galleryPanelOpen) {
-      await galleryScreen.refreshGallery();
-    }
     hideProjectDialog();
     hideAppDialog();
-    openPreviewView();
+    await openGalleryPanel("videos");
   }
 
   async function openRecentProjectByIndex(index) {
@@ -1148,9 +1158,7 @@ export default function createAppRuntime({
       }
 
       await ensureRecordingEntryUrl(entry);
-      galleryScreen.setGalleryPanelOpen(false);
-      hideAppDialog();
-      applyPreviewEntry(entry);
+      return entry;
     },
     async deleteEntry(entry) {
       try {
@@ -1464,6 +1472,8 @@ export default function createAppRuntime({
   async function openGalleryPanel(initialView = "videos") {
     try {
       hideAppDialog();
+      operatorScreen.setOperatorPanelOpen(false);
+      state.appView = "library";
       void galleryScreen.openGalleryPanel(initialView).catch((error) => {
         showErrorDialog("Gallery unavailable", error, "Echo could not open the gallery.");
       });
@@ -1475,6 +1485,9 @@ export default function createAppRuntime({
 
   function closeGalleryPanel() {
     galleryScreen.setGalleryPanelOpen(false);
+    if (state.appView === "library") {
+      state.appView = "preview";
+    }
     syncModeUi();
   }
 
@@ -1538,13 +1551,7 @@ export default function createAppRuntime({
     syncModeUi();
   }
   function openPreviewView() {
-    finishInstructionSequence(false);
-    clearPostRecordingDecision();
-    hideAppDialog();
-    closeGalleryPanel();
-    stopStream();
-    editorScreen.showResult();
-    syncModeUi();
+    void openGalleryPanel("videos");
   }
 
   async function enterLiveCameraMode() {
@@ -1563,6 +1570,14 @@ export default function createAppRuntime({
   }
 
   async function openSettingsView() {
+    await openSettingsSection("editor", "settings");
+  }
+
+  async function openInstructionsView() {
+    await openSettingsSection("instructions", "instructions");
+  }
+
+  async function openSettingsSection(section = "editor", appView = "settings") {
     finishInstructionSequence(false);
     clearPostRecordingDecision();
     hideAppDialog();
@@ -1571,8 +1586,9 @@ export default function createAppRuntime({
     operatorScreen.setCameraToggleActive(false);
     state.operatorReturnMode = state.mode;
     dom.resultVideo.pause();
-    operatorScreen.switchSection("editor");
+    operatorScreen.switchSection(section);
     state.mode = "camera";
+    state.appView = appView;
     operatorScreen.setOperatorPanelOpen(true);
     syncModeUi();
     try {
@@ -1588,6 +1604,7 @@ export default function createAppRuntime({
     stopStream();
     operatorScreen.setCameraToggleActive(false);
     operatorScreen.setOperatorPanelOpen(false);
+    state.appView = "preview";
     hideAppDialog();
 
     if (state.operatorReturnMode === "editor") {
@@ -1636,13 +1653,14 @@ export default function createAppRuntime({
   function stopStream() {
     clearInstructionAdvanceTimer();
     cameraSessionId += 1;
-    stopCameraStream(state.stream, [dom.cameraPreview]);
+    stopCameraStream(state.stream, [dom.cameraPreview, dom.settingsCameraPreview]);
     state.stream = null;
     state.captureReady = false;
     state.cameraStarting = false;
     state.settingsCameraEnabled = false;
     cameraScreen.clearError();
     dom.emptyCamera.classList.remove("hidden");
+    dom.settingsEmptyCamera.classList.remove("hidden");
   }
 
   async function startCamera(options = {}) {
@@ -1663,14 +1681,14 @@ export default function createAppRuntime({
     });
 
     try {
-      stopCameraStream(state.stream, [dom.cameraPreview]);
+      stopCameraStream(state.stream, [dom.cameraPreview, dom.settingsCameraPreview]);
       state.stream = null;
-      const stream = await startCameraStream([dom.cameraPreview], {
+      const stream = await startCameraStream([dom.cameraPreview, dom.settingsCameraPreview], {
         videoInputId: state.videoInputId,
         audioInputId: state.audioInputId
       });
       if (cameraSessionId !== sessionId) {
-        stopCameraStream(stream, [dom.cameraPreview]);
+        stopCameraStream(stream, [dom.cameraPreview, dom.settingsCameraPreview]);
         return;
       }
 
@@ -1680,6 +1698,7 @@ export default function createAppRuntime({
       state.settingsCameraEnabled = cameraSource === "settings";
       operatorScreen.setCameraToggleActive(state.settingsCameraEnabled);
       dom.emptyCamera.classList.add("hidden");
+      dom.settingsEmptyCamera.classList.add("hidden");
       try {
         await refreshMediaDeviceOptions();
       } catch {
@@ -1873,15 +1892,22 @@ export default function createAppRuntime({
     await startRecordingFlow();
   }
 
+  async function openTakeNewView() {
+    await handleResultReset();
+  }
+
   async function handleResultReset() {
-    const canDiscard = await confirmDiscardIfNeeded("take a new video");
+    const canDiscard = await confirmDiscardIfNeeded("start the event");
     if (!canDiscard) {
       return;
     }
 
     discardCurrentRecording();
     hideAppDialog();
+    state.operatorControlsVisible = false;
+    operatorScreen.setOperatorPanelOpen(false);
     closeGalleryPanel();
+    state.appView = "preview";
     void enterLiveCameraMode();
   }
 
@@ -1894,6 +1920,7 @@ export default function createAppRuntime({
     discardCurrentRecording();
     hideAppDialog();
     closeGalleryPanel();
+    state.appView = "preview";
     await enterLiveCameraMode();
   }
 
@@ -1911,6 +1938,7 @@ export default function createAppRuntime({
     discardCurrentRecording();
     hideAppDialog();
     closeGalleryPanel();
+    state.appView = "preview";
     await enterLiveCameraMode();
   }
 
@@ -1930,7 +1958,9 @@ export default function createAppRuntime({
       stopStream();
       operatorScreen.setCameraToggleActive(false);
     }
+    state.appView = section === "instructions" ? "instructions" : "settings";
     operatorScreen.switchSection(section);
+    syncModeUi();
   }
 
   async function toggleEditorCamera() {
@@ -2014,7 +2044,7 @@ export default function createAppRuntime({
         saveDirectoryPath: state.saveDirectoryPath,
         saveDirectoryName: state.saveDirectoryName
       });
-      openPreviewView();
+      void openGalleryPanel("videos");
     } catch (error) {
       const fallbackMessage = projectDialogMode === "rename"
         ? "Echo could not rename the selected project."
@@ -2040,6 +2070,9 @@ export default function createAppRuntime({
         syncActiveOverlayState(state);
       }
       await withBootstrapTimeout(validateActiveProjectSelection(), "validateActiveProjectSelection");
+      if (String(state.activeProjectPath || "").trim()) {
+        await withBootstrapTimeout(loadProjectConfiguration(state.activeProjectPath), "loadProjectConfiguration");
+      }
 
       await withBootstrapTimeout(operatorScreen.loadMonitorOptions(), "loadMonitorOptions");
       operatorScreen.syncControlsFromState();
@@ -2054,10 +2087,11 @@ export default function createAppRuntime({
       });
     } finally {
       await sleep(600);
+      state.operatorControlsVisible = true;
+      state.appView = "library";
+      syncModeUi();
       hideLaunchOverlay();
-      window.setTimeout(() => {
-        void showProjectDialog();
-      }, 0);
+      await openGalleryPanel("videos");
       void Promise.allSettled([
         withBootstrapTimeout(loadAppVersion(), "loadAppVersion"),
         withBootstrapTimeout(refreshHardwareOptions(), "refreshHardwareOptions"),
@@ -2095,7 +2129,7 @@ export default function createAppRuntime({
         await loadProjectConfiguration(state.activeProjectPath);
       }
       hideProjectDialog();
-      openPreviewView();
+      void openGalleryPanel("videos");
     })();
   });
   dom.projectCreateButton.addEventListener("click", () => {
@@ -2285,12 +2319,14 @@ export default function createAppRuntime({
     handleResultEnded,
     hideAppDialog,
     applyMainWindowDisplaySettings,
-    registerPreviewAccessClick,
-    closeAllSlideshows,
-    openGalleryFolder,
-    openGalleryPanel,
-    openPreviewView,
-    openSettingsView,
+      registerPreviewAccessClick,
+      closeAllSlideshows,
+      openGalleryFolder,
+      openGalleryPanel,
+      openInstructionsView,
+      openPreviewView,
+      openTakeNewView,
+      openSettingsView,
     saveCurrentRecording,
     openSlideshowWindow: toggleCurrentProjectSlideshow,
     refreshHardwareOptions,

@@ -11,8 +11,10 @@ export default function createCameraScreen(dom, state) {
     const cameraMode = state.mode === "camera";
     const editorVisible = state.mode === "editor";
     const countdownActive = state.countdownValue !== null;
-    const showResultActions = state.mode === "editor";
-    const hideConsole = state.operatorPanelOpen || state.galleryPanelOpen;
+    const hideConsole = state.operatorPanelOpen
+      || state.galleryPanelOpen
+      || state.appView !== "preview"
+      || state.operatorControlsVisible === true;
     const resultActionsDisabled = state.isSaving;
     const instructionActive = state.instructionSessionActive === true;
     const postRecordingDecisionVisible = state.postRecordingDecisionVisible === true;
@@ -51,22 +53,22 @@ export default function createCameraScreen(dom, state) {
     }
 
     dom.recordingTimer.classList.add("hidden");
-    dom.resultNewButton.classList.toggle("hidden", !showResultActions);
-    dom.previewSeparatorPrimary.classList.toggle("hidden", !showResultActions);
+    dom.resultNewButton.classList.add("hidden");
+    dom.previewSeparatorPrimary.classList.add("hidden");
     dom.resultSaveButton.classList.add("hidden");
     dom.resultSaveButton.disabled = true;
     dom.resultSaveButton.classList.toggle("is-busy", state.isSaving);
     dom.resultSaveIcon.textContent = state.isSaving ? "progress_activity" : "download";
     dom.resultSaveLabel.textContent = state.isSaving ? "Saving..." : "Save";
-    dom.resultPlayButton.classList.toggle("hidden", !showResultActions);
+    dom.resultPlayButton.classList.add("hidden");
     dom.resultPlayButton.disabled = !state.recordingUrl || resultActionsDisabled;
-    dom.resultGalleryButton.classList.toggle("hidden", !showResultActions);
+    dom.resultGalleryButton.classList.add("hidden");
     dom.resultGalleryButton.disabled = resultActionsDisabled;
     dom.previewSeparatorSecondary.classList.add("hidden");
     dom.resultSlideshowButton.classList.add("hidden");
     dom.resultSlideshowButton.disabled = resultActionsDisabled;
-    dom.previewSeparatorTertiary.classList.toggle("hidden", !showResultActions);
-    dom.resultSettingsButton.classList.toggle("hidden", !showResultActions);
+    dom.previewSeparatorTertiary.classList.add("hidden");
+    dom.resultSettingsButton.classList.add("hidden");
     dom.resultSettingsButton.disabled = resultActionsDisabled;
     dom.resultNewButton.disabled = resultActionsDisabled;
     dom.instructionOverlay.classList.toggle("post-recording-decision", postRecordingDecisionVisible);

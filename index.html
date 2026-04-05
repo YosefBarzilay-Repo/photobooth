@@ -12,13 +12,22 @@
 </head>
 <body>
   <div class="app-shell">
-    <div class="app-titlebar">
-      <button class="brand app-brand-title" id="appBrandButton" type="button" aria-label="Open preview">
-        Echo
-      </button>
-    </div>
+    <button class="operator-access-hotspot" id="operatorAccessHotspot" type="button" aria-label="Operator access"></button>
+    <header class="app-header">
+      <div class="app-header-shell">
+        <button class="brand app-brand-title" id="appBrandButton" type="button" aria-label="Operator access">
+          Echo
+        </button>
+        <nav class="app-nav" aria-label="Primary">
+          <button class="app-nav-button app-nav-button-accent" id="navTakeNewButton" type="button">Start Event</button>
+          <button class="app-nav-button" id="navLibraryButton" type="button">Library</button>
+          <button class="app-nav-button" id="navInstructionsButton" type="button">User Instructions</button>
+          <button class="app-nav-button" id="navSettingsButton" type="button">Settings</button>
+        </nav>
+      </div>
+    </header>
 
-    <main class="layout">
+    <main class="app-main layout">
       <section class="stage-panel">
         <div class="stage-shell">
           <section class="stage-card mode-live" id="cameraStage">
@@ -69,47 +78,46 @@
               <div class="result-overlay-text" id="resultText"></div>
             </div>
           </section>
-        </div>
+          <div class="console" id="console">
+            <div class="console-shell">
+              <div class="record-control hidden" id="recordControl">
+                <button class="shutter-button" id="snapButton" type="button" aria-label="Start recording">
+                  <span class="shutter-core">
+                    <span class="material-symbols-outlined" id="snapButtonIcon">videocam</span>
+                    <span class="shutter-label hidden" id="snapButtonLabel">00:00</span>
+                  </span>
+                </button>
+                <div class="recording-timer hidden" id="recordingTimer">00:00</div>
+              </div>
 
-        <div class="console" id="console">
-          <div class="console-shell">
-            <div class="record-control hidden" id="recordControl">
-              <button class="shutter-button" id="snapButton" type="button" aria-label="Start recording">
-                <span class="shutter-core">
-                  <span class="material-symbols-outlined" id="snapButtonIcon">videocam</span>
-                  <span class="shutter-label hidden" id="snapButtonLabel">00:00</span>
-                </span>
+              <button class="console-button hidden" id="resultNewButton" type="button" aria-label="Start live mode">
+                <span class="material-symbols-outlined">videocam</span>
+                Start Live
               </button>
-              <div class="recording-timer hidden" id="recordingTimer">00:00</div>
+              <span class="console-separator hidden" id="previewSeparatorPrimary" aria-hidden="true">|</span>
+              <button class="console-button hidden" id="resultSaveButton" type="button" aria-label="Save video">
+                <span class="material-symbols-outlined" id="resultSaveIcon">download</span>
+                <span id="resultSaveLabel">Save</span>
+              </button>
+              <button class="console-button hidden" id="resultPlayButton" type="button" aria-label="Play video">
+                <span class="material-symbols-outlined" id="resultPlayIcon">play_arrow</span>
+                Play
+              </button>
+              <button class="console-button hidden" id="resultGalleryButton" type="button" aria-label="Open gallery">
+                <span class="material-symbols-outlined">video_library</span>
+                Library
+              </button>
+              <span class="console-separator hidden" id="previewSeparatorSecondary" aria-hidden="true">|</span>
+              <button class="console-button hidden" id="resultSlideshowButton" type="button" aria-label="Open slideshow">
+                <span class="material-symbols-outlined">slideshow</span>
+                Slideshow
+              </button>
+              <span class="console-separator hidden" id="previewSeparatorTertiary" aria-hidden="true">|</span>
+              <button class="console-button hidden" id="resultSettingsButton" type="button" aria-label="Open settings">
+                <span class="material-symbols-outlined">tune</span>
+                Settings
+              </button>
             </div>
-
-            <button class="console-button hidden" id="resultNewButton" type="button" aria-label="Start live mode">
-              <span class="material-symbols-outlined">videocam</span>
-              Start Live
-            </button>
-            <span class="console-separator hidden" id="previewSeparatorPrimary" aria-hidden="true">|</span>
-            <button class="console-button hidden" id="resultSaveButton" type="button" aria-label="Save video">
-              <span class="material-symbols-outlined" id="resultSaveIcon">download</span>
-              <span id="resultSaveLabel">Save</span>
-            </button>
-            <button class="console-button hidden" id="resultPlayButton" type="button" aria-label="Play video">
-              <span class="material-symbols-outlined" id="resultPlayIcon">play_arrow</span>
-              Play
-            </button>
-            <button class="console-button hidden" id="resultGalleryButton" type="button" aria-label="Open gallery">
-              <span class="material-symbols-outlined">video_library</span>
-              Library
-            </button>
-            <span class="console-separator hidden" id="previewSeparatorSecondary" aria-hidden="true">|</span>
-            <button class="console-button hidden" id="resultSlideshowButton" type="button" aria-label="Open slideshow">
-              <span class="material-symbols-outlined">slideshow</span>
-              Slideshow
-            </button>
-            <span class="console-separator hidden" id="previewSeparatorTertiary" aria-hidden="true">|</span>
-            <button class="console-button hidden" id="resultSettingsButton" type="button" aria-label="Open settings">
-              <span class="material-symbols-outlined">tune</span>
-              Settings
-            </button>
           </div>
         </div>
       </section>
@@ -122,11 +130,11 @@
             <div class="brand operator-dialog-brand">Settings</div>
             <div class="gallery-tabs" role="tablist" aria-label="Settings views">
               <button class="gallery-tab is-active" id="settingsTabEditor" type="button" role="tab" aria-selected="true">Video Editor</button>
-              <button class="gallery-tab" id="settingsTabInstructions" type="button" role="tab" aria-selected="false">User Instructions</button>
               <button class="gallery-tab" id="settingsTabInputs" type="button" role="tab" aria-selected="false">Recordings</button>
               <button class="gallery-tab" id="settingsTabSlideshow" type="button" role="tab" aria-selected="false">Slideshow</button>
             </div>
           </div>
+          <div class="brand operator-page-title" id="operatorStandaloneTitle">User Instructions</div>
           <button class="icon-button" id="operatorCloseButton" type="button" title="Close operator settings">
             <span class="material-symbols-outlined">close</span>
           </button>
@@ -134,49 +142,72 @@
 
         <div class="operator-dialog-body">
           <section class="panel-section" id="settingsSectionEditor">
-            <div class="section-header">
-              <div>
-                <p class="panel-title panel-title-small">Video Editor</p>
+            <div class="settings-editor-layout">
+              <div class="settings-editor-controls">
+                <div class="section-header">
+                  <div>
+                    <p class="panel-title panel-title-small">Video Editor</p>
+                  </div>
+                </div>
+                <label class="field">
+                  <span class="field-label">Text</span>
+                  <input id="textInput" type="text" maxlength="60" placeholder="Type your caption" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+                </label>
+                <div class="settings-actions-row settings-editor-actions">
+                  <button class="console-button secondary-button" id="addTextOverlayButton" type="button">
+                    <span class="material-symbols-outlined">text_fields</span>
+                    Add Text
+                  </button>
+                  <button class="console-button secondary-button" id="editorCameraToggleButton" type="button" aria-pressed="false">
+                    <span class="material-symbols-outlined">videocam</span>
+                    <span id="editorCameraToggleLabel">Turn On Camera</span>
+                  </button>
+                  <button class="console-button secondary-button" id="logoUploadButton" type="button">
+                    <span class="material-symbols-outlined">image</span>
+                    Add Media
+                  </button>
+                </div>
+                <label class="field field-inline">
+                  <span class="field-label">Font</span>
+                  <select id="fontSelect">
+                    <option value="Space Grotesk">Space Grotesk</option>
+                    <option value="Manrope">Manrope</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="Courier New">Courier New</option>
+                  </select>
+                </label>
+                <label class="field field-inline">
+                  <span class="field-label">Video Orientation</span>
+                  <select id="orientationSelect">
+                    <option value="landscape">Horizontal</option>
+                    <option value="portrait">Vertical</option>
+                  </select>
+                </label>
+                <input id="logoInput" type="file" accept="image/*" class="hidden">
+                <div class="field">
+                  <span class="field-label">Filter</span>
+                  <p class="settings-note">Use the frame picker below to style the saved video output.</p>
+                </div>
+                <div class="frame-tray operator-frame-tray" id="frameTray"></div>
+              </div>
+              <div class="settings-editor-preview-panel">
+                <div class="section-header">
+                  <div>
+                    <p class="panel-title panel-title-small">Camera Preview</p>
+                    <p class="settings-note">Turn on camera to preview the live frame. Tap text or media here to edit, move, resize, tilt, recolor, or delete.</p>
+                  </div>
+                </div>
+                <div class="settings-editor-preview-stage" id="settingsEditorPreviewStage">
+                  <video id="settingsCameraPreview" autoplay muted playsinline></video>
+                  <div class="camera-overlay-frame" id="settingsCameraFrame"></div>
+                  <div class="camera-overlay-text" id="settingsCameraText"></div>
+                  <div class="empty-camera" id="settingsEmptyCamera">
+                    <span class="material-symbols-outlined">photo_camera</span>
+                    <p>Turn on camera to preview and place overlays here.</p>
+                  </div>
+                </div>
               </div>
             </div>
-            <label class="field">
-              <span class="field-label">Text</span>
-              <input id="textInput" type="text" maxlength="60" placeholder="Type your caption" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
-            </label>
-            <button class="console-button secondary-button settings-spaced-action" id="addTextOverlayButton" type="button">
-              <span class="material-symbols-outlined">text_fields</span>
-              Add Text
-            </button>
-            <button class="console-button secondary-button settings-spaced-action" id="editorCameraToggleButton" type="button" aria-pressed="false">
-              <span class="material-symbols-outlined">videocam</span>
-              <span id="editorCameraToggleLabel">Turn On Camera</span>
-            </button>
-            <label class="field field-inline">
-              <span class="field-label">Font</span>
-              <select id="fontSelect">
-                <option value="Space Grotesk">Space Grotesk</option>
-                <option value="Manrope">Manrope</option>
-                <option value="Georgia">Georgia</option>
-                <option value="Courier New">Courier New</option>
-              </select>
-            </label>
-            <label class="field field-inline">
-              <span class="field-label">Video Orientation</span>
-              <select id="orientationSelect">
-                <option value="landscape">Horizontal</option>
-                <option value="portrait">Vertical</option>
-              </select>
-            </label>
-            <button class="console-button secondary-button" id="logoUploadButton" type="button">
-              <span class="material-symbols-outlined">image</span>
-              Add Logo
-            </button>
-            <input id="logoInput" type="file" accept="image/*" class="hidden">
-            <div class="field">
-              <span class="field-label">Filter</span>
-              <p class="settings-note">Use the frame picker below to style the saved video output.</p>
-            </div>
-            <div class="frame-tray operator-frame-tray" id="frameTray"></div>
           </section>
 
           <section class="panel-section hidden" id="settingsSectionInstructions">
@@ -425,15 +456,42 @@
         </header>
 
         <div class="operator-dialog-body gallery-dialog-body" id="galleryDialogBody">
-          <div class="gallery-list" id="galleryList"></div>
-          <div class="gallery-empty hidden" id="galleryEmptyState">
-            <span class="material-symbols-outlined" id="galleryEmptyIcon">video_library</span>
-            <p id="galleryEmptyText">No saved videos yet. Save a recording to show it here.</p>
+          <div class="gallery-busy-indicator hidden" id="galleryBusyIndicator" aria-hidden="true">
+            <span class="material-symbols-outlined">progress_activity</span>
+            <span id="galleryBusyLabel">Loading...</span>
+          </div>
+          <div class="gallery-videos-layout" id="galleryVideosLayout">
+            <div class="gallery-list-shell">
+              <div class="gallery-list" id="galleryList"></div>
+              <div class="gallery-empty hidden" id="galleryEmptyState">
+                <span class="material-symbols-outlined" id="galleryEmptyIcon">video_library</span>
+                <p id="galleryEmptyText">No saved videos yet. Save a recording to show it here.</p>
+              </div>
+            </div>
+            <section class="gallery-preview-shell" id="galleryPreviewShell" aria-label="Video preview">
+              <div class="gallery-preview-stage" id="galleryPreviewStage">
+                <video id="galleryPreviewVideo" playsinline></video>
+                <div class="gallery-preview-empty" id="galleryPreviewEmpty">
+                  <span class="material-symbols-outlined">play_circle</span>
+                  <p>Select a video to preview it here.</p>
+                </div>
+              </div>
+              <div class="gallery-preview-controls">
+                <button class="secondary-button gallery-footer-action" id="galleryPreviewPlayButton" type="button">
+                  <span class="material-symbols-outlined" id="galleryPreviewPlayIcon">play_arrow</span>
+                  <span id="galleryPreviewPlayLabel">Play</span>
+                </button>
+                <button class="secondary-button gallery-footer-action" id="galleryPreviewStopButton" type="button">
+                  <span class="material-symbols-outlined">stop</span>
+                  <span>Stop</span>
+                </button>
+              </div>
+            </section>
           </div>
         </div>
 
         <div class="operator-dialog-footer gallery-dialog-footer">
-          <p class="operator-version-label" id="galleryFooterLabel">Open a saved video to load it into preview.</p>
+          <p class="operator-version-label" id="galleryFooterLabel">Current project:</p>
           <div class="gallery-footer-actions">
             <button class="secondary-button gallery-footer-action hidden" id="galleryNewProjectButton" type="button">
               <span class="material-symbols-outlined">create_new_folder</span>

@@ -278,31 +278,35 @@
 
 .shutter-button {
   position: relative;
-  width: min(19.6rem, calc(100vw - 2.5rem), calc(100dvh - 8.5rem));
-  height: min(19.6rem, calc(100vw - 2.5rem), calc(100dvh - 8.5rem));
+  width: min(15.4rem, calc(100vw - 3.5rem), calc(100dvh - 11rem));
+  height: min(15.4rem, calc(100vw - 3.5rem), calc(100dvh - 11rem));
   border: 2px solid var(--color-accent-soft);
   border-radius: 50%;
-  padding: 1.68rem;
-  background: var(--color-surface-soft);
+  padding: 1.25rem;
+  background: color-mix(in srgb, var(--color-surface-soft) 34%, transparent);
   backdrop-filter: blur(8px);
   box-shadow: 0 0 0 1px var(--color-muted-track), 0 0 22px var(--shadow-accent);
   transition: transform 150ms ease, box-shadow 200ms ease, background 200ms ease, opacity 200ms ease;
   animation: shutter-fade 2.2s infinite ease-in-out;
+  opacity: 0.34;
 }
 
 .shutter-button.is-recording {
   border-color: var(--color-accent);
   animation: none;
+  opacity: 0.34;
 }
 
 .shutter-button.is-countdown {
   animation: none;
   border-color: var(--color-accent);
+  opacity: 0.34;
 }
 
 .shutter-button.is-loading {
   animation: none;
   border-color: var(--color-muted);
+  opacity: 0.34;
 }
 
 .shutter-button.is-recording .shutter-core {
@@ -351,7 +355,7 @@
 }
 
 .shutter-core .material-symbols-outlined {
-  font-size: 7rem;
+  font-size: 5.5rem;
 }
 
 .shutter-core .material-symbols-outlined.is-busy {
@@ -360,7 +364,7 @@
 
 .shutter-label {
   font-family: "Space Grotesk", sans-serif;
-  font-size: 4.4rem;
+  font-size: 3.5rem;
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.04em;
@@ -368,12 +372,12 @@
 }
 
 .shutter-button.is-countdown .shutter-label {
-  font-size: 6.2rem;
+  font-size: 4.8rem;
   letter-spacing: 0.02em;
 }
 
 .shutter-button.is-recording .shutter-label {
-  font-size: 3.44rem;
+  font-size: 2.7rem;
   letter-spacing: 0.08em;
 }
 

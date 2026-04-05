@@ -10,6 +10,30 @@ export default function wireEvents(dom, state, handlers) {
     void logger.audit("App brand button clicked.", { mode: state.mode });
     handlers.registerPreviewAccessClick();
   });
+  dom.operatorAccessHotspot.addEventListener("click", () => {
+    void logger.audit("Operator access hotspot clicked.", { mode: state.mode });
+    handlers.registerPreviewAccessClick();
+  });
+
+  dom.navTakeNewButton.addEventListener("click", () => {
+    void logger.audit("Primary nav start event clicked.");
+    void handlers.openTakeNewView();
+  });
+
+  dom.navLibraryButton.addEventListener("click", () => {
+    void logger.audit("Primary nav library clicked.");
+    void handlers.openGalleryPanel("videos");
+  });
+
+  dom.navInstructionsButton.addEventListener("click", () => {
+    void logger.audit("Primary nav instructions clicked.");
+    void handlers.openInstructionsView();
+  });
+
+  dom.navSettingsButton.addEventListener("click", () => {
+    void logger.audit("Primary nav settings clicked.");
+    void handlers.openSettingsView();
+  });
 
   dom.snapButton.addEventListener("click", () => {
     void logger.audit("Snap/record button clicked.", {
@@ -58,11 +82,6 @@ export default function wireEvents(dom, state, handlers) {
   dom.settingsTabEditor.addEventListener("click", () => {
     void logger.audit("Settings video editor tab clicked.");
     handlers.switchSettingsSection("editor");
-  });
-
-  dom.settingsTabInstructions.addEventListener("click", () => {
-    void logger.audit("Settings user instructions tab clicked.");
-    handlers.switchSettingsSection("instructions");
   });
 
   dom.settingsTabInputs.addEventListener("click", () => {
@@ -266,6 +285,8 @@ export default function wireEvents(dom, state, handlers) {
 
   dom.cameraText.addEventListener("click", handlers.operatorScreen.handleOverlayClick);
   dom.cameraText.addEventListener("pointerdown", handlers.operatorScreen.startOverlayInteraction);
+  dom.settingsCameraText.addEventListener("click", handlers.operatorScreen.handleOverlayClick);
+  dom.settingsCameraText.addEventListener("pointerdown", handlers.operatorScreen.startOverlayInteraction);
   dom.operatorDialogHeader.addEventListener("pointerdown", handlers.operatorScreen.startDialogInteraction);
   dom.operatorDialogResize.addEventListener("pointerdown", handlers.operatorScreen.startDialogInteraction);
   dom.galleryDialogHeader.addEventListener("pointerdown", handlers.galleryScreen.startDialogInteraction);

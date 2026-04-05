@@ -1,7 +1,7 @@
 import { APP_STRINGS, APP_THRESHOLDS } from "../constants/appConfig.js";
 
 const GALLERY_PAGE_SIZE = 18;
-const GALLERY_METADATA_CONCURRENCY = 1;
+const GALLERY_METADATA_CONCURRENCY = 4;
 
 function scheduleBackgroundTask(callback) {
   if (typeof window.requestIdleCallback === "function") {
@@ -186,6 +186,7 @@ function sortEntriesByOldest(entries) {
 export default function createGalleryScreen(dom, state, handlers) {
   let entries = [];
   let projects = [];
+  let previewEntryKey = "";
   let visibleCount = GALLERY_PAGE_SIZE;
   let isLoading = false;
   let refreshToken = 0;
@@ -205,6 +206,54 @@ export default function createGalleryScreen(dom, state, handlers) {
   let dialogInteraction = null;
   let dialogStartPointer = null;
   let dialogStartRect = null;
+
+  function setBusy(isBusy, label = "Loading...") {
+    dom.galleryBusyLabel.textContent = label;
+    dom.galleryBusyIndicator.classList.toggle("hidden", !isBusy);
+    dom.galleryDialogBody.setAttribute("aria-busy", isBusy ? "true" : "false");
+  }
+
+  function getEntryKey(entry) {
+    return String(entry?.path || entry?.filename || "").trim();
+  }
+
+  function syncPreviewPlaybackUi() {
+    const hasVideo = Boolean(dom.galleryPreviewVideo.getAttribute("src"));
+    const isPlaying = !dom.galleryPreviewVideo.paused && !dom.galleryPreviewVideo.ended;
+    dom.galleryPreviewPlayButton.disabled = !hasVideo;
+    dom.galleryPreviewStopButton.disabled = !hasVideo;
+    dom.galleryPreviewPlayIcon.textContent = isPlaying ? "pause" : "play_arrow";
+    dom.galleryPreviewPlayLabel.textContent = isPlaying ? "Pause" : "Play";
+  }
+
+  function clearPreview() {
+    previewEntryKey = "";
+    dom.galleryPreviewVideo.pause();
+    dom.galleryPreviewVideo.removeAttribute("src");
+    dom.galleryPreviewVideo.load();
+    dom.galleryPreviewEmpty.classList.remove("hidden");
+    syncPreviewPlaybackUi();
+  }
+
+  async function loadPreviewEntry(entry) {
+    setBusy(true, "Opening video...");
+    try {
+      const preparedEntry = await handlers.openEntry(entry);
+      if (!preparedEntry?.url) {
+        return;
+      }
+
+      previewEntryKey = getEntryKey(entry);
+      dom.galleryPreviewVideo.pause();
+      dom.galleryPreviewVideo.src = preparedEntry.url;
+      dom.galleryPreviewVideo.currentTime = 0;
+      dom.galleryPreviewVideo.load();
+      dom.galleryPreviewEmpty.classList.add("hidden");
+      syncPreviewPlaybackUi();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function getCurrentProjectLabel() {
     const projectPath = String(state.activeProjectPath || state.saveDirectoryPath || "").trim();
@@ -249,6 +298,8 @@ export default function createGalleryScreen(dom, state, handlers) {
     dom.gallerySlideshowButton.classList.toggle("hidden", !isVideosView);
     dom.gallerySlideshowButton.disabled = !isVideosView || !state.activeProjectPath;
     dom.galleryFooterLabel.textContent = `Current project: ${getCurrentProjectLabel()}`;
+    dom.galleryVideosLayout.classList.toggle("gallery-videos-layout-projects", !isVideosView);
+    dom.galleryPreviewShell.classList.toggle("hidden", !isVideosView);
   }
 
   async function syncSlideshowButton(forceRefresh = false) {
@@ -271,12 +322,15 @@ export default function createGalleryScreen(dom, state, handlers) {
   }
 
   function renderLoadingState(message) {
-    dom.galleryList.replaceChildren();
     dom.galleryStatus.textContent = state.galleryView === "projects" ? "Loading projects..." : "Loading videos...";
-    dom.galleryEmptyState.classList.remove("hidden");
-    dom.galleryEmptyState.classList.add("is-loading");
-    dom.galleryEmptyIcon.textContent = "progress_activity";
-    dom.galleryEmptyText.textContent = message;
+    setBusy(true, message);
+    if (state.galleryView === "projects" ? projects.length === 0 : entries.length === 0) {
+      dom.galleryList.replaceChildren();
+      dom.galleryEmptyState.classList.remove("hidden");
+      dom.galleryEmptyState.classList.add("is-loading");
+      dom.galleryEmptyIcon.textContent = "progress_activity";
+      dom.galleryEmptyText.textContent = message;
+    }
   }
 
   function pumpMetadataQueue() {
@@ -353,6 +407,10 @@ export default function createGalleryScreen(dom, state, handlers) {
     renderedEntries.forEach((entry, index) => {
       const card = document.createElement("article");
       card.className = "gallery-row";
+      card.dataset.entryKey = getEntryKey(entry);
+      if (card.dataset.entryKey === previewEntryKey) {
+        card.classList.add("is-active");
+      }
 
       const openButton = document.createElement("button");
       openButton.type = "button";
@@ -473,6 +531,7 @@ export default function createGalleryScreen(dom, state, handlers) {
         await syncSlideshowButton();
       } finally {
         isLoading = false;
+        setBusy(false);
       }
       return;
     }
@@ -483,10 +542,20 @@ export default function createGalleryScreen(dom, state, handlers) {
         return;
       }
       visibleCount = Math.min(entries.length, GALLERY_PAGE_SIZE);
+      if (previewEntryKey) {
+        const nextPreviewEntry = entries.find((entry) => getEntryKey(entry) === previewEntryKey);
+        if (nextPreviewEntry?.url) {
+          dom.galleryPreviewVideo.src = nextPreviewEntry.url;
+          dom.galleryPreviewEmpty.classList.add("hidden");
+        } else if (!nextPreviewEntry) {
+          clearPreview();
+        }
+      }
       renderEntries();
       await syncSlideshowButton();
     } finally {
       isLoading = false;
+      setBusy(false);
     }
   }
 
@@ -566,8 +635,20 @@ export default function createGalleryScreen(dom, state, handlers) {
   }
 
   async function switchView(view) {
-    state.galleryView = view === "projects" ? "projects" : "videos";
+    const nextView = view === "projects" ? "projects" : "videos";
+    if (state.galleryView === nextView) {
+      return;
+    }
+    state.galleryView = nextView;
+    if (state.galleryView !== "videos") {
+      dom.galleryPreviewVideo.pause();
+    }
     syncViewUi();
+    if (state.galleryView === "projects" && projects.length > 0) {
+      renderProjects();
+    } else if (state.galleryView === "videos" && (entries.length > 0 || previewEntryKey || dom.galleryList.childElementCount > 0)) {
+      renderEntries();
+    }
     await refreshGallery();
   }
 
@@ -579,11 +660,15 @@ export default function createGalleryScreen(dom, state, handlers) {
     state.galleryView = initialView === "projects" ? "projects" : "videos";
     syncViewUi();
     setGalleryPanelOpen(true);
-    renderLoadingState(state.galleryView === "projects" ? "Loading project folders..." : "Loading saved videos...");
+    if (state.galleryView === "projects" && projects.length > 0) {
+      renderProjects();
+    } else if (state.galleryView === "videos" && entries.length > 0) {
+      renderEntries();
+    } else {
+      renderLoadingState(state.galleryView === "projects" ? "Loading project folders..." : "Loading saved videos...");
+    }
     void syncSlideshowButton(true);
-    window.setTimeout(() => {
-      void refreshGallery();
-    }, 0);
+    void refreshGallery();
   }
 
   async function handleListClick(event) {
@@ -629,7 +714,8 @@ export default function createGalleryScreen(dom, state, handlers) {
     }
 
     if (actionElement.dataset.action === "open") {
-      await handlers.openEntry(entry);
+      await loadPreviewEntry(entry);
+      renderEntries({ preserveScroll: true, previousScrollTop: dom.galleryList.scrollTop });
       return;
     }
 
@@ -721,6 +807,7 @@ export default function createGalleryScreen(dom, state, handlers) {
       }
 
       slideshowToggleInFlight = true;
+      setBusy(true, "Updating slideshow...");
       dom.gallerySlideshowButton.disabled = true;
       let isPlaying = false;
       try {
@@ -732,6 +819,7 @@ export default function createGalleryScreen(dom, state, handlers) {
         }
       } finally {
         slideshowToggleInFlight = false;
+        setBusy(false);
       }
 
       syncViewUi();
@@ -742,6 +830,29 @@ export default function createGalleryScreen(dom, state, handlers) {
   dom.galleryNewProjectButton.addEventListener("click", () => {
     void handlers.openNewProjectDialog();
   });
+  dom.galleryPreviewPlayButton.addEventListener("click", () => {
+    if (!dom.galleryPreviewVideo.getAttribute("src")) {
+      return;
+    }
+
+    if (dom.galleryPreviewVideo.paused || dom.galleryPreviewVideo.ended) {
+      if (dom.galleryPreviewVideo.ended) {
+        dom.galleryPreviewVideo.currentTime = 0;
+      }
+      void dom.galleryPreviewVideo.play();
+    } else {
+      dom.galleryPreviewVideo.pause();
+    }
+    syncPreviewPlaybackUi();
+  });
+  dom.galleryPreviewStopButton.addEventListener("click", () => {
+    dom.galleryPreviewVideo.pause();
+    dom.galleryPreviewVideo.currentTime = 0;
+    syncPreviewPlaybackUi();
+  });
+  dom.galleryPreviewVideo.addEventListener("play", syncPreviewPlaybackUi);
+  dom.galleryPreviewVideo.addEventListener("pause", syncPreviewPlaybackUi);
+  dom.galleryPreviewVideo.addEventListener("ended", syncPreviewPlaybackUi);
 
 
   return {

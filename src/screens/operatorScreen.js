@@ -80,6 +80,14 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   let instructionDragRotationCenter = null;
   let instructionDragStartPointerAngle = null;
 
+  function getOverlaySurfaceElement() {
+    return state.appView === "settings" ? dom.settingsCameraText : dom.cameraText;
+  }
+
+  function getOverlaySurfaceRect() {
+    return (state.appView === "settings" ? dom.settingsEditorPreviewStage : dom.cameraStage).getBoundingClientRect();
+  }
+
   function syncCameraToggleButton() {
     const isOn = state.settingsCameraEnabled === true;
     const icon = dom.editorCameraToggleButton.querySelector(".material-symbols-outlined");
@@ -88,6 +96,12 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     }
     dom.editorCameraToggleLabel.textContent = isOn ? "Turn Off Camera" : "Turn On Camera";
     dom.editorCameraToggleButton.setAttribute("aria-pressed", String(isOn));
+    dom.textInput.disabled = !isOn;
+    dom.fontSelect.disabled = !isOn;
+    dom.addTextOverlayButton.disabled = !isOn;
+    dom.logoUploadButton.disabled = !isOn;
+    dom.settingsCameraText.classList.toggle("settings-preview-disabled", !isOn);
+    dom.settingsCameraFrame.classList.toggle("hidden", !isOn);
   }
 
   function notifySettingsChanged() {
@@ -106,6 +120,10 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   }
 
   function createInitialTextOverlay() {
+    if (state.appView === "settings" && state.settingsCameraEnabled !== true) {
+      return;
+    }
+
     const overlay = createTextOverlay({
       text: dom.textInput.value.trim() || "New Text",
       font: dom.fontSelect.value,
@@ -142,7 +160,6 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     };
     const tabs = {
       editor: dom.settingsTabEditor,
-      instructions: dom.settingsTabInstructions,
       inputs: dom.settingsTabInputs,
       slideshow: dom.settingsTabSlideshow
     };
@@ -342,25 +359,11 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   }
 
   function getOverlayDragBounds(overlayId) {
-    const fallback = {
-      minX: APP_THRESHOLDS.minOverlayX,
-      maxX: APP_THRESHOLDS.maxOverlayX,
-      minY: APP_THRESHOLDS.minOverlayY,
-      maxY: APP_THRESHOLDS.maxOverlayY
-    };
-    const element = dom.cameraText.querySelector(`.overlay-item-body[data-overlay-id="${overlayId}"]`);
-    if (!(element instanceof HTMLElement) || !state.dragSurfaceSize) {
-      return fallback;
-    }
-
-    const rect = element.getBoundingClientRect();
-    const halfWidthPercent = (rect.width / 2 / state.dragSurfaceSize.x) * 100;
-    const halfHeightPercent = (rect.height / 2 / state.dragSurfaceSize.y) * 100;
     return {
-      minX: Math.max(0, halfWidthPercent),
-      maxX: Math.min(100, 100 - halfWidthPercent),
-      minY: Math.max(0, halfHeightPercent),
-      maxY: Math.min(100, 100 - halfHeightPercent)
+      minX: 0,
+      maxX: 100,
+      minY: 0,
+      maxY: 100
     };
   }
 
@@ -370,7 +373,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
       return;
     }
 
-    const element = dom.cameraText.querySelector(`[data-overlay-id="${overlay.id}"]`);
+    const element = getOverlaySurfaceElement().querySelector(`[data-overlay-id="${overlay.id}"]`);
     const overlayElement = element instanceof HTMLElement ? element.closest(".overlay-item") : null;
     if (!(overlayElement instanceof HTMLElement)) {
       return;
@@ -613,6 +616,10 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   }
 
   function triggerLogoUpload() {
+    if (state.appView === "settings" && state.settingsCameraEnabled !== true) {
+      return;
+    }
+
     dom.logoInput.click();
   }
 
@@ -1000,6 +1007,10 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   }
 
   function handleOverlayClick(event) {
+    if (state.appView === "settings" && state.settingsCameraEnabled !== true) {
+      return;
+    }
+
     const target = event.target instanceof HTMLElement ? event.target : null;
     const colorSwatch = target?.closest("[data-overlay-color]");
     const activeOverlay = getActiveOverlayOrSync();
@@ -1045,7 +1056,13 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
 
   function startOverlayInteraction(event) {
     const target = event.target instanceof HTMLElement ? event.target : null;
-    if (!state.operatorPanelOpen || !target || target.closest("[data-overlay-action]") || target.closest("[data-overlay-color]")) {
+    if (
+      !state.operatorPanelOpen
+      || !target
+      || (state.appView === "settings" && state.settingsCameraEnabled !== true)
+      || target.closest("[data-overlay-action]")
+      || target.closest("[data-overlay-color]")
+    ) {
       return;
     }
 
@@ -1061,7 +1078,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
       return;
     }
 
-    const rect = dom.cameraStage.getBoundingClientRect();
+    const rect = getOverlaySurfaceRect();
     state.activeOverlayId = overlay.id;
     state.activeOverlayTarget = overlay.type;
     state.showTextColorPalette = false;
@@ -1107,7 +1124,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     }
     event.preventDefault();
     renderPreview();
-    dom.cameraText.querySelector(`[data-overlay-id="${overlay.id}"]`)?.setPointerCapture?.(event.pointerId);
+    getOverlaySurfaceElement().querySelector(`[data-overlay-id="${overlay.id}"]`)?.setPointerCapture?.(event.pointerId);
   }
 
   function updateOverlayFromPointer(event) {
@@ -1156,7 +1173,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     }
 
     if (event && state.dragPointerId === event.pointerId) {
-      dom.cameraText.querySelector(`[data-overlay-id="${state.draggingOverlayId}"]`)?.releasePointerCapture?.(event.pointerId);
+      getOverlaySurfaceElement().querySelector(`[data-overlay-id="${state.draggingOverlayId}"]`)?.releasePointerCapture?.(event.pointerId);
     }
 
     state.draggingOverlayTarget = null;

@@ -1,39 +1,138 @@
 .app-shell {
-  height: 100vh;
-  height: 100dvh;
-  padding: 0.75rem;
-  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
-  display: grid;
-  grid-template-rows: 1fr;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+  padding: 0;
+  background:
+    radial-gradient(circle at top, rgba(245, 244, 239, 0.96), rgba(245, 244, 239, 0.84) 32%, rgba(233, 230, 222, 0.72) 100%),
+    linear-gradient(180deg, #f8f7f2 0%, #efebe2 100%);
 }
 
-.app-titlebar {
+.app-header {
   position: fixed;
-  top: max(0.9rem, env(safe-area-inset-top));
-  left: 50%;
-  z-index: 70;
-  transform: translateX(-50%);
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 80;
+  padding: max(1rem, env(safe-area-inset-top)) 1rem 0;
   pointer-events: none;
+}
+
+.operator-access-hotspot {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 95;
+  width: 7rem;
+  height: 7rem;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app-header-shell {
+  width: min(100%, 108rem);
+  margin: 0 auto;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 1.75rem;
+  background: rgba(255, 252, 246, 0.8);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 16px 40px rgba(74, 63, 46, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  pointer-events: auto;
 }
 
 .app-brand-title {
   border: 0;
   background: transparent;
   padding: 0.25rem 0.35rem;
-  font-size: clamp(1rem, 1.6vw, 1.35rem);
+  font-size: clamp(1rem, 1.5vw, 1.25rem);
   letter-spacing: 0.28em;
   color: var(--color-text-primary);
   text-shadow: 0 10px 26px var(--color-shadow-faint);
+}
+
+.app-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+body[data-operator-controls-visible="false"] .app-nav {
+  display: none;
+}
+
+body[data-operator-controls-visible="false"] .app-header-shell {
+  justify-content: center;
+}
+
+body[data-mode="camera"][data-app-view="preview"][data-operator-controls-visible="false"] .app-header {
+  display: none;
+}
+
+body[data-mode="camera"][data-app-view="preview"][data-operator-controls-visible="false"] .operator-access-hotspot {
   pointer-events: auto;
+}
+
+.app-nav-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.75rem 1.1rem;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 140ms ease;
+}
+
+.app-nav-button:hover,
+.app-nav-button:focus-visible {
+  background: rgba(28, 28, 28, 0.06);
+  color: var(--color-text-primary);
+}
+
+.app-nav-button.is-active {
+  background: var(--color-text-primary);
+  color: #f8f6ef;
+  box-shadow: 0 10px 26px rgba(28, 28, 28, 0.14);
+}
+
+.app-nav-button-accent {
+  background: rgba(214, 166, 80, 0.18);
+  color: var(--color-text-primary);
+}
+
+.app-main {
+  flex: 1;
+  min-height: 0;
+  padding: calc(max(5.75rem, env(safe-area-inset-top) + 4.5rem) + 0.85rem) 1rem max(1rem, env(safe-area-inset-bottom));
+  overflow: auto;
+}
+
+body[data-mode="camera"][data-app-view="preview"][data-operator-controls-visible="false"] .app-main {
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
 .layout {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
-  align-items: stretch;
-  min-height: 0;
+  gap: 1.5rem;
+  align-items: start;
+  width: min(100%, 108rem);
+  margin: 0 auto;
 }
 
 .stage-panel {
@@ -47,11 +146,12 @@
 .stage-shell {
   position: relative;
   flex: 1;
+  width: 100%;
   min-height: 0;
-  padding: 0.75rem;
-  border-radius: calc(var(--radius-lg) + 0.25rem);
-  background: var(--color-base);
-  box-shadow: 0 20px 60px var(--color-shadow-soft);
+  padding: 1rem;
+  border-radius: 2rem;
+  background: rgba(255, 252, 246, 0.78);
+  box-shadow: 0 20px 60px rgba(74, 63, 46, 0.14);
   display: grid;
   place-items: center;
 }
@@ -59,21 +159,21 @@
 .stage-card {
   position: relative;
   overflow: hidden;
-  border-radius: 24px;
+  border-radius: 1.7rem;
   background: var(--color-surface);
   aspect-ratio: 16 / 9;
-  width: min(100%, calc((100dvh - 10rem) * 1.75));
+  width: min(100%, calc((100dvh - 11.5rem) * 1.777));
   max-height: 100%;
 }
 
 .stage-card.stage-card-portrait {
   aspect-ratio: 9 / 16;
-  width: min(100%, calc((100dvh - 10rem) * 0.5625));
+  width: min(100%, calc((100dvh - 11.5rem) * 0.5625));
 }
 
 .brand {
   font-family: "Space Grotesk", sans-serif;
-  font-size: clamp(1.75rem, 2.2vw, 2.25rem);
+  font-size: clamp(1.55rem, 2vw, 2rem);
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -83,9 +183,10 @@
 
 .console {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 3.2rem;
+  left: 50%;
+  bottom: 1.15rem;
+  transform: translateX(-50%);
+  width: min(calc(100% - 2rem), 108rem);
   z-index: 12;
   display: flex;
   justify-content: center;
@@ -98,17 +199,30 @@
   justify-content: flex-start;
   flex-wrap: nowrap;
   gap: 1rem;
-  max-width: min(96vw, 100rem);
-  padding: 1.1rem 1.35rem;
+  width: 100%;
+  max-width: none;
+  padding: 1.05rem 1.25rem;
   border-radius: 999px;
-  background: var(--color-surface-soft);
-  border: 1px solid var(--color-muted);
-  backdrop-filter: blur(16px);
-  box-shadow: 0 20px 45px var(--color-shadow-faint);
+  background: rgba(255, 252, 246, 0.74);
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 45px rgba(74, 63, 46, 0.12);
   pointer-events: auto;
   overflow-x: auto;
   overflow-y: hidden;
   white-space: nowrap;
+}
+
+body[data-mode="camera"] .console-shell {
+  max-width: none;
+  width: 100%;
+  justify-content: center;
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+  box-shadow: none;
 }
 
 .record-control {
@@ -118,43 +232,61 @@
   justify-content: center;
 }
 
-body[data-mode="camera"] .app-shell,
-body[data-mode="editor"] .app-shell {
-  padding: 0;
+body[data-app-view="preview"] .layout {
+  min-height: calc(100dvh - max(6.5rem, env(safe-area-inset-top) + 5rem) - max(1rem, env(safe-area-inset-bottom)));
 }
 
-body[data-mode="camera"] .stage-shell,
-body[data-mode="editor"] .stage-shell {
-  padding: 0;
-  border-radius: 0;
-  background: var(--color-base);
-  box-shadow: none;
+body[data-mode="camera"][data-app-view="preview"][data-operator-controls-visible="false"] .layout {
+  min-height: calc(100dvh - max(2rem, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+  align-items: center;
 }
 
-body[data-mode="camera"] .stage-card,
-body[data-mode="editor"] .stage-card {
+body[data-app-view="preview"] .stage-panel {
+  min-height: 100%;
+}
+
+body[data-mode="camera"][data-app-view="preview"][data-operator-controls-visible="false"] .stage-panel {
+  justify-content: center;
+}
+
+body[data-app-view="preview"] .stage-card {
   width: 100%;
-  height: 100%;
+  height: min(76dvh, 58rem);
   max-height: none;
   aspect-ratio: auto;
-  border-radius: 0;
 }
 
-body[data-mode="camera"] .stage-card.stage-card-portrait,
-body[data-mode="editor"] .stage-card.stage-card-portrait {
-  width: min(100%, calc(100dvh * 0.5625));
-  height: 100%;
+body[data-app-view="preview"] .stage-card.stage-card-portrait {
+  width: min(100%, calc(min(76dvh, 58rem) * 0.5625));
+  height: min(76dvh, 58rem);
   aspect-ratio: 9 / 16;
 }
 
-body[data-mode="camera"] .console-shell {
-  max-width: none;
-  padding: 0;
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-  overflow: visible;
+body[data-app-view="preview"] #operatorPanel,
+body[data-app-view="preview"] #galleryPanel,
+body[data-app-view="library"] #operatorPanel,
+body[data-app-view="settings"] #galleryPanel,
+body[data-app-view="instructions"] #galleryPanel {
+  display: none !important;
+}
+
+body[data-app-view="library"] .stage-panel {
+  display: none;
+}
+
+body[data-app-view="library"] .console {
+  display: none !important;
+}
+
+body[data-app-view="settings"] .stage-panel,
+body[data-app-view="instructions"] .stage-panel {
+  display: none;
+}
+
+body[data-app-view="settings"] #operatorPanel,
+body[data-app-view="instructions"] #operatorPanel,
+body[data-app-view="library"] #galleryPanel {
+  display: block !important;
 }
 
 .console-button,
@@ -211,7 +343,8 @@ body[data-mode="camera"] .console-shell {
 .primary-button:active,
 .danger-button:active,
 .secondary-button:active,
-.icon-button:active {
+.icon-button:active,
+.app-nav-button:active {
   transform: translateY(1px) scale(0.98);
 }
 
@@ -262,7 +395,7 @@ body[data-mode="camera"] .console-shell {
 .app-dialog-overlay {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 90;
   display: grid;
   place-items: center;
   padding: 1.5rem;
@@ -291,7 +424,6 @@ body[data-mode="camera"] .console-shell {
   color: var(--color-text-primary);
   line-height: 1.6;
 }
-
 
 .console-button.is-busy .material-symbols-outlined {
   animation: echo-spin 900ms linear infinite;

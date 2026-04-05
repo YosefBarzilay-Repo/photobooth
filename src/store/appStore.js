@@ -11,6 +11,8 @@ import { createTextOverlay } from "../utils/overlayState.js";
 export default function createAppStore() {
   return {
     mode: APP_DEFAULTS.mode,
+    appView: "preview",
+    operatorControlsVisible: false,
     operatorPanelOpen: false,
     galleryPanelOpen: false,
     galleryView: "videos",

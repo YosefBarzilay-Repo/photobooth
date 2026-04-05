@@ -57,17 +57,12 @@
 }
 
 @media (max-height: 860px) {
-  .app-shell {
-    padding: 0.5rem;
-    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
-  }
-
   .stage-shell {
     padding: 0.5rem;
   }
 
   .stage-card {
-    width: min(100%, calc((100dvh - 9rem) * 1.77));
+    width: min(100%, calc((100dvh - 8rem) * 1.777));
   }
 
   .console {
@@ -91,5 +86,77 @@
     min-width: 8.5rem;
     min-height: 5rem;
     padding: 1rem 1.1rem;
+  }
+}
+
+@media (max-width: 980px) {
+  .app-header-shell {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app-nav {
+    justify-content: flex-start;
+  }
+
+  .settings-grid,
+  .settings-grid-editor,
+  .settings-grid-instructions {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .gallery-videos-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .operator-access-hotspot {
+    width: 5.5rem;
+    height: 5.5rem;
+  }
+
+  .app-main {
+    padding-inline: 0.75rem;
+  }
+
+  .app-header {
+    padding-inline: 0.75rem;
+  }
+
+  .app-header-shell {
+    padding: 0.85rem 0.85rem 0.95rem;
+    border-radius: 1.35rem;
+  }
+
+  .app-nav-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .stage-shell {
+    padding: 0.7rem;
+    border-radius: 1.35rem;
+  }
+
+  .stage-card {
+    border-radius: 1.1rem;
+    width: 100%;
+  }
+
+  .operator-dialog-header,
+  .settings-tabs-row,
+  .operator-dialog-body,
+  .operator-dialog-footer {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .operator-page {
+    width: calc(100% - 1.5rem);
   }
 }

@@ -23,6 +23,7 @@ export default function createEditorScreen(dom, state) {
   function syncOrientationUi() {
     const portrait = state.captureOrientation === "portrait";
     dom.cameraStage.classList.toggle("stage-card-portrait", portrait);
+    dom.settingsEditorPreviewStage.classList.toggle("stage-card-portrait", portrait);
     if (!state.recordingUrl) {
       dom.editorStage.classList.toggle("stage-card-portrait", portrait);
       return;
@@ -46,9 +47,16 @@ export default function createEditorScreen(dom, state) {
   function renderOverlayPreview() {
     syncOrientationUi();
     dom.cameraFrame.innerHTML = renderFrameMarkup(state.activeFrameId);
+    dom.settingsCameraFrame.innerHTML = state.settingsCameraEnabled ? renderFrameMarkup(state.activeFrameId) : "";
     dom.resultFrame.innerHTML = "";
     dom.cameraText.classList.toggle("operator-grid", state.operatorPanelOpen && state.mode === "camera");
-    renderOverlayLayer(dom.cameraText, state, { interactive: state.operatorPanelOpen && state.mode === "camera" });
+    dom.settingsCameraText.classList.toggle("operator-grid", state.operatorPanelOpen && state.mode === "camera" && state.settingsCameraEnabled);
+    renderOverlayLayer(dom.cameraText, state, { interactive: state.operatorPanelOpen && state.mode === "camera" && state.appView !== "settings" });
+    if (state.settingsCameraEnabled) {
+      renderOverlayLayer(dom.settingsCameraText, state, { interactive: state.operatorPanelOpen && state.mode === "camera" && state.appView === "settings" });
+    } else {
+      dom.settingsCameraText.innerHTML = "";
+    }
     dom.resultText.innerHTML = "";
   }
 

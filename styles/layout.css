@@ -12,7 +12,7 @@
   position: fixed;
   top: max(0.9rem, env(safe-area-inset-top));
   left: 50%;
-  z-index: 20;
+  z-index: 70;
   transform: translateX(-50%);
   pointer-events: none;
 }
@@ -85,7 +85,7 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 1.8rem;
+  bottom: 3.2rem;
   z-index: 12;
   display: flex;
   justify-content: center;

@@ -1,6 +1,7 @@
 import createGalleryScreen from "../screens/galleryScreen.js";
 import wireEvents from "./events.js";
 import { APP_DEFAULTS, APP_STRINGS, APP_THRESHOLDS } from "../constants/appConfig.js";
+import { getInstructionPageHint, renderInstructionPage } from "../components/instructionRenderer.js";
 import { sleep, clearIntervalTimer, clearTimer } from "../utils/timing.js";
 import { getCameraErrorMessage, startCameraStream, stopCameraStream } from "../services/cameraService.js";
 import { createMediaRecorder, createRecordingBlob, getRecordingExtension } from "../services/recordingService.js";
@@ -43,7 +44,10 @@ import {
   enumerateInputDevices
 } from "../services/mediaDeviceService.js";
 import { logger } from "../services/logger.js";
+import { getInstructionPagesByPhase } from "../utils/instructionState.js";
 import { createTextOverlay, createLogoOverlay, getActiveOverlay, getOverlays, syncActiveOverlayState } from "../utils/overlayState.js";
+
+const BOOTSTRAP_TASK_TIMEOUT_MS = 5000;
 
 function restartAnimation(element, className) {
   element.classList.remove(className);
@@ -68,6 +72,22 @@ function formatErrorMessage(error, fallbackMessage) {
   }
 
   return fallbackMessage;
+}
+
+function withBootstrapTimeout(promise, label, timeoutMs = BOOTSTRAP_TASK_TIMEOUT_MS) {
+  let timerId = null;
+  return Promise.race([
+    Promise.resolve(promise).finally(() => {
+      if (timerId !== null) {
+        window.clearTimeout(timerId);
+      }
+    }),
+    new Promise((_, reject) => {
+      timerId = window.setTimeout(() => {
+        reject(new Error(`Bootstrap task "${label}" timed out after ${timeoutMs}ms.`));
+      }, timeoutMs);
+    })
+  ]);
 }
 
 function buildDefaultProjectName() {
@@ -444,6 +464,14 @@ export default function createAppRuntime({
   let activeSlideshowsCacheTimestamp = 0;
   let activeSlideshowsPromise = null;
   let pendingSlideshowProjectPath = "";
+  let instructionAdvanceTimerId = null;
+  let instructionAdvanceIntervalId = null;
+  let instructionAdvanceDeadline = 0;
+  let instructionSequenceResolver = null;
+  let instructionSequencePages = [];
+  let instructionSequenceIndex = 0;
+  let instructionTransitionToken = 0;
+  let instructionTapUnlockAt = 0;
   const ACTIVE_SLIDESHOW_CACHE_MS = 30000;
 
   function showLaunchOverlay(title, message) {
@@ -615,10 +643,30 @@ export default function createAppRuntime({
     });
   }
 
+  async function loadRecentProjectsForDialog() {
+    if (!state.isDesktopApp) {
+      return [];
+    }
+
+    try {
+      const projects = await withBootstrapTimeout(
+        listDesktopProjects(),
+        "showProjectDialog.listDesktopProjects",
+        2500
+      );
+      return Array.isArray(projects) ? projects.slice(0, 5) : [];
+    } catch (error) {
+      void logger.warn("Recent project loading degraded. Continuing without recents.", {
+        error: error instanceof Error ? error.message : String(error || "")
+      });
+      return [];
+    }
+  }
+
   async function showProjectDialog() {
     projectDialogMode = "create";
     projectDialogProject = null;
-    recentProjects = state.isDesktopApp ? (await listDesktopProjects()).slice(0, 5) : [];
+    recentProjects = await loadRecentProjectsForDialog();
     const hasCurrentProject = Boolean(String(state.activeProjectPath || "").trim());
     dom.projectDialogTitle.textContent = "Project";
     dom.projectDialogMessage.textContent = "Create a new project folder for this event, or continue with the current setup.";
@@ -778,6 +826,9 @@ export default function createAppRuntime({
     composedRecorder?.stop();
     composedRecorder = null;
     resetCaptureState();
+    if (state.recordingFilename) {
+      state.recordings = state.recordings.filter((recording) => recording.filename !== state.recordingFilename || recording.saved);
+    }
     state.recordingChunks = [];
     state.recordingBlob = null;
     state.recordingUrl = "";
@@ -907,8 +958,9 @@ export default function createAppRuntime({
     if (state.galleryPanelOpen) {
       await galleryScreen.refreshGallery();
     }
+    hideProjectDialog();
     hideAppDialog();
-    syncModeUi();
+    openPreviewView();
   }
 
   async function openRecentProjectByIndex(index) {
@@ -1127,6 +1179,211 @@ export default function createAppRuntime({
     state.countdownValue = null;
   }
 
+  function clearInstructionAdvanceTimer() {
+    clearTimer(instructionAdvanceTimerId);
+    instructionAdvanceTimerId = null;
+    clearIntervalTimer(instructionAdvanceIntervalId);
+    instructionAdvanceIntervalId = null;
+    instructionAdvanceDeadline = 0;
+  }
+
+  function getCurrentInstructionPage() {
+    return instructionSequencePages[instructionSequenceIndex] || null;
+  }
+
+  function getInstructionTransitionMs() {
+    return Math.max(0, Math.round(Number(state.instructionTransitionMs) || 0));
+  }
+
+  function lockInstructionTap(durationMs = 450) {
+    instructionTapUnlockAt = Date.now() + Math.max(0, durationMs);
+  }
+
+  function syncInstructionTransitionUi() {
+    const transitionMs = getInstructionTransitionMs();
+    const transitionValue = `${transitionMs}ms`;
+    dom.instructionLivePage.style.setProperty("--instruction-transition-ms", transitionValue);
+    dom.instructionOverlayHint.style.setProperty("--instruction-transition-ms", transitionValue);
+  }
+
+  function resetInstructionTransitionClasses() {
+    dom.instructionLivePage.classList.remove("instruction-page-fade-out", "instruction-page-fade-in");
+    dom.instructionOverlayHint.classList.remove("instruction-hint-fade-out", "instruction-hint-fade-in");
+  }
+
+  function clearPostRecordingDecision() {
+    state.postRecordingDecisionVisible = false;
+    dom.instructionLivePage.innerHTML = "";
+    dom.instructionOverlayHint.textContent = "";
+    syncModeUi();
+  }
+
+  function showPostRecordingDecision() {
+    state.mode = "camera";
+    state.postRecordingDecisionVisible = true;
+    syncInstructionTransitionUi();
+    resetInstructionTransitionClasses();
+    dom.instructionLivePage.innerHTML = `
+      <div class="instruction-decision-page">
+        <p class="instruction-decision-kicker">Recording Complete</p>
+        <h2 class="instruction-decision-title">Choose the next step</h2>
+        <p class="instruction-decision-text">Save this clip or continue directly to the next live recording.</p>
+      </div>
+    `;
+    dom.instructionOverlayHint.textContent = "Save the clip or take another video";
+    restartAnimation(dom.instructionLivePage, "instruction-page-fade-in");
+    restartAnimation(dom.instructionOverlayHint, "instruction-hint-fade-in");
+    syncModeUi();
+  }
+
+  function paintInstructionSequencePage() {
+    const page = getCurrentInstructionPage();
+    state.instructionSessionPageId = page?.id || "";
+    syncInstructionTransitionUi();
+    renderInstructionPage(dom.instructionLivePage, page, {
+      emptyText: "No instruction pages configured."
+    });
+    const remainingSeconds = instructionAdvanceDeadline > 0
+      ? Math.max(1, Math.ceil((instructionAdvanceDeadline - Date.now()) / 1000))
+      : null;
+    dom.instructionOverlayHint.textContent = getInstructionPageHint(page, remainingSeconds);
+    syncModeUi();
+  }
+
+  async function transitionInstructionSequencePage() {
+    const transitionMs = getInstructionTransitionMs();
+    if (transitionMs <= 0) {
+      lockInstructionTap();
+      paintInstructionSequencePage();
+      return;
+    }
+
+    const token = ++instructionTransitionToken;
+    dom.instructionLivePage.classList.add("instruction-page-fade-out");
+    dom.instructionOverlayHint.classList.add("instruction-hint-fade-out");
+    await sleep(transitionMs);
+    if (token !== instructionTransitionToken || !state.instructionSessionActive) {
+      return;
+    }
+
+    paintInstructionSequencePage();
+    dom.instructionLivePage.classList.remove("instruction-page-fade-out");
+    dom.instructionOverlayHint.classList.remove("instruction-hint-fade-out");
+    restartAnimation(dom.instructionLivePage, "instruction-page-fade-in");
+    restartAnimation(dom.instructionOverlayHint, "instruction-hint-fade-in");
+    lockInstructionTap(Math.max(450, transitionMs / 2));
+  }
+
+  async function transitionInstructionSequenceOut() {
+    const transitionMs = getInstructionTransitionMs();
+    if (transitionMs <= 0) {
+      return;
+    }
+
+    const token = ++instructionTransitionToken;
+    dom.instructionLivePage.classList.add("instruction-page-fade-out");
+    dom.instructionOverlayHint.classList.add("instruction-hint-fade-out");
+    await sleep(transitionMs);
+    if (token !== instructionTransitionToken) {
+      return;
+    }
+  }
+
+  function finishInstructionSequence(result = true) {
+    instructionTransitionToken += 1;
+    instructionTapUnlockAt = 0;
+    clearInstructionAdvanceTimer();
+    resetInstructionTransitionClasses();
+    const resolver = instructionSequenceResolver;
+    instructionSequenceResolver = null;
+    instructionSequencePages = [];
+    instructionSequenceIndex = 0;
+    state.instructionSessionActive = false;
+    state.instructionSessionPageId = "";
+    syncModeUi();
+    resolver?.(result);
+  }
+
+  async function advanceInstructionSequence() {
+    if (!state.instructionSessionActive) {
+      return;
+    }
+
+    instructionSequenceIndex += 1;
+    if (instructionSequenceIndex >= instructionSequencePages.length) {
+      await transitionInstructionSequenceOut();
+      finishInstructionSequence(true);
+      return;
+    }
+
+    await transitionInstructionSequencePage();
+    scheduleInstructionAdvanceIfNeeded();
+  }
+
+  function scheduleInstructionAdvanceIfNeeded() {
+    clearInstructionAdvanceTimer();
+    const page = getCurrentInstructionPage();
+    if (!page || page.navigation !== "auto") {
+      paintInstructionSequencePage();
+      return;
+    }
+
+    instructionAdvanceDeadline = Date.now() + (Math.max(1, Number(page.autoAdvanceSeconds) || 4) * 1000);
+    paintInstructionSequencePage();
+    instructionAdvanceIntervalId = window.setInterval(() => {
+      paintInstructionSequencePage();
+    }, 250);
+    instructionAdvanceTimerId = window.setTimeout(() => {
+      void advanceInstructionSequence();
+    }, Math.max(1, Number(page.autoAdvanceSeconds) || 4) * 1000);
+  }
+
+  function beginInstructionSequence(phase) {
+    const pages = getInstructionPagesByPhase(state.instructionPages, phase);
+    if (!pages.length) {
+      return Promise.resolve(true);
+    }
+
+    if (instructionSequenceResolver) {
+      finishInstructionSequence(false);
+    }
+
+    state.mode = "camera";
+    state.instructionSessionActive = true;
+    state.instructionSessionPhase = phase;
+    instructionSequencePages = pages;
+    instructionSequenceIndex = 0;
+    resetInstructionTransitionClasses();
+    lockInstructionTap();
+    paintInstructionSequencePage();
+    restartAnimation(dom.instructionLivePage, "instruction-page-fade-in");
+    restartAnimation(dom.instructionOverlayHint, "instruction-hint-fade-in");
+    scheduleInstructionAdvanceIfNeeded();
+
+    return new Promise((resolve) => {
+      instructionSequenceResolver = resolve;
+    });
+  }
+
+  function handleInstructionOverlayClick() {
+    if (state.postRecordingDecisionVisible) {
+      return;
+    }
+
+    const page = getCurrentInstructionPage();
+    if (!state.instructionSessionActive || !page) {
+      return;
+    }
+
+    if (Date.now() < instructionTapUnlockAt) {
+      return;
+    }
+
+    if (page.navigation === "tap" || page.navigation === "auto") {
+      void advanceInstructionSequence();
+    }
+  }
+
   function stopRecordingTimer() {
     clearIntervalTimer(state.recordIntervalId);
     state.recordIntervalId = null;
@@ -1235,6 +1492,11 @@ export default function createAppRuntime({
     state.logoScale = APP_DEFAULTS.logoScale;
     state.logoRotation = APP_DEFAULTS.logoRotation;
     state.logoPosition = { ...APP_DEFAULTS.logoPosition };
+    state.instructionPages = [...APP_DEFAULTS.instructionPages];
+    state.instructionTransitionMs = APP_DEFAULTS.instructionTransitionMs;
+    state.instructionSessionActive = false;
+    state.instructionSessionPhase = "before";
+    state.instructionSessionPageId = "";
     state.slideshowSoundEnabled = APP_DEFAULTS.slideshowSoundEnabled;
     state.slideshowFadeDurationMs = APP_DEFAULTS.slideshowFadeDurationMs;
     state.draggingOverlayTarget = null;
@@ -1256,6 +1518,8 @@ export default function createAppRuntime({
     syncModeUi();
   }
   function openPreviewView() {
+    finishInstructionSequence(false);
+    clearPostRecordingDecision();
     hideAppDialog();
     closeGalleryPanel();
     stopStream();
@@ -1263,7 +1527,24 @@ export default function createAppRuntime({
     syncModeUi();
   }
 
+  async function enterLiveCameraMode() {
+    finishInstructionSequence(false);
+    clearPostRecordingDecision();
+    stopStream();
+    state.mode = "camera";
+    syncModeUi();
+    const shouldContinue = await beginInstructionSequence("before");
+    if (!shouldContinue) {
+      return false;
+    }
+
+    await startCamera();
+    return true;
+  }
+
   async function openSettingsView() {
+    finishInstructionSequence(false);
+    clearPostRecordingDecision();
     hideAppDialog();
     closeGalleryPanel();
     stopStream();
@@ -1282,6 +1563,8 @@ export default function createAppRuntime({
   }
 
   function closeOperatorPanel() {
+    finishInstructionSequence(false);
+    clearPostRecordingDecision();
     stopStream();
     operatorScreen.setCameraToggleActive(false);
     operatorScreen.setOperatorPanelOpen(false);
@@ -1331,10 +1614,12 @@ export default function createAppRuntime({
   }
 
   function stopStream() {
+    clearInstructionAdvanceTimer();
     cameraSessionId += 1;
     stopCameraStream(state.stream, [dom.cameraPreview]);
     state.stream = null;
     state.captureReady = false;
+    state.cameraStarting = false;
     state.settingsCameraEnabled = false;
     cameraScreen.clearError();
     dom.emptyCamera.classList.remove("hidden");
@@ -1344,6 +1629,9 @@ export default function createAppRuntime({
     const cameraSource = options.source === "settings" ? "settings" : "default";
     cameraScreen.clearError();
     state.mode = "camera";
+    state.captureReady = false;
+    state.cameraStarting = true;
+    dom.emptyCamera.classList.add("hidden");
     syncModeUi();
 
     const sessionId = cameraSessionId + 1;
@@ -1368,6 +1656,7 @@ export default function createAppRuntime({
 
       state.stream = stream;
       state.captureReady = true;
+      state.cameraStarting = false;
       state.settingsCameraEnabled = cameraSource === "settings";
       operatorScreen.setCameraToggleActive(state.settingsCameraEnabled);
       dom.emptyCamera.classList.add("hidden");
@@ -1383,6 +1672,7 @@ export default function createAppRuntime({
 
       void logger.exception("Camera start failed.", error, { sessionId });
       state.captureReady = false;
+      state.cameraStarting = false;
       state.settingsCameraEnabled = false;
       operatorScreen.setCameraToggleActive(false);
       dom.emptyCamera.classList.add("hidden");
@@ -1392,6 +1682,7 @@ export default function createAppRuntime({
     }
 
     if (cameraSessionId === sessionId) {
+      syncModeUi();
       void applyMainWindowDisplaySettings();
     }
   }
@@ -1452,8 +1743,12 @@ export default function createAppRuntime({
         filename: state.recordingFilename,
         saved: false
       });
+      resetCaptureState();
+      stopRecordingTimer();
+      syncModeUi();
       stopStream();
-      editorScreen.showResult();
+      await beginInstructionSequence("after");
+      showPostRecordingDecision();
     } catch (error) {
       void logger.exception("Recording stop failed.", error, {
         recorderMimeType: state.recorder?.mimeType || "",
@@ -1467,7 +1762,6 @@ export default function createAppRuntime({
       stopRecordingTimer();
       composedRecorder?.stop();
       composedRecorder = null;
-      resetCaptureState();
       dom.snapButton.disabled = false;
       dom.recordingTimer.textContent = "00:00";
       syncModeUi();
@@ -1566,11 +1860,38 @@ export default function createAppRuntime({
     }
 
     discardCurrentRecording();
-    state.mode = "camera";
     hideAppDialog();
     closeGalleryPanel();
-    syncModeUi();
-    void startCamera();
+    void enterLiveCameraMode();
+  }
+
+  async function handlePostRecordingRetake() {
+    if (!state.recordingBlob || state.isSaving) {
+      return;
+    }
+
+    clearPostRecordingDecision();
+    discardCurrentRecording();
+    hideAppDialog();
+    closeGalleryPanel();
+    await enterLiveCameraMode();
+  }
+
+  async function handlePostRecordingSave() {
+    if (!state.recordingBlob || state.isSaving) {
+      return;
+    }
+
+    const didSave = await saveCurrentRecording();
+    if (!didSave) {
+      return;
+    }
+
+    clearPostRecordingDecision();
+    discardCurrentRecording();
+    hideAppDialog();
+    closeGalleryPanel();
+    await enterLiveCameraMode();
   }
 
   function handleResultEnded() {
@@ -1673,6 +1994,7 @@ export default function createAppRuntime({
         saveDirectoryPath: state.saveDirectoryPath,
         saveDirectoryName: state.saveDirectoryName
       });
+      openPreviewView();
     } catch (error) {
       const fallbackMessage = projectDialogMode === "rename"
         ? "Echo could not rename the selected project."
@@ -1692,30 +2014,47 @@ export default function createAppRuntime({
     showLaunchOverlay("Starting", "Loading app...");
 
     try {
-      const desktopSettings = await loadDesktopPersistedSettings();
+      const desktopSettings = await withBootstrapTimeout(loadDesktopPersistedSettings(), "loadDesktopPersistedSettings");
       if (desktopSettings) {
         applyPersistedSettings(state, { ...APP_DEFAULTS, saveFolderDefault: APP_STRINGS.saveFolderDefault }, desktopSettings);
         syncActiveOverlayState(state);
       }
-      await validateActiveProjectSelection();
+      await withBootstrapTimeout(validateActiveProjectSelection(), "validateActiveProjectSelection");
 
-      await operatorScreen.loadMonitorOptions();
+      await withBootstrapTimeout(operatorScreen.loadMonitorOptions(), "loadMonitorOptions");
       operatorScreen.syncControlsFromState();
       operatorScreen.renderFrameTray();
       editorScreen.syncOrientationUi();
       editorScreen.renderOverlayPreview();
       editorScreen.syncEmptyState();
       syncModeUi();
-
-      await Promise.all([
-        loadAppVersion(),
-        refreshHardwareOptions(),
-        applyMainWindowDisplaySettings()
-      ]);
+    } catch (error) {
+      void logger.warn("Bootstrap preflight degraded. Continuing startup.", {
+        error: error instanceof Error ? error.message : String(error || "")
+      });
     } finally {
       await sleep(600);
       hideLaunchOverlay();
-      await showProjectDialog();
+      window.setTimeout(() => {
+        void showProjectDialog();
+      }, 0);
+      void Promise.allSettled([
+        withBootstrapTimeout(loadAppVersion(), "loadAppVersion"),
+        withBootstrapTimeout(refreshHardwareOptions(), "refreshHardwareOptions"),
+        withBootstrapTimeout(applyMainWindowDisplaySettings(), "applyMainWindowDisplaySettings")
+      ]).then((results) => {
+        results.forEach((result, index) => {
+          if (result.status !== "rejected") {
+            return;
+          }
+
+          const labels = ["loadAppVersion", "refreshHardwareOptions", "applyMainWindowDisplaySettings"];
+          void logger.warn("Bootstrap background task failed.", {
+            task: labels[index],
+            error: result.reason instanceof Error ? result.reason.message : String(result.reason || "")
+          });
+        });
+      });
       void logger.info("Bootstrap sequence completed.");
     }
   }
@@ -1728,10 +2067,15 @@ export default function createAppRuntime({
   });
   dom.projectContinueButton.addEventListener("click", () => {
     void (async () => {
+      if (projectDialogMode === "rename") {
+        hideProjectDialog();
+        return;
+      }
       if (state.activeProjectPath) {
         await loadProjectConfiguration(state.activeProjectPath);
       }
       hideProjectDialog();
+      openPreviewView();
     })();
   });
   dom.projectCreateButton.addEventListener("click", () => {
@@ -1910,10 +2254,13 @@ export default function createAppRuntime({
       }
     }
   });
+  dom.instructionOverlay.addEventListener("click", handleInstructionOverlayClick);
   wireEvents(dom, state, {
     captureVideo,
     closeGalleryPanel,
     closeOperatorPanel,
+    handlePostRecordingRetake,
+    handlePostRecordingSave,
     handleResultReset,
     handleResultEnded,
     hideAppDialog,

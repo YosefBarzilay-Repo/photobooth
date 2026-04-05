@@ -1,7 +1,9 @@
 import { APP_THRESHOLDS, DISABLED_AUDIO_INPUT_ID } from "../constants/appConfig.js";
 import renderFrameTray from "../components/frameTray.js";
+import { renderInstructionPage } from "../components/instructionRenderer.js";
 import { isDesktopApp, listDesktopMonitors } from "../services/desktopService.js";
 import { logger } from "../services/logger.js";
+import { createInstructionElement, createInstructionPage } from "../utils/instructionState.js";
 import {
   createLogoOverlay,
   createTextOverlay,
@@ -39,6 +41,14 @@ function replaceSelectOptions(select, options, selectedValue) {
   select.value = hasSelected ? selectedValue : options[0]?.value || "";
 }
 
+function clampInstructionAutoAdvance(value) {
+  return Math.max(1, Math.min(30, Math.round(Number(value) || 4)));
+}
+
+function clampInstructionTransition(value) {
+  return Math.max(0, Math.round(Number(value) || 0));
+}
+
 export default function createOperatorScreen(dom, state, editorScreen, onSettingsChanged = () => {}) {
   let operatorAccessClickCount = 0;
   let operatorAccessClickTimer = null;
@@ -55,6 +65,20 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   let dialogStartRect = null;
   let monitorOptions = [{ value: "", label: "Current Monitor" }];
   let audioOutputOptions = [{ value: "", label: "System Default Output" }];
+  let activeInstructionPageId = "";
+  let activeInstructionElementId = "";
+  let pendingInstructionImageTarget = null;
+  let showInstructionColorPalette = false;
+  let instructionDragPointerId = null;
+  let instructionDragStartPointer = null;
+  let instructionDragStartPosition = null;
+  let instructionInteraction = null;
+  let instructionDragSurfaceSize = null;
+  let instructionDragStartScale = { x: 1, y: 1 };
+  let instructionDragStartRect = null;
+  let instructionDragStartRotation = 0;
+  let instructionDragRotationCenter = null;
+  let instructionDragStartPointerAngle = null;
 
   function syncCameraToggleButton() {
     const isOn = state.settingsCameraEnabled === true;
@@ -112,11 +136,13 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   function syncSectionUi() {
     const sections = {
       editor: dom.settingsSectionEditor,
+      instructions: dom.settingsSectionInstructions,
       inputs: dom.settingsSectionInputs,
       slideshow: dom.settingsSectionSlideshow
     };
     const tabs = {
       editor: dom.settingsTabEditor,
+      instructions: dom.settingsTabInstructions,
       inputs: dom.settingsTabInputs,
       slideshow: dom.settingsTabSlideshow
     };
@@ -130,6 +156,185 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
       element.classList.toggle("is-active", isActive);
       element.setAttribute("aria-selected", String(isActive));
     });
+  }
+
+  function getInstructionPages() {
+    return Array.isArray(state.instructionPages) ? state.instructionPages : [];
+  }
+
+  function getActiveInstructionPage() {
+    const pages = getInstructionPages();
+    if (!pages.length) {
+      activeInstructionPageId = "";
+      return null;
+    }
+
+    const existingPage = pages.find((page) => page.id === activeInstructionPageId);
+    if (existingPage) {
+      return existingPage;
+    }
+
+    activeInstructionPageId = pages[0].id;
+    return pages[0];
+  }
+
+  function getActiveInstructionElement() {
+    const page = getActiveInstructionPage();
+    if (!page?.elements?.length) {
+      activeInstructionElementId = "";
+      return null;
+    }
+
+    const existingElement = page.elements.find((element) => element.id === activeInstructionElementId);
+    if (existingElement) {
+      return existingElement;
+    }
+
+    activeInstructionElementId = page.elements[0].id;
+    return page.elements[0];
+  }
+
+  function setActiveInstructionPage(pageId) {
+    activeInstructionPageId = pageId;
+    activeInstructionElementId = "";
+    showInstructionColorPalette = false;
+    renderInstructionPageEditor();
+  }
+
+  function renderInstructionPreview() {
+    renderInstructionPage(dom.instructionPagePreview, getActiveInstructionPage(), {
+      interactive: true,
+      selectedId: activeInstructionElementId,
+      showColorPalette: showInstructionColorPalette
+    });
+  }
+
+  function syncInstructionControlsFromState() {
+    const page = getActiveInstructionPage();
+    const pages = getInstructionPages();
+    const activeElement = getActiveInstructionElement();
+
+    dom.instructionPageRemoveButton.disabled = !page;
+    dom.instructionPagePrevButton.disabled = pages.length <= 1;
+    dom.instructionPageNextButton.disabled = pages.length <= 1;
+    dom.instructionPageNameInput.disabled = !page;
+    dom.instructionPagePhaseSelect.disabled = !page;
+    dom.instructionPageNavigationSelect.disabled = !page;
+    dom.instructionPageAutoAdvanceInput.disabled = !page;
+    dom.instructionAutoAdvanceMinusButton.disabled = !page;
+    dom.instructionAutoAdvancePlusButton.disabled = !page;
+    dom.instructionTransitionInput.disabled = false;
+    dom.instructionTransitionMinusButton.disabled = false;
+    dom.instructionTransitionPlusButton.disabled = false;
+    dom.instructionAddTextElementButton.disabled = !page;
+    dom.instructionAddMediaElementButton.disabled = !page;
+    dom.instructionTextInput.disabled = !activeElement || activeElement.type !== "text";
+    dom.instructionFontSelect.disabled = !activeElement || activeElement.type !== "text";
+
+    if (!page) {
+      dom.instructionPageCounter.textContent = "No pages yet";
+      dom.instructionPageNameInput.value = "";
+      dom.instructionPagePhaseSelect.value = "before";
+      dom.instructionPageNavigationSelect.value = "tap";
+      dom.instructionPageAutoAdvanceInput.value = "4";
+      dom.instructionTransitionInput.value = String(clampInstructionTransition(state.instructionTransitionMs));
+      dom.instructionTextInput.value = "";
+      dom.instructionFontSelect.value = "Space Grotesk";
+      dom.instructionPageAutoAdvanceRow.classList.add("hidden");
+      renderInstructionPage(dom.instructionPagePreview, null);
+      return;
+    }
+
+    const currentIndex = pages.findIndex((entry) => entry.id === page.id);
+    dom.instructionPageCounter.textContent = `Page ${currentIndex + 1} of ${pages.length}`;
+    if (document.activeElement !== dom.instructionPageNameInput) {
+      dom.instructionPageNameInput.value = page.name;
+    }
+    if (document.activeElement !== dom.instructionPagePhaseSelect) {
+      dom.instructionPagePhaseSelect.value = page.phase;
+    }
+    if (document.activeElement !== dom.instructionPageNavigationSelect) {
+      dom.instructionPageNavigationSelect.value = page.navigation;
+    }
+    if (document.activeElement !== dom.instructionPageAutoAdvanceInput) {
+      dom.instructionPageAutoAdvanceInput.value = String(clampInstructionAutoAdvance(page.autoAdvanceSeconds));
+    }
+    if (document.activeElement !== dom.instructionTransitionInput) {
+      dom.instructionTransitionInput.value = String(clampInstructionTransition(state.instructionTransitionMs));
+    }
+    dom.instructionPageAutoAdvanceRow.classList.toggle("hidden", page.navigation !== "auto");
+
+    if (activeElement?.type === "text") {
+      if (document.activeElement !== dom.instructionTextInput) {
+        dom.instructionTextInput.value = activeElement.content || "";
+      }
+      if (document.activeElement !== dom.instructionFontSelect) {
+        dom.instructionFontSelect.value = activeElement.font || "Space Grotesk";
+      }
+    } else {
+      dom.instructionTextInput.value = "";
+      dom.instructionFontSelect.value = "Space Grotesk";
+    }
+
+    renderInstructionPreview();
+  }
+
+  function renderInstructionPageEditor() {
+    syncInstructionControlsFromState();
+  }
+
+  function getInstructionDragBounds(elementId) {
+    const fallback = { minX: 6, maxX: 94, minY: 6, maxY: 94 };
+    const element = dom.instructionPagePreview.querySelector(`.overlay-item-body[data-instruction-id="${elementId}"]`);
+    if (!(element instanceof HTMLElement) || !instructionDragSurfaceSize) {
+      return fallback;
+    }
+
+    const rect = element.getBoundingClientRect();
+    const halfWidthPercent = (rect.width / 2 / instructionDragSurfaceSize.x) * 100;
+    const halfHeightPercent = (rect.height / 2 / instructionDragSurfaceSize.y) * 100;
+    return {
+      minX: Math.max(0, halfWidthPercent),
+      maxX: Math.min(100, 100 - halfWidthPercent),
+      minY: Math.max(0, halfHeightPercent),
+      maxY: Math.min(100, 100 - halfHeightPercent)
+    };
+  }
+
+  function syncSelectedInstructionElement() {
+    const element = getActiveInstructionElement();
+    if (!element) {
+      return;
+    }
+
+    const elementNode = dom.instructionPagePreview.querySelector(`[data-instruction-id="${element.id}"]`);
+    const overlayElement = elementNode instanceof HTMLElement ? elementNode.closest(".overlay-item") : null;
+    if (!(overlayElement instanceof HTMLElement)) {
+      return;
+    }
+
+    overlayElement.style.left = `${element.position.x}%`;
+    overlayElement.style.top = `${element.position.y}%`;
+    overlayElement.style.transform = "translate(-50%, -50%)";
+    const overlayShell = overlayElement.querySelector(".overlay-item-shell");
+    if (overlayShell instanceof HTMLElement) {
+      overlayShell.style.transform = `rotate(${element.rotation}deg)`;
+    }
+
+    if (element.type === "image") {
+      const image = overlayElement.querySelector(".overlay-logo-image");
+      if (image instanceof HTMLElement) {
+        image.style.transform = `scale(${element.scaleX}, ${element.scaleY})`;
+      }
+      return;
+    }
+
+    const caption = overlayElement.querySelector(".overlay-caption");
+    if (caption instanceof HTMLElement) {
+      caption.style.color = element.color;
+      caption.style.fontFamily = `"${element.font}", sans-serif`;
+      caption.style.transform = `scale(${element.scaleX}, ${element.scaleY})`;
+    }
   }
 
   function renderPreview() {
@@ -356,6 +561,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     syncCameraToggleButton();
     syncDialogRect();
     syncSectionUi();
+    renderInstructionPageEditor();
     renderPreview();
   }
 
@@ -370,7 +576,7 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
   }
 
   function switchSection(section) {
-    if (["editor", "inputs", "slideshow"].includes(section)) {
+    if (["editor", "instructions", "inputs", "slideshow"].includes(section)) {
       activeSection = section;
       syncSectionUi();
     }
@@ -434,6 +640,362 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     state.logoPosition = { ...logoOverlay.position };
     setActiveOverlay(logoOverlay.id);
     notifySettingsChanged();
+  }
+
+  function syncInstructionSettings(options = {}) {
+    renderInstructionPageEditor();
+    notifySettingsChanged();
+  }
+
+  function addInstructionPage() {
+    const nextPage = createInstructionPage({
+      name: `Page ${getInstructionPages().length + 1}`,
+      elements: [createInstructionElement({ type: "text", content: "Add your message here", size: "large" })]
+    });
+    state.instructionPages = [...getInstructionPages(), nextPage];
+    activeInstructionPageId = nextPage.id;
+    activeInstructionElementId = nextPage.elements[0]?.id || "";
+    syncInstructionSettings();
+  }
+
+  function removeInstructionPage() {
+    const page = getActiveInstructionPage();
+    if (!page) {
+      return;
+    }
+
+    const pages = getInstructionPages();
+    const nextPages = pages.filter((entry) => entry.id !== page.id);
+    state.instructionPages = nextPages;
+    activeInstructionPageId = nextPages[Math.max(0, pages.findIndex((entry) => entry.id === page.id) - 1)]?.id || "";
+    activeInstructionElementId = "";
+    syncInstructionSettings();
+  }
+
+  function stepInstructionPage(delta) {
+    const pages = getInstructionPages();
+    const page = getActiveInstructionPage();
+    if (!page || pages.length <= 1) {
+      return;
+    }
+
+    const currentIndex = pages.findIndex((entry) => entry.id === page.id);
+    const nextIndex = (currentIndex + delta + pages.length) % pages.length;
+    setActiveInstructionPage(pages[nextIndex].id);
+  }
+
+  function syncInstructionPageFields(options = {}) {
+    const page = getActiveInstructionPage();
+    if (!page) {
+      return;
+    }
+
+    const rawName = dom.instructionPageNameInput.value;
+    page.name = options.finalize ? (rawName.trim() || "Instruction Page") : rawName;
+    page.phase = dom.instructionPagePhaseSelect.value === "after" ? "after" : "before";
+    page.navigation = ["tap", "auto"].includes(dom.instructionPageNavigationSelect.value)
+      ? dom.instructionPageNavigationSelect.value
+      : "tap";
+    page.autoAdvanceSeconds = clampInstructionAutoAdvance(dom.instructionPageAutoAdvanceInput.value);
+    syncInstructionSettings(options);
+  }
+
+  function stepInstructionAutoAdvance(delta) {
+    dom.instructionPageAutoAdvanceInput.value = String(clampInstructionAutoAdvance((Number(dom.instructionPageAutoAdvanceInput.value) || 4) + delta));
+    syncInstructionPageFields();
+  }
+
+  function syncInstructionTransitionFromControl() {
+    state.instructionTransitionMs = clampInstructionTransition(dom.instructionTransitionInput.value);
+    dom.instructionTransitionInput.value = String(state.instructionTransitionMs);
+    notifySettingsChanged();
+  }
+
+  function stepInstructionTransition(delta) {
+    dom.instructionTransitionInput.value = String(clampInstructionTransition((Number(dom.instructionTransitionInput.value) || 0) + (delta * 100)));
+    syncInstructionTransitionFromControl();
+  }
+
+  function addInstructionTextElement() {
+    const page = getActiveInstructionPage();
+    if (!page) {
+      addInstructionPage();
+      return;
+    }
+
+    const nextElement = createInstructionElement({
+      type: "text",
+      content: "Instruction text",
+      font: dom.instructionFontSelect.value || "Space Grotesk",
+      size: "medium"
+    });
+    page.elements = [...page.elements, nextElement];
+    activeInstructionElementId = nextElement.id;
+    showInstructionColorPalette = false;
+    syncInstructionSettings();
+  }
+
+  function triggerInstructionMediaUpload(target = { mode: "new" }) {
+    pendingInstructionImageTarget = target;
+    dom.instructionElementImageInput.value = "";
+    dom.instructionElementImageInput.click();
+  }
+
+  async function syncInstructionMediaUploadFromControl() {
+    const [file] = dom.instructionElementImageInput.files || [];
+    const page = getActiveInstructionPage();
+    if (!file || !page) {
+      pendingInstructionImageTarget = null;
+      return;
+    }
+
+    const reader = new FileReader();
+    const dataUrl = await new Promise((resolve, reject) => {
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.onerror = () => reject(reader.error || new Error("Instruction media upload failed."));
+      reader.readAsDataURL(file);
+    });
+
+    if (!dataUrl) {
+      pendingInstructionImageTarget = null;
+      return;
+    }
+
+    if (pendingInstructionImageTarget?.mode === "replace" && Number.isInteger(pendingInstructionImageTarget.index) && page.elements[pendingInstructionImageTarget.index]) {
+      const targetElement = page.elements[pendingInstructionImageTarget.index];
+      targetElement.type = "image";
+      targetElement.dataUrl = dataUrl;
+      targetElement.content = file.name;
+      targetElement.size = targetElement.size || "large";
+      activeInstructionElementId = targetElement.id;
+    } else {
+      const nextElement = createInstructionElement({
+        type: "image",
+        dataUrl,
+        content: file.name,
+        size: "large"
+      });
+      page.elements = [...page.elements, nextElement];
+      activeInstructionElementId = nextElement.id;
+    }
+
+    pendingInstructionImageTarget = null;
+    showInstructionColorPalette = false;
+    syncInstructionSettings();
+  }
+
+  function syncInstructionElementFields() {
+    const element = getActiveInstructionElement();
+    if (!element) {
+      return;
+    }
+
+    if (element.type === "text") {
+      element.content = dom.instructionTextInput.value;
+      element.font = dom.instructionFontSelect.value || "Space Grotesk";
+    }
+
+    renderInstructionPreview();
+    notifySettingsChanged();
+  }
+
+  function removeInstructionElement(elementId) {
+    const page = getActiveInstructionPage();
+    if (!page?.elements?.length) {
+      return;
+    }
+
+    const nextElements = page.elements.filter((element) => element.id !== elementId);
+    page.elements = nextElements;
+    activeInstructionElementId = nextElements[nextElements.length - 1]?.id || "";
+    showInstructionColorPalette = false;
+    syncInstructionSettings();
+  }
+
+  function handleInstructionPreviewClick(event) {
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    if (!target) {
+      return;
+    }
+
+    const colorSwatch = target.closest("[data-instruction-color]");
+    if (colorSwatch instanceof HTMLElement) {
+      const element = getActiveInstructionElement();
+      if (element?.type === "text") {
+        element.color = colorSwatch.dataset.instructionColor || element.color;
+        showInstructionColorPalette = false;
+        syncInstructionSettings();
+      }
+      return;
+    }
+
+    const actionButton = target.closest("[data-instruction-action]");
+    if (actionButton instanceof HTMLElement) {
+      const elementId = actionButton.dataset.instructionId || activeInstructionElementId;
+      const element = getActiveInstructionPage()?.elements.find((entry) => entry.id === elementId) || null;
+      if (!element) {
+        return;
+      }
+
+      if (actionButton.dataset.instructionAction === "delete") {
+        removeInstructionElement(element.id);
+      } else if (actionButton.dataset.instructionAction === "color" && element.type === "text") {
+        activeInstructionElementId = element.id;
+        showInstructionColorPalette = !showInstructionColorPalette;
+        syncInstructionSettings();
+      }
+      return;
+    }
+
+    const overlayBody = target.closest(".overlay-item-body");
+    const elementId = overlayBody instanceof HTMLElement ? overlayBody.dataset.instructionId : "";
+    if (elementId) {
+      activeInstructionElementId = elementId;
+      showInstructionColorPalette = false;
+      renderInstructionPageEditor();
+      return;
+    }
+
+    showInstructionColorPalette = false;
+    renderInstructionPageEditor();
+  }
+
+  function startInstructionPreviewDrag(event) {
+    const page = getActiveInstructionPage();
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    if (!page || !target) {
+      return;
+    }
+
+    const colorSwatch = target.closest("[data-instruction-color]");
+    const actionButton = target.closest("[data-instruction-action]");
+    if (colorSwatch || actionButton) {
+      return;
+    }
+
+    const handle = target.closest("[data-instruction-handle]");
+    const overlayBody = target.closest(".overlay-item-body");
+    const elementId = handle instanceof HTMLElement
+      ? handle.dataset.instructionId
+      : overlayBody instanceof HTMLElement
+        ? overlayBody.dataset.instructionId
+        : "";
+    const element = page.elements.find((entry) => entry.id === elementId);
+    if (!element) {
+      return;
+    }
+
+    activeInstructionElementId = element.id;
+    showInstructionColorPalette = false;
+    instructionDragPointerId = event.pointerId;
+    instructionDragStartPointer = { x: event.clientX, y: event.clientY };
+    instructionDragStartPosition = { ...element.position };
+    instructionInteraction = handle instanceof HTMLElement
+      ? (handle.dataset.instructionHandle === "rotate" ? "rotate" : "resize")
+      : "move";
+    const previewRect = dom.instructionPagePreview.getBoundingClientRect();
+    instructionDragSurfaceSize = { x: previewRect.width, y: previewRect.height };
+    instructionDragStartScale = { x: element.scaleX, y: element.scaleY };
+    instructionDragStartRotation = element.rotation;
+    instructionDragRotationCenter = null;
+    instructionDragStartPointerAngle = null;
+    const bodyElement = overlayBody instanceof HTMLElement
+      ? overlayBody
+      : handle?.closest(".overlay-item")?.querySelector(".overlay-item-body");
+    if (bodyElement instanceof HTMLElement) {
+      const bodyRect = bodyElement.getBoundingClientRect();
+      instructionDragStartRect = {
+        left: ((bodyRect.left - previewRect.left) / previewRect.width) * 100,
+        top: ((bodyRect.top - previewRect.top) / previewRect.height) * 100,
+        width: (bodyRect.width / previewRect.width) * 100,
+        height: (bodyRect.height / previewRect.height) * 100
+      };
+    } else {
+      instructionDragStartRect = null;
+    }
+    if (instructionInteraction === "rotate") {
+      const selectedElement = handle?.closest(".overlay-item") ?? overlayBody?.closest(".overlay-item");
+      if (selectedElement instanceof HTMLElement) {
+        const overlayRect = selectedElement.getBoundingClientRect();
+        const centerX = overlayRect.left + (overlayRect.width / 2);
+        const centerY = overlayRect.top + (overlayRect.height / 2);
+        instructionDragRotationCenter = { x: centerX, y: centerY };
+        instructionDragStartPointerAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
+      }
+    }
+    (overlayBody || handle || target).setPointerCapture?.(event.pointerId);
+    event.preventDefault();
+  }
+
+  function updateInstructionPreviewDrag(event) {
+    if (
+      instructionDragPointerId !== event.pointerId
+      || !instructionDragStartPointer
+      || !instructionDragStartPosition
+      || !instructionInteraction
+      || !instructionDragSurfaceSize
+    ) {
+      return;
+    }
+
+    const page = getActiveInstructionPage();
+    const element = getActiveInstructionElement();
+    if (!page || !element) {
+      return;
+    }
+
+    const dxPercent = ((event.clientX - instructionDragStartPointer.x) / instructionDragSurfaceSize.x) * 100;
+    const dyPercent = ((event.clientY - instructionDragStartPointer.y) / instructionDragSurfaceSize.y) * 100;
+
+    if (instructionInteraction === "move") {
+      const bounds = getInstructionDragBounds(element.id);
+      element.position = {
+        x: clamp(instructionDragStartPosition.x + dxPercent, bounds.minX, bounds.maxX),
+        y: clamp(instructionDragStartPosition.y + dyPercent, bounds.minY, bounds.maxY)
+      };
+    } else if (instructionInteraction === "rotate") {
+      const rotationCenter = instructionDragRotationCenter;
+      if (rotationCenter && Number.isFinite(instructionDragStartPointerAngle)) {
+        const currentAngle = Math.atan2(event.clientY - rotationCenter.y, event.clientX - rotationCenter.x) * (180 / Math.PI);
+        element.rotation = Math.round((instructionDragStartRotation + currentAngle - instructionDragStartPointerAngle) * 10) / 10;
+      }
+    } else {
+      const nextScaleX = Math.max(APP_THRESHOLDS.minLogoScale, instructionDragStartScale.x + (dxPercent / 10));
+      const nextScaleY = Math.max(APP_THRESHOLDS.minLogoScale, instructionDragStartScale.y + (dyPercent / 10));
+      element.scaleX = nextScaleX;
+      element.scaleY = nextScaleY;
+      if (instructionDragStartRect) {
+        const nextWidth = instructionDragStartRect.width * (nextScaleX / Math.max(instructionDragStartScale.x, 0.001));
+        const nextHeight = instructionDragStartRect.height * (nextScaleY / Math.max(instructionDragStartScale.y, 0.001));
+        element.position = {
+          x: clamp(instructionDragStartRect.left + (nextWidth / 2), nextWidth / 2, 100 - (nextWidth / 2)),
+          y: clamp(instructionDragStartRect.top + (nextHeight / 2), nextHeight / 2, 100 - (nextHeight / 2))
+        };
+      }
+    }
+    syncSelectedInstructionElement();
+    event.preventDefault();
+  }
+
+  function stopInstructionPreviewDrag(event) {
+    if (instructionDragPointerId === null) {
+      return;
+    }
+
+    if (!event || event.pointerId === instructionDragPointerId) {
+      instructionDragPointerId = null;
+      instructionDragStartPointer = null;
+      instructionDragStartPosition = null;
+      instructionInteraction = null;
+      instructionDragSurfaceSize = null;
+      instructionDragStartScale = { x: 1, y: 1 };
+      instructionDragStartRect = null;
+      instructionDragStartRotation = 0;
+      instructionDragRotationCenter = null;
+      instructionDragStartPointerAngle = null;
+      renderInstructionPageEditor();
+      notifySettingsChanged();
+    }
   }
 
   function handleOverlayClick(event) {
@@ -695,6 +1257,21 @@ export default function createOperatorScreen(dom, state, editorScreen, onSetting
     addTextOverlay: createInitialTextOverlay,
     triggerLogoUpload,
     syncLogoUploadFromControl,
+    addInstructionPage,
+    removeInstructionPage,
+    stepInstructionPage,
+    syncInstructionPageFields,
+    syncInstructionElementFields,
+    stepInstructionAutoAdvance,
+    syncInstructionTransitionFromControl,
+    stepInstructionTransition,
+    addInstructionTextElement,
+    triggerInstructionMediaUpload,
+    syncInstructionMediaUploadFromControl,
+    handleInstructionPreviewClick,
+    startInstructionPreviewDrag,
+    updateInstructionPreviewDrag,
+    stopInstructionPreviewDrag,
     handleOverlayClick,
     startOverlayInteraction,
     updateOverlayFromPointer,

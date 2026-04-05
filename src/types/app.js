@@ -29,6 +29,33 @@
 /**
  * @typedef {{
  *   id: string,
+ *   type: "text" | "image",
+ *   content: string,
+ *   dataUrl: string,
+ *   size: "small" | "medium" | "large",
+ *   font?: string,
+ *   color?: string,
+ *   scaleX?: number,
+ *   scaleY?: number,
+ *   rotation?: number,
+ *   position: Vector2
+ * }} InstructionElement
+ */
+
+/**
+ * @typedef {{
+ *   id: string,
+ *   name: string,
+ *   phase: "before" | "after",
+ *   navigation: "tap" | "auto",
+ *   autoAdvanceSeconds: number,
+ *   elements: InstructionElement[]
+ * }} InstructionPage
+ */
+
+/**
+ * @typedef {{
+ *   id: string,
  *   type: "text" | "logo",
  *   text?: string,
  *   font?: string,
@@ -65,6 +92,7 @@
  *   recordings: RecordingEntry[],
  *   recordingChunks: Blob[],
  *   captureReady: boolean,
+ *   cameraStarting: boolean,
  *   captureInProgress: boolean,
  *   isRecording: boolean,
  *   isSaving: boolean,
@@ -103,6 +131,12 @@
  *   logoScale: number,
  *   logoRotation: number,
  *   logoPosition: Vector2,
+ *   instructionPages: InstructionPage[],
+ *   instructionTransitionMs: number,
+ *   instructionSessionActive: boolean,
+ *   instructionSessionPhase: "before" | "after",
+ *   instructionSessionPageId: string,
+ *   postRecordingDecisionVisible: boolean,
  *   slideshowSoundEnabled: boolean,
  *   slideshowAudioOutputId: string,
  *   slideshowFadeDurationMs: number,

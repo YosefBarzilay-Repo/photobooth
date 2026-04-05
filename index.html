@@ -34,11 +34,27 @@
             <div class="camera-overlay-text" id="cameraText"></div>
             <div class="empty-camera" id="emptyCamera">
               <span class="material-symbols-outlined">photo_camera</span>
-              <p>Enable your camera to start the booth.</p>
+              <p></p>
             </div>
             <div class="flash-overlay" id="flashOverlay"></div>
             <div class="countdown-overlay hidden" id="countdownOverlay">3</div>
             <div class="error-overlay hidden" id="errorOverlay"></div>
+            <section class="instruction-overlay hidden" id="instructionOverlay" aria-live="polite">
+              <div class="instruction-overlay-shell">
+                <div class="instruction-preview-page instruction-preview-page-live" id="instructionLivePage"></div>
+                <p class="instruction-overlay-hint" id="instructionOverlayHint"></p>
+                <div class="instruction-overlay-actions hidden" id="instructionOverlayActions">
+                  <button class="instruction-action-button secondary-button" id="instructionRetakeButton" type="button">
+                    <span class="material-symbols-outlined">replay</span>
+                    Take Again
+                  </button>
+                  <button class="instruction-action-button primary-button" id="instructionSaveButton" type="button">
+                    <span class="material-symbols-outlined" id="instructionSaveIcon">download</span>
+                    <span id="instructionSaveLabel">Save Clip</span>
+                  </button>
+                </div>
+              </div>
+            </section>
           </section>
 
           <section class="stage-card mode-editor hidden" id="editorStage">
@@ -67,9 +83,9 @@
               <div class="recording-timer hidden" id="recordingTimer">00:00</div>
             </div>
 
-            <button class="console-button hidden" id="resultNewButton" type="button" aria-label="Take new video">
+            <button class="console-button hidden" id="resultNewButton" type="button" aria-label="Start live mode">
               <span class="material-symbols-outlined">videocam</span>
-              Take New
+              Start Live
             </button>
             <span class="console-separator hidden" id="previewSeparatorPrimary" aria-hidden="true">|</span>
             <button class="console-button hidden" id="resultSaveButton" type="button" aria-label="Save video">
@@ -106,6 +122,7 @@
             <div class="brand operator-dialog-brand">Settings</div>
             <div class="gallery-tabs" role="tablist" aria-label="Settings views">
               <button class="gallery-tab is-active" id="settingsTabEditor" type="button" role="tab" aria-selected="true">Video Editor</button>
+              <button class="gallery-tab" id="settingsTabInstructions" type="button" role="tab" aria-selected="false">User Instructions</button>
               <button class="gallery-tab" id="settingsTabInputs" type="button" role="tab" aria-selected="false">Recordings</button>
               <button class="gallery-tab" id="settingsTabSlideshow" type="button" role="tab" aria-selected="false">Slideshow</button>
             </div>
@@ -160,6 +177,111 @@
               <p class="settings-note">Use the frame picker below to style the saved video output.</p>
             </div>
             <div class="frame-tray operator-frame-tray" id="frameTray"></div>
+          </section>
+
+          <section class="panel-section hidden" id="settingsSectionInstructions">
+            <div class="section-header">
+              <div>
+                <p class="panel-title panel-title-small">User Instructions</p>
+                <p class="settings-note">Build the screens guests see before recording starts and after the take finishes.</p>
+              </div>
+            </div>
+            <div class="instruction-page-toolbar">
+              <button class="stepper-button" id="instructionPagePrevButton" type="button" aria-label="Previous instruction page">
+                <span class="material-symbols-outlined">chevron_left</span>
+              </button>
+              <p class="instruction-page-counter" id="instructionPageCounter">No pages yet</p>
+              <button class="stepper-button" id="instructionPageNextButton" type="button" aria-label="Next instruction page">
+                <span class="material-symbols-outlined">chevron_right</span>
+              </button>
+            </div>
+            <div class="instruction-page-actions">
+              <button class="console-button secondary-button" id="instructionPageAddButton" type="button">
+                <span class="material-symbols-outlined">add_box</span>
+                Add Page
+              </button>
+              <button class="console-button secondary-button" id="instructionPageRemoveButton" type="button">
+                <span class="material-symbols-outlined">delete</span>
+                Remove Page
+              </button>
+            </div>
+            <label class="field">
+              <span class="field-label">Page Name</span>
+              <input id="instructionPageNameInput" type="text" maxlength="60" placeholder="Welcome screen" autocomplete="off">
+            </label>
+            <label class="field field-inline">
+              <span class="field-label">Show This Page</span>
+              <select id="instructionPagePhaseSelect">
+                <option value="before">Before Recording</option>
+                <option value="after">After Recording</option>
+              </select>
+            </label>
+            <label class="field field-inline">
+              <span class="field-label">Navigation</span>
+              <select id="instructionPageNavigationSelect">
+                <option value="tap">Tap / Click</option>
+                <option value="auto">Auto Advance</option>
+              </select>
+            </label>
+            <label class="field field-inline hidden" id="instructionPageAutoAdvanceRow">
+              <span class="field-label">Auto Advance Seconds</span>
+              <div class="stepper-control">
+                <button class="stepper-button" id="instructionAutoAdvanceMinusButton" type="button" aria-label="Decrease auto advance time">
+                  <span class="material-symbols-outlined">remove</span>
+                </button>
+                <input id="instructionPageAutoAdvanceInput" type="number" min="1" max="30" step="1" value="4" inputmode="numeric">
+                <button class="stepper-button" id="instructionAutoAdvancePlusButton" type="button" aria-label="Increase auto advance time">
+                  <span class="material-symbols-outlined">add</span>
+                </button>
+              </div>
+            </label>
+            <label class="field field-inline">
+              <span class="field-label">Page Transition (ms)</span>
+              <div class="stepper-control">
+                <button class="stepper-button" id="instructionTransitionMinusButton" type="button" aria-label="Decrease page transition">
+                  <span class="material-symbols-outlined">remove</span>
+                </button>
+                <input id="instructionTransitionInput" type="number" min="0" step="100" value="600" inputmode="numeric" placeholder="0 = Off">
+                <button class="stepper-button" id="instructionTransitionPlusButton" type="button" aria-label="Increase page transition">
+                  <span class="material-symbols-outlined">add</span>
+                </button>
+              </div>
+            </label>
+            <div class="field">
+              <span class="field-label">Page Preview</span>
+              <div class="instruction-preview-page" id="instructionPagePreview"></div>
+              <p class="settings-note">Tap an element to edit it. Drag to move, use the toolbar to resize, tilt, recolor, or delete.</p>
+            </div>
+            <div class="section-header instruction-elements-header">
+              <div>
+                <p class="panel-title panel-title-small">Selected Element</p>
+                <p class="settings-note">Use the same direct editing flow as the video editor.</p>
+              </div>
+            </div>
+            <div class="instruction-page-actions">
+              <button class="console-button secondary-button" id="instructionAddTextElementButton" type="button">
+                <span class="material-symbols-outlined">text_fields</span>
+                Add Text
+              </button>
+              <button class="console-button secondary-button" id="instructionAddMediaElementButton" type="button">
+                <span class="material-symbols-outlined">image</span>
+                Add Media
+              </button>
+            </div>
+            <input id="instructionElementImageInput" type="file" accept="image/*" class="hidden">
+            <label class="field">
+              <span class="field-label">Text Content</span>
+              <input id="instructionTextInput" type="text" maxlength="220" placeholder="Tap a text element to edit its message" autocomplete="off">
+            </label>
+            <label class="field field-inline">
+              <span class="field-label">Font</span>
+              <select id="instructionFontSelect">
+                <option value="Space Grotesk">Space Grotesk</option>
+                <option value="Manrope">Manrope</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Courier New">Courier New</option>
+              </select>
+            </label>
           </section>
 
           <section class="panel-section hidden" id="settingsSectionInputs">

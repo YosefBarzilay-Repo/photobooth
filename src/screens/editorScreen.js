@@ -47,6 +47,7 @@ export default function createEditorScreen(dom, state) {
     syncOrientationUi();
     dom.cameraFrame.innerHTML = renderFrameMarkup(state.activeFrameId);
     dom.resultFrame.innerHTML = "";
+    dom.cameraText.classList.toggle("operator-grid", state.operatorPanelOpen && state.mode === "camera");
     renderOverlayLayer(dom.cameraText, state, { interactive: state.operatorPanelOpen && state.mode === "camera" });
     dom.resultText.innerHTML = "";
   }

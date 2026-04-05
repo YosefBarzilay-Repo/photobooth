@@ -5,6 +5,7 @@
 import { getDesktopAppDataDirectory, invokeDesktop, isDesktopApp } from "./desktopService.js";
 import { logger } from "./logger.js";
 import { createLogoOverlay, createTextOverlay, syncActiveOverlayState } from "../utils/overlayState.js";
+import { normalizeInstructionPages } from "../utils/instructionState.js";
 
 const STORAGE_KEY = "echo.appData.v2";
 const LEGACY_STORAGE_KEY = "photobooth.appData.v2";
@@ -136,6 +137,10 @@ function normalizePersistedSettings(savedSettings, defaults) {
     logoScale: Number.isFinite(savedSettings.logoScale) ? savedSettings.logoScale : defaults.logoScale,
     logoRotation: Number.isFinite(savedSettings.logoRotation) ? savedSettings.logoRotation : defaults.logoRotation,
     logoPosition: cloneVector(savedSettings.logoPosition, defaults.logoPosition),
+    instructionPages: normalizeInstructionPages(savedSettings.instructionPages ?? defaults.instructionPages),
+    instructionTransitionMs: Number.isFinite(savedSettings.instructionTransitionMs)
+      ? Math.max(0, Math.round(savedSettings.instructionTransitionMs))
+      : defaults.instructionTransitionMs,
     slideshowSoundEnabled: typeof savedSettings.slideshowSoundEnabled === "boolean"
       ? savedSettings.slideshowSoundEnabled
       : defaults.slideshowSoundEnabled,
@@ -235,6 +240,8 @@ function serializeStateSettings(state) {
     logoScale: state.logoScale,
     logoRotation: state.logoRotation,
     logoPosition: state.logoPosition,
+    instructionPages: state.instructionPages,
+    instructionTransitionMs: state.instructionTransitionMs,
     slideshowSoundEnabled: state.slideshowSoundEnabled,
     slideshowAudioOutputId: state.slideshowAudioOutputId,
     slideshowFadeDurationMs: state.slideshowFadeDurationMs,
@@ -469,6 +476,8 @@ export function applyPersistedSettings(state, defaults, savedSettings) {
   state.logoScale = normalizedSettings.logoScale;
   state.logoRotation = normalizedSettings.logoRotation;
   state.logoPosition = normalizedSettings.logoPosition;
+  state.instructionPages = normalizedSettings.instructionPages;
+  state.instructionTransitionMs = normalizedSettings.instructionTransitionMs;
   state.slideshowSoundEnabled = normalizedSettings.slideshowSoundEnabled;
   state.slideshowAudioOutputId = normalizedSettings.slideshowAudioOutputId;
   state.slideshowFadeDurationMs = normalizedSettings.slideshowFadeDurationMs;

@@ -37,6 +37,8 @@ export const APP_DEFAULTS = {
   logoScale: 1,
   logoRotation: 0,
   logoPosition: { x: 50, y: 20 },
+  instructionPages: [],
+  instructionTransitionMs: 600,
   slideshowSoundEnabled: false,
   slideshowAudioOutputId: "",
   slideshowFadeDurationMs: 600,

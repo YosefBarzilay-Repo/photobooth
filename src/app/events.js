@@ -60,6 +60,11 @@ export default function wireEvents(dom, state, handlers) {
     handlers.switchSettingsSection("editor");
   });
 
+  dom.settingsTabInstructions.addEventListener("click", () => {
+    void logger.audit("Settings user instructions tab clicked.");
+    handlers.switchSettingsSection("instructions");
+  });
+
   dom.settingsTabInputs.addEventListener("click", () => {
     void logger.audit("Settings recordings tab clicked.");
     void handlers.refreshHardwareOptions?.();
@@ -79,6 +84,16 @@ export default function wireEvents(dom, state, handlers) {
   dom.resultNewButton.addEventListener("click", () => {
     void logger.audit("Result new button clicked.");
     void handlers.handleResultReset();
+  });
+
+  dom.instructionRetakeButton.addEventListener("click", () => {
+    void logger.audit("Post-recording retake button clicked.");
+    void handlers.handlePostRecordingRetake();
+  });
+
+  dom.instructionSaveButton.addEventListener("click", () => {
+    void logger.audit("Post-recording save button clicked.", { filename: state.recordingFilename });
+    void handlers.handlePostRecordingSave();
   });
 
   dom.resultSettingsButton.addEventListener("click", () => {
@@ -185,6 +200,69 @@ export default function wireEvents(dom, state, handlers) {
     void logger.audit("Logo file input changed.");
     void handlers.operatorScreen.syncLogoUploadFromControl();
   });
+
+  dom.instructionPagePrevButton.addEventListener("click", () => {
+    handlers.operatorScreen.stepInstructionPage(-1);
+  });
+  dom.instructionPageNextButton.addEventListener("click", () => {
+    handlers.operatorScreen.stepInstructionPage(1);
+  });
+  dom.instructionPageAddButton.addEventListener("click", () => {
+    handlers.operatorScreen.addInstructionPage();
+  });
+  dom.instructionPageRemoveButton.addEventListener("click", () => {
+    handlers.operatorScreen.removeInstructionPage();
+  });
+  [dom.instructionPageNameInput, dom.instructionPagePhaseSelect, dom.instructionPageNavigationSelect, dom.instructionPageAutoAdvanceInput, dom.instructionTextInput, dom.instructionFontSelect, dom.instructionTransitionInput].forEach((input) => {
+    input.addEventListener("input", () => {
+      if (input === dom.instructionTransitionInput) {
+        handlers.operatorScreen.syncInstructionTransitionFromControl();
+        return;
+      }
+      if (input === dom.instructionTextInput || input === dom.instructionFontSelect) {
+        handlers.operatorScreen.syncInstructionElementFields({ render: false });
+        return;
+      }
+      handlers.operatorScreen.syncInstructionPageFields({ render: input !== dom.instructionPageNameInput });
+    });
+    input.addEventListener("change", () => {
+      if (input === dom.instructionTransitionInput) {
+        handlers.operatorScreen.syncInstructionTransitionFromControl();
+        return;
+      }
+      if (input === dom.instructionTextInput || input === dom.instructionFontSelect) {
+        handlers.operatorScreen.syncInstructionElementFields();
+        return;
+      }
+      handlers.operatorScreen.syncInstructionPageFields({ finalize: input === dom.instructionPageNameInput });
+    });
+  });
+  dom.instructionAutoAdvanceMinusButton.addEventListener("click", () => {
+    handlers.operatorScreen.stepInstructionAutoAdvance(-1);
+  });
+  dom.instructionAutoAdvancePlusButton.addEventListener("click", () => {
+    handlers.operatorScreen.stepInstructionAutoAdvance(1);
+  });
+  dom.instructionTransitionMinusButton.addEventListener("click", () => {
+    handlers.operatorScreen.stepInstructionTransition(-1);
+  });
+  dom.instructionTransitionPlusButton.addEventListener("click", () => {
+    handlers.operatorScreen.stepInstructionTransition(1);
+  });
+  dom.instructionAddTextElementButton.addEventListener("click", () => {
+    handlers.operatorScreen.addInstructionTextElement();
+  });
+  dom.instructionAddMediaElementButton.addEventListener("click", () => {
+    handlers.operatorScreen.triggerInstructionMediaUpload({ mode: "new" });
+  });
+  dom.instructionElementImageInput.addEventListener("change", () => {
+    void handlers.operatorScreen.syncInstructionMediaUploadFromControl();
+  });
+  dom.instructionPagePreview.addEventListener("click", handlers.operatorScreen.handleInstructionPreviewClick);
+  dom.instructionPagePreview.addEventListener("pointerdown", handlers.operatorScreen.startInstructionPreviewDrag);
+  window.addEventListener("pointermove", handlers.operatorScreen.updateInstructionPreviewDrag);
+  window.addEventListener("pointerup", handlers.operatorScreen.stopInstructionPreviewDrag);
+  window.addEventListener("pointercancel", handlers.operatorScreen.stopInstructionPreviewDrag);
 
   dom.cameraText.addEventListener("click", handlers.operatorScreen.handleOverlayClick);
   dom.cameraText.addEventListener("pointerdown", handlers.operatorScreen.startOverlayInteraction);

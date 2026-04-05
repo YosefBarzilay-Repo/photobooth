@@ -43,15 +43,52 @@ function createAppDependencies() {
  * @returns {void}
  */
 export default function initApp() {
-  // PHASE 1: create state and restore persisted settings
-  const dependencies = createAppDependencies();
+  try {
+    // PHASE 1: create state and restore persisted settings
+    const dependencies = createAppDependencies();
 
-  void logger.info("Echo app initialization started.", {
-    isDesktopApp: dependencies.state.isDesktopApp,
-    saveDirectoryPath: dependencies.state.saveDirectoryPath,
-    saveDirectoryName: dependencies.state.saveDirectoryName
-  });
+    void logger.info("Echo app initialization started.", {
+      isDesktopApp: dependencies.state.isDesktopApp,
+      saveDirectoryPath: dependencies.state.saveDirectoryPath,
+      saveDirectoryName: dependencies.state.saveDirectoryName
+    });
 
-  // PHASE 2: build the runtime and bootstrap the UI lifecycle
-  createAppRuntime(dependencies);
+    // PHASE 2: build the runtime and bootstrap the UI lifecycle
+    createAppRuntime(dependencies);
+  } catch (error) {
+    const launchOverlay = document.getElementById("launchOverlay");
+    const launchOverlayTitle = document.getElementById("launchOverlayTitle");
+    const launchOverlayMessage = document.getElementById("launchOverlayMessage");
+    const appDialogOverlay = document.getElementById("appDialogOverlay");
+    const appDialogTitle = document.getElementById("appDialogTitle");
+    const appDialogMessage = document.getElementById("appDialogMessage");
+    const appDialogActions = document.getElementById("appDialogActions");
+    const appDialogCancelButton = document.getElementById("appDialogCancelButton");
+    const appDialogConfirmButton = document.getElementById("appDialogConfirmButton");
+
+    if (launchOverlayTitle) {
+      launchOverlayTitle.textContent = "Startup Error";
+    }
+    if (launchOverlayMessage) {
+      launchOverlayMessage.textContent = error instanceof Error && error.message
+        ? error.message
+        : "Echo could not finish loading.";
+    }
+    launchOverlay?.classList.add("hidden");
+
+    if (appDialogTitle && appDialogMessage && appDialogOverlay) {
+      appDialogTitle.textContent = "Echo";
+      appDialogMessage.textContent = error instanceof Error && error.message
+        ? error.message
+        : "Echo could not finish loading.";
+      appDialogActions?.classList.remove("hidden");
+      appDialogCancelButton?.classList.add("hidden");
+      if (appDialogConfirmButton) {
+        appDialogConfirmButton.textContent = "OK";
+      }
+      appDialogOverlay.classList.remove("hidden");
+    }
+
+    void logger.exception("Echo app initialization failed.", error);
+  }
 }
